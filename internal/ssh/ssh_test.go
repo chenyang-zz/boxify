@@ -18,7 +18,6 @@ import (
 	"Boxify/internal/connection"
 	"context"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -265,6 +264,9 @@ func TestViaSSHDialer_NilClient(t *testing.T) {
 	if err == nil {
 		t.Error("ViaSSHDialer.Dial() 使用 nil 客户端应该返回错误")
 	}
+	if err != nil && err.Error() != "SSH 客户端为 nil" {
+		t.Errorf("ViaSSHDialer.Dial() 错误消息不正确: %v", err)
+	}
 }
 
 // BenchmarkDialContext 基准测试 dialContext 函数
@@ -291,8 +293,8 @@ func BenchmarkDialContext(b *testing.B) {
 	}
 }
 
-// ExampleConnectSSH 展示如何使用 connectSSH
-func ExampleConnectSSH() {
+// ExampleRegisterSSHNetwork 展示如何使用 RegisterSSHNetwork
+func ExampleRegisterSSHNetwork() {
 	config := &connection.SSHConfig{
 		Host:     "example.com",
 		Port:     22,
@@ -300,14 +302,13 @@ func ExampleConnectSSH() {
 		Password: "password",
 	}
 
-	client, err := connectSSH(config)
+	networkName, err := RegisterSSHNetwork(config)
 	if err != nil {
-		fmt.Printf("SSH 连接失败: %v\n", err)
+		fmt.Printf("SSH 网络注册失败: %v\n", err)
 		return
 	}
-	defer client.Close()
 
-	fmt.Println("SSH 连接成功")
+	fmt.Printf("SSH 网络已注册: %s\n", networkName)
 }
 
 // TestGetCacheKey 辅助函数测试（模拟 app.go 中的函数）

@@ -102,6 +102,10 @@ func connectSSH(config *connection.SSHConfig) (*ssh.Client, error) {
 
 // dialContext 是一个辅助函数，用于在SSH连接上拨号，并支持上下文取消
 func dialContext(ctx context.Context, client *ssh.Client, network, addr string) (net.Conn, error) {
+	if client == nil {
+		return nil, fmt.Errorf("SSH 客户端为 nil")
+	}
+
 	type result struct {
 		conn net.Conn
 		err  error
@@ -109,6 +113,12 @@ func dialContext(ctx context.Context, client *ssh.Client, network, addr string) 
 
 	ch := make(chan result, 1)
 	go func() {
+		// 添加恢复机制以防止 panic
+		defer func() {
+			if r := recover(); r != nil {
+				ch <- result{conn: nil, err: fmt.Errorf("连接 panic: %v", r)}
+			}
+		}()
 		c, err := client.Dial(network, addr)
 		ch <- result{conn: c, err: err}
 	}()
