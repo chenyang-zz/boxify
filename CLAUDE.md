@@ -34,7 +34,7 @@ Boxify 是一个基于 Wails 框架的跨平台数据库管理桌面应用，支
 ## 项目结构
 
 ```
-Boxify/
+github.com/chenyang-zz/boxify/
 ├── main.go              # 应用入口点
 ├── app.go               # 核心应用逻辑和数据库操作
 ├── database.go          # 数据库接口定义

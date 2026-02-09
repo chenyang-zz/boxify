@@ -66,7 +66,7 @@ func (a *App) CreateDatabase(config *connection.ConnectionConfig, dbName string)
 	runConfig := *config
 	runConfig.Database = ""
 
-	db, err := a.getDatabase(&runConfig)
+	dbInst, err := a.getDatabase(&runConfig)
 	if err != nil {
 		return &connection.QueryResult{
 			Success: false,
@@ -77,11 +77,16 @@ func (a *App) CreateDatabase(config *connection.ConnectionConfig, dbName string)
 	escapedDbName := strings.ReplaceAll(dbName, "`", "``") // MySQL中使用反引号包裹数据库名，并对其中的反引号进行转义
 	query := fmt.Sprintf("CREATE DATABASE `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci", escapedDbName)
 	dbType := strings.ToLower(strings.TrimSpace(config.Type))
-	if runConfig.Type == "postgres" {
-		query = fmt.Sprintf("CREATE DATABASE \"%s\"", dbName)
+	if dbType == "postgres" || dbType == "kingbase" || dbType == "highgo" || dbType == "vastbase" {
+		escapedDbName = strings.ReplaceAll(dbName, `"`, `""`) // PostgreSQL及其衍生数据库中使用双引号包裹数据库名，并对其中的双引号进行转义
+		query = fmt.Sprintf("CREATE DATABASE \"%s\"", escapedDbName)
+	} else if dbType == "tdengine" {
+		query = fmt.Sprintf("CREATE DATABASE IF NOT EXISTS %s", quoteIdentByType(dbType, dbName))
+	} else if dbType == "mariadb" {
+		// MariaDB 支持 MYSQL 语法
 	}
 
-	_, err = db.Exec(query)
+	_, err = dbInst.Exec(query)
 	if err != nil {
 		return &connection.QueryResult{
 			Success: false,

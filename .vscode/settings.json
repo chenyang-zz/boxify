@@ -5,14 +5,23 @@
         "Boxify",
         "Colour",
         "dbname",
+        "godotenv",
+        "highgo",
         "indexs",
         "Infof",
+        "kingbase",
         "partialize",
+        "Registations",
         "seps",
         "SQLDB",
+        "tdengine",
         "Titlebar",
+        "VARBIT",
+        "VARCHAR",
+        "vastbase",
         "volicon",
         "volname",
-        "wailsapp"
+        "wailsapp",
+        "wailsjs"
     ]
 }

@@ -13,3 +13,14 @@ node_modules/
 dist/
 .DS_Store
 .gemini-clipboard
+
+# 忽略环境变量文件
+.env
+.env.local
+.env.*.local
+
+# 忽略编译产物和测试覆盖率
+Boxify
+coverage.out
+*.out
+*.test
