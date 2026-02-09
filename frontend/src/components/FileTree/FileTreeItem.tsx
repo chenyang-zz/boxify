@@ -26,6 +26,8 @@ import {
 import {
   getPropertyItemByUUID,
   PropertyItemType,
+  propertyStoreMethods,
+  usePropertyStore,
 } from "@/store/property.store";
 import { Spinner } from "../ui/spinner";
 
@@ -74,8 +76,7 @@ const FileIcon: FC<FileIconProps> = ({ isDir, type }) => {
 
 const FileTreeItem: FC<FileTreeItemProps> = ({ item }) => {
   const [loading, setLoading] = useState(false);
-  const { selectedUUID, setSelectedUUID, triggerDirOpen } =
-    useFileTreeContext();
+  const { selectedUUID, setSelectedUUID } = useFileTreeContext();
 
   const handleClickItem = () => {
     setSelectedUUID(item.uuid);
@@ -91,7 +92,7 @@ const FileTreeItem: FC<FileTreeItemProps> = ({ item }) => {
     }
 
     try {
-      await triggerDirOpen(item.uuid);
+      await propertyStoreMethods.triggerDirOpen(item.uuid);
     } finally {
       setLoading(false);
     }
