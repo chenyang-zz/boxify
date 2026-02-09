@@ -10,6 +10,7 @@ import PropertyTree from "./components/PropertyTree";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { useShallow } from "zustand/react/shallow";
 import { useAppStore } from "./store/app.store";
+import { Toaster } from "@/components/ui/sonner";
 
 function App() {
   const isOpen = useAppStore(useShallow((state) => state.isPropertyOpen));
@@ -34,6 +35,7 @@ function App() {
             </ResizablePanelGroup>
           </main>
         </div>
+        <Toaster />
       </div>
     </TooltipProvider>
   );

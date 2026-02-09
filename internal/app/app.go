@@ -336,16 +336,18 @@ func (a *App) DBQuery(config *connection.ConnectionConfig, dbName, query string)
 
 // DBGetDatabases 获取数据库列表
 func (a *App) DBGetDatabases(config *connection.ConnectionConfig) *connection.QueryResult {
-	db, err := a.getDatabase(config)
+	dbInst, err := a.getDatabase(config)
 	if err != nil {
+		logger.ErrorfWithTrace(err, "DBGetDatabases 获取连接失败：%s", formatConnSummary(config))
 		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
 	}
 
-	dbs, err := db.GetDatabases()
+	dbs, err := dbInst.GetDatabases()
 	if err != nil {
+		logger.ErrorfWithTrace(err, "DBGetDatabases 获取数据库列表失败：%s", formatConnSummary(config))
 		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),

@@ -44,7 +44,7 @@ type BatchApplier interface {
 func NewDatabase(dbType string) (Database, error) {
 	switch dbType {
 	case "mysql":
-		return nil, nil
+		return &MySQLDB{}, nil
 	case "postgres":
 		return nil, nil
 	case "sqlite":

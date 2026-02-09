@@ -1,4 +1,4 @@
-export namespace main {
+export namespace connection {
 	
 	export class UpdateRow {
 	    keys: Record<string, any>;
@@ -77,6 +77,9 @@ export namespace main {
 	    database: string;
 	    useSSH: boolean;
 	    ssh?: SSHConfig;
+	    driver?: string;
+	    dsn?: string;
+	    timeout?: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new ConnectionConfig(source);
@@ -92,6 +95,9 @@ export namespace main {
 	        this.database = source["database"];
 	        this.useSSH = source["useSSH"];
 	        this.ssh = this.convertValues(source["ssh"], SSHConfig);
+	        this.driver = source["driver"];
+	        this.dsn = source["dsn"];
+	        this.timeout = source["timeout"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
