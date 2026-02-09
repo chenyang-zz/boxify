@@ -17,6 +17,7 @@ package main
 import (
 	"Boxify/internal/connection"
 	"Boxify/internal/ssh"
+	"Boxify/internal/utils"
 	"database/sql"
 	"fmt"
 	"strings"
@@ -70,7 +71,7 @@ func (m *MySQLDB) Ping() error {
 		return fmt.Errorf("连接没有打开")
 	}
 
-	ctx, cancel := contextWithTimeout(5 * time.Second)
+	ctx, cancel := utils.ContextWithTimeout(5 * time.Second)
 	defer cancel()
 
 	return m.conn.PingContext(ctx)

@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package utils
 
 import (
 	"context"
 	"time"
 )
 
-func contextWithTimeout(d time.Duration) (context.Context, context.CancelFunc) {
+// ContextWithTimeout是一个实用函数，用于创建带有指定超时时间的上下文
+func ContextWithTimeout(d time.Duration) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), d)
 }
