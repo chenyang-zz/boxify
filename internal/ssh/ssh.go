@@ -15,13 +15,14 @@
 package ssh
 
 import (
-	"Boxify/internal/connection"
-	"Boxify/internal/logger"
 	"context"
 	"fmt"
 	"net"
 	"os"
 	"time"
+
+	"github.com/chenyang-zz/boxify/internal/connection"
+	"github.com/chenyang-zz/boxify/internal/logger"
 
 	"github.com/go-sql-driver/mysql"
 	"golang.org/x/crypto/ssh"

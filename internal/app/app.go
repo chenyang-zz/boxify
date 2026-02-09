@@ -1,111 +1,259 @@
-package main
+// Copyright 2026 chenyang
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package app
 
 import (
-	"Boxify/internal/connection"
 	"context"
+	"crypto/sha256"
 	"encoding/csv"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
+	"time"
 
+	"github.com/chenyang-zz/boxify/internal/connection"
+	"github.com/chenyang-zz/boxify/internal/db"
+	"github.com/chenyang-zz/boxify/internal/logger"
+
+	"github.com/pkg/errors"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"strings"
 	"sync"
 )
 
+// 数据库缓存的ping间隔，超过这个时间会自动ping一次以保持连接活跃
+const dbCachePingInterval = 30 * time.Second
+
+// cachedDatabase 包含数据库实例和上次ping的时间戳，用于连接池管理
+type cachedDatabase struct {
+	inst     db.Database
+	lastPing time.Time
+}
+
 // App struct
 type App struct {
 	ctx     context.Context
-	dbCache map[string]Database // 缓存数据库连接
-	mu      sync.Mutex
+	dbCache map[string]cachedDatabase // 缓存数据库连接
+	mu      sync.RWMutex
 }
 
-// NewApp creates a new App application struct
+// NewApp 新建一个App实例
 func NewApp() *App {
 	return &App{
-		dbCache: make(map[string]Database),
+		dbCache: make(map[string]cachedDatabase),
 	}
 }
 
-// startup is called when the app starts. The context is saved
-// so we can call the runtime methods
-func (a *App) startup(ctx context.Context) {
+// Startup 是在应用程序启动时调用的函数
+func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
+	logger.Init()
+	logger.Infof("应用启动完成")
 }
 
-// shutdown is called when the app terminates
-func (a *App) shutdown(ctx context.Context) {
+// Shutdown 是在应用程序关闭时调用的函数
+func (a *App) Shutdown(ctx context.Context) {
+	logger.Infof("应用开始关闭，准备释放资源")
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	for _, db := range a.dbCache {
-		db.Close()
+	for _, dbInst := range a.dbCache {
+		if err := dbInst.inst.Close(); err != nil {
+			logger.Errorf("关闭数据库连接失败: %v", err)
+		}
 	}
+
+	logger.Infof("资源释放完成，应用已关闭")
+	logger.Close()
+}
+
+// getDatabaseForcePing 强制ping数据库连接，适用于需要确保连接可用的场景
+func (a *App) getDatabaseForcePing(config *connection.ConnectionConfig) (db.Database, error) {
+	return a.getDatabaseWithPing(config, true)
 }
 
 // 获取或创建一个数据库连接
-func (a *App) getDatabase(config *connection.ConnectionConfig) (Database, error) {
-	key := getCacheKey(config)
-
-	a.mu.Lock()
-	defer a.mu.Unlock()
-
-	if db, ok := a.dbCache[key]; ok {
-		// 检查连接是否还活着
-		if err := db.Ping(); err == nil {
-			return db, nil
-		}
-
-		// 连接不可用，关闭并删除缓存
-		db.Close()
-		delete(a.dbCache, key)
-	}
-
-	// 创建新的数据库连接
-	db, err := NewDatabase(config.Type)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create database: %v", err)
-	}
-
-	if err := db.Connect(config); err != nil {
-		return nil, fmt.Errorf("failed to connect to database: %v", err)
-	}
-
-	// 缓存数据库连接
-	a.dbCache[key] = db
-	return db, nil
+func (a *App) getDatabase(config *connection.ConnectionConfig) (db.Database, error) {
+	return a.getDatabaseWithPing(config, false)
 }
 
-// 通用数据库方法
-
-func (a *App) DBConnect(config *connection.ConnectionConfig) *connection.QueryResult {
+// getDatabaseWithPing 在获取数据库连接时增加ping检查，确保连接可用
+func (a *App) getDatabaseWithPing(config *connection.ConnectionConfig, forcePing bool) (db.Database, error) {
 	key := getCacheKey(config)
-	a.mu.Lock()
-	defer a.mu.Unlock()
-
-	if oldDB, ok := a.dbCache[key]; ok {
-		oldDB.Close()
-		delete(a.dbCache, key)
+	shortKey := key
+	if len(shortKey) > 12 {
+		shortKey = key[:12]
 	}
 
-	_, err := a.getDatabase(config)
-	if err != nil {
-		return &connection.QueryResult{
-			Success: false,
-			Message: err.Error(),
+	a.mu.RLock()
+	entry, ok := a.dbCache[key]
+	a.mu.RUnlock()
+
+	if ok {
+		needPing := forcePing
+		if !needPing {
+			lastPing := entry.lastPing
+			if lastPing.IsZero() || time.Since(lastPing) >= dbCachePingInterval {
+				needPing = true
+			}
 		}
+
+		if !needPing {
+			return entry.inst, nil
+		}
+
+		if err := entry.inst.Ping(); err == nil {
+			// 更新ping时间戳
+			a.mu.Lock()
+			if cur, exist := a.dbCache[key]; exist && cur.inst == entry.inst {
+				cur.lastPing = time.Now()
+				a.dbCache[key] = cur
+			}
+			a.mu.Unlock()
+			return entry.inst, nil
+		} else {
+			logger.Errorf("缓存连接不可用，准备重建：%s 缓存Key=%s， 错误：%v", formatConnSummary(config), shortKey, err)
+		}
+
+		// ping失败，关闭连接并删除缓存
+		a.mu.Lock()
+		if cur, exists := a.dbCache[key]; exists && cur.inst == entry.inst {
+			if err := cur.inst.Close(); err != nil {
+				logger.Errorf("关闭失效缓存连接失败：缓存Key=%s, 错误：%v", shortKey, err)
+			}
+			delete(a.dbCache, key)
+		}
+		a.mu.Unlock()
 	}
 
-	return &connection.QueryResult{
-		Success: true,
-		Message: "连接成功",
+	logger.Infof("获取数据库连接：%s 缓存Key=%s", formatConnSummary(config), shortKey)
+	logger.Infof("创建数据库驱动实例：类型=%s 缓存Key=%s", config.Type, shortKey)
+	dbInst, err := db.NewDatabase(config.Type)
+	if err != nil {
+		logger.Errorf("创建数据库驱动实例失败：类型=%s 缓存Key=%s, 错误：%v", config.Type, shortKey, err)
+		return nil, err
 	}
+
+	if err = dbInst.Connect(config); err != nil {
+		wrapped := wrapConnectError(config, err)
+		logger.Errorf("建立数据库连接失败：%s 缓存Key=%s, 错误：%v", formatConnSummary(config), shortKey, wrapped)
+		return nil, wrapped
+	}
+
+	now := time.Now()
+	a.mu.Lock()
+	if existing, exist := a.dbCache[key]; exist && existing.inst != nil {
+		a.mu.Unlock()
+		_ = dbInst.Close()
+		return existing.inst, nil
+	}
+	a.dbCache[key] = cachedDatabase{inst: dbInst, lastPing: now}
+	a.mu.Unlock()
+
+	logger.Infof("数据库连接成功并写入缓存：%s 缓存Key=%s", formatConnSummary(config), shortKey)
+	return dbInst, nil
 }
 
 // 根据连接配置生成一个唯一的缓存键，以便在dbCache中存储和检索数据库连接
 func getCacheKey(config *connection.ConnectionConfig) string {
-	// 包括数据库类型、主机、端口、用户、数据库名称（如果相关的话，还有SSH参数）
-	return fmt.Sprintf("%s|%s|%s:%d|%s|%s|%v", config.Type, config.User, config.Host, config.Port, config.Database, config.SSH.Host, config.UseSSH)
+	if !config.UseSSH {
+		config.SSH = &connection.SSHConfig{}
+	}
+
+	// 保持与驱动默认一致，避免同一连接被重复缓存
+	if config.Type == "postgres" && config.Database == "" {
+		config.Database = "postgres"
+	}
+
+	b, _ := json.Marshal(config)
+	sum := sha256.Sum256(b)
+	return hex.EncodeToString(sum[:])
+}
+
+// wrapConnectError 包装连接错误，如果是网络超时错误则添加更多上下文信息，并附加日志文件路径提示
+func wrapConnectError(config *connection.ConnectionConfig, err error) error {
+	if err == nil {
+		return nil
+	}
+
+	var netErr net.Error
+	if errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &netErr) && netErr.Timeout()) {
+		dbName := config.Database
+		if dbName == "" {
+			dbName = "<default>"
+		}
+		err = fmt.Errorf("数据库连接超时：%s %s:%d/%s：%w", config.Type, config.Host, config.Port, dbName, err)
+	}
+
+	return withLogHint{
+		err:     err,
+		logPath: logger.Path(),
+	}
+}
+
+// formatConnSummary 格式化连接信息摘要，用于日志输出，包含类型、主机、端口和数据库名
+func formatConnSummary(config *connection.ConnectionConfig) string {
+	timeoutSeconds := config.Timeout
+	if timeoutSeconds <= 0 {
+		timeoutSeconds = 30
+	}
+
+	dbName := config.Database
+	if dbName == "" {
+		dbName = "<default>"
+	}
+
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("类型=%s 地址=%s:%d 数据库=%s 用户=%s 超时=%ds",
+		config.Type, config.Host, config.Port, dbName, config.User, timeoutSeconds))
+
+	if config.UseSSH {
+		b.WriteString(fmt.Sprintf(" SSH=%s:%d 用户=%s", config.SSH.Host, config.SSH.Port, config.SSH.User))
+	}
+
+	if config.Type == "custom" {
+		driver := strings.TrimSpace(config.Driver)
+		if driver == "" {
+			driver = "<未配置>"
+		}
+		dsnState := "<未配置>"
+		if strings.TrimSpace(config.DSN) != "" {
+			dsnState = fmt.Sprintf("已配置(长度=%d)", len(config.DSN))
+		}
+		b.WriteString(fmt.Sprintf(" 驱动=%s DSN=%s", driver, dsnState))
+	}
+
+	return b.String()
+}
+
+type withLogHint struct {
+	err     error
+	logPath string
+}
+
+func (e withLogHint) Error() string {
+	if strings.TrimSpace(e.logPath) == "" {
+		return e.err.Error()
+	}
+	return fmt.Sprintf("%s（详细日志：%s）", e.err.Error(), e.logPath)
+}
+
+func (e withLogHint) Unwrap() error {
+	return e.err
 }
 
 // 兼容性包装
@@ -133,38 +281,6 @@ func (a *App) MySQLGetTables(config *connection.ConnectionConfig, dbName string)
 func (a *App) MySQLShowCreateTable(config *connection.ConnectionConfig, dbName, tableName string) *connection.QueryResult {
 	config.Type = "mysql"
 	return a.DBShowCreateTable(config, dbName, tableName)
-}
-
-// CreateDatabase 创建一个新的数据库
-func (a *App) CreateDatabase(config *connection.ConnectionConfig, dbName string) *connection.QueryResult {
-	runConfig := *config
-	runConfig.Database = ""
-
-	db, err := a.getDatabase(&runConfig)
-	if err != nil {
-		return &connection.QueryResult{
-			Success: false,
-			Message: err.Error(),
-		}
-	}
-
-	query := fmt.Sprintf("CREATE DATABASE `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci", dbName)
-	if runConfig.Type == "postgres" {
-		query = fmt.Sprintf("CREATE DATABASE \"%s\"", dbName)
-	}
-
-	_, err = db.Exec(query)
-	if err != nil {
-		return &connection.QueryResult{
-			Success: false,
-			Message: err.Error(),
-		}
-	}
-
-	return &connection.QueryResult{
-		Success: true,
-		Message: "数据库创建成功",
-	}
 }
 
 // DBQuery 执行一个查询并返回结果
@@ -669,7 +785,7 @@ func (a *App) ApplyChanges(config *connection.ConnectionConfig, dbName, tableNam
 		runConfig.Database = dbName
 	}
 
-	db, err := a.getDatabase(&runConfig)
+	dbInst, err := a.getDatabase(&runConfig)
 	if err != nil {
 		return &connection.QueryResult{
 			Success: false,
@@ -677,7 +793,7 @@ func (a *App) ApplyChanges(config *connection.ConnectionConfig, dbName, tableNam
 		}
 	}
 
-	if applier, ok := db.(BatchApplier); ok {
+	if applier, ok := dbInst.(db.BatchApplier); ok {
 		err := applier.ApplyChanges(tableName, changes)
 		if err != nil {
 			return &connection.QueryResult{

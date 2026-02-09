@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package db
 
 import (
-	"Boxify/internal/connection"
 	"fmt"
+
+	"github.com/chenyang-zz/boxify/internal/connection"
 )
 
 type Database interface {

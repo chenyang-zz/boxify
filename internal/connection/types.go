@@ -35,6 +35,9 @@ type ConnectionConfig struct {
 	Database string     `json:"database"`
 	UseSSH   bool       `json:"useSSH"`
 	SSH      *SSHConfig `json:"ssh"`
+	Driver   string     `json:"driver,omitempty"`  // 用于自定义连接
+	DSN      string     `json:"dsn,omitempty"`     // 用于自定义连接
+	Timeout  int        `json:"timeout,omitempty"` // 连接超时时间，单位秒
 }
 
 // QueryResult 是查询结果的结构体

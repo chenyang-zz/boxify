@@ -15,13 +15,14 @@
 package ssh
 
 import (
-	"Boxify/internal/connection"
 	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/chenyang-zz/boxify/internal/connection"
 
 	"golang.org/x/crypto/ssh"
 )
