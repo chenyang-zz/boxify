@@ -16,6 +16,7 @@ package main
 
 import (
 	"Boxify/internal/connection"
+	"Boxify/internal/ssh"
 	"database/sql"
 	"fmt"
 	"strings"
@@ -36,7 +37,7 @@ func (m *MySQLDB) getDSN(config *connection.ConnectionConfig) string {
 	// 重用app.go SSH中的SSH逻辑如果全局可用或复制逻辑，则执行
 	// 目前假设RegisterSSHNetwork是全局的
 	if config.UseSSH {
-		netName, err := RegisterSSHNetwork(config.SSH)
+		netName, err := ssh.RegisterSSHNetwork(config.SSH)
 		if err == nil {
 			protocol = netName
 			address = fmt.Sprintf("%s:%d", config.Host, config.Port)
