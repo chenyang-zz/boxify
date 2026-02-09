@@ -14,49 +14,13 @@
 
 package main
 
-import "fmt"
-
-type ColumnDefinition struct {
-	Name     string  `json:"name"`
-	Type     string  `json:"type"`
-	Nullable string  `json:"nullable"` // "YES" or "NO"
-	Key      string  `json:"key"`      // "PRI" for primary key, "MUL" for foreign key, "UNI" for others
-	Default  *string `json:"default"`
-	Extra    string  `json:"extra"` // auto_increment
-	Comment  string  `json:"comment"`
-}
-
-type IndexDefinition struct {
-	Name       string `json:"name"`
-	ColumnName string `json:"columnName"`
-	NonUnique  int    `json:"nonUnique"`
-	SeqInIndex int    `json:"seqInIndex"`
-	IndexType  string `json:"indexType"`
-}
-
-type ForeignKeyDefinition struct {
-	Name          string `json:"name"`
-	ColumnName    string `json:"columnName"`
-	RefTableName  string `json:"refTableName"`
-	RefColumnName string `json:"refColumnName"`
-	ConstrainName string `json:"constrainName"`
-}
-
-type TriggerDefinition struct {
-	Name      string `json:"name"`
-	Timing    string `json:"timing"` // BEFORE or AFTER
-	Event     string `json:"event"`  // INSERT, UPDATE, DELETE
-	Statement string `json:"statement"`
-}
-
-type ColumnDefinitionWithTable struct {
-	TableName string `json:"tableName"`
-	Name      string `json:"name"`
-	Type      string `json:"type"`
-}
+import (
+	"Boxify/internal/connection"
+	"fmt"
+)
 
 type Database interface {
-	Connect(config *ConnectionConfig) error
+	Connect(config *connection.ConnectionConfig) error
 	Close() error
 	Ping() error
 	Query(query string) ([]map[string]interface{}, []string, error)
@@ -64,15 +28,15 @@ type Database interface {
 	GetDatabases() ([]string, error)
 	GetTables(dbName string) ([]string, error)
 	GetCreateStatement(dbName, tableName string) (string, error)
-	GetColumns(dbName, tableName string) ([]ColumnDefinition, error)
-	GetAllColumns(dbName string) ([]ColumnDefinitionWithTable, error)
-	GetIndexes(dbName, tableName string) ([]IndexDefinition, error)
-	GetForeignKeys(dbName, tableName string) ([]ForeignKeyDefinition, error)
-	GetTriggers(dbName, tableName string) ([]TriggerDefinition, error)
+	GetColumns(dbName, tableName string) ([]connection.ColumnDefinition, error)
+	GetAllColumns(dbName string) ([]connection.ColumnDefinitionWithTable, error)
+	GetIndexes(dbName, tableName string) ([]connection.IndexDefinition, error)
+	GetForeignKeys(dbName, tableName string) ([]connection.ForeignKeyDefinition, error)
+	GetTriggers(dbName, tableName string) ([]connection.TriggerDefinition, error)
 }
 
 type BatchApplier interface {
-	ApplyChanges(tableName string, changes *ChangeSet) error
+	ApplyChanges(tableName string, changes *connection.ChangeSet) error
 }
 
 // Factory

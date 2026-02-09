@@ -15,6 +15,7 @@
 package main
 
 import (
+	"Boxify/internal/connection"
 	"context"
 	"fmt"
 	"net"
@@ -24,14 +25,6 @@ import (
 	"github.com/go-sql-driver/mysql"
 	"golang.org/x/crypto/ssh"
 )
-
-type SSHConfig struct {
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	User     string `json:"user"`
-	Password string `json:"password"`
-	KeyPath  string `json:"keyPath"`
-}
 
 // ViaSSHDialer为MySQL注册一个通过SSH代理的自定义网络
 type ViaSSHDialer struct {
@@ -43,7 +36,7 @@ func (d *ViaSSHDialer) Dial(ctx context.Context, addr string) (net.Conn, error) 
 }
 
 // connectSSH建立一个SSH连接并返回一个Dialer
-func connectSSH(config *SSHConfig) (*ssh.Client, error) {
+func connectSSH(config *connection.SSHConfig) (*ssh.Client, error) {
 	authMethods := []ssh.AuthMethod{}
 
 	if config.KeyPath != "" {
@@ -73,7 +66,7 @@ func connectSSH(config *SSHConfig) (*ssh.Client, error) {
 
 // RegisterSSHNetwork为指定的SSH隧道注册一个唯一的网络名
 // 返回在DSN中使用的网络名
-func RegisterSSHNetwork(sshConfig *SSHConfig) (string, error) {
+func RegisterSSHNetwork(sshConfig *connection.SSHConfig) (string, error) {
 	client, err := connectSSH(sshConfig)
 	if err != nil {
 		return "", err

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"Boxify/internal/connection"
 	"context"
 	"encoding/csv"
 	"encoding/json"
@@ -42,26 +43,8 @@ func (a *App) shutdown(ctx context.Context) {
 	}
 }
 
-type ConnectionConfig struct {
-	Type     string     `json:"type"`
-	Host     string     `json:"host"`
-	Port     int        `json:"port"`
-	User     string     `json:"user"`
-	Password string     `json:"password"`
-	Database string     `json:"database"`
-	UseSSH   bool       `json:"useSSH"`
-	SSH      *SSHConfig `json:"ssh"`
-}
-
-type QueryResult struct {
-	Success bool        `json:"success"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data"`
-	Fields  []string    `json:"fields"`
-}
-
 // 获取或创建一个数据库连接
-func (a *App) getDatabase(config *ConnectionConfig) (Database, error) {
+func (a *App) getDatabase(config *connection.ConnectionConfig) (Database, error) {
 	key := getCacheKey(config)
 
 	a.mu.Lock()
@@ -95,7 +78,7 @@ func (a *App) getDatabase(config *ConnectionConfig) (Database, error) {
 
 // 通用数据库方法
 
-func (a *App) DBConnect(config *ConnectionConfig) *QueryResult {
+func (a *App) DBConnect(config *connection.ConnectionConfig) *connection.QueryResult {
 	key := getCacheKey(config)
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -107,59 +90,59 @@ func (a *App) DBConnect(config *ConnectionConfig) *QueryResult {
 
 	_, err := a.getDatabase(config)
 	if err != nil {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
 	}
 
-	return &QueryResult{
+	return &connection.QueryResult{
 		Success: true,
 		Message: "连接成功",
 	}
 }
 
 // 根据连接配置生成一个唯一的缓存键，以便在dbCache中存储和检索数据库连接
-func getCacheKey(config *ConnectionConfig) string {
+func getCacheKey(config *connection.ConnectionConfig) string {
 	// 包括数据库类型、主机、端口、用户、数据库名称（如果相关的话，还有SSH参数）
 	return fmt.Sprintf("%s|%s|%s:%d|%s|%s|%v", config.Type, config.User, config.Host, config.Port, config.Database, config.SSH.Host, config.UseSSH)
 }
 
 // 兼容性包装
 
-func (a *App) MySQLConnect(config *ConnectionConfig) *QueryResult {
+func (a *App) MySQLConnect(config *connection.ConnectionConfig) *connection.QueryResult {
 	config.Type = "mysql"
 	return a.DBConnect(config)
 }
 
-func (a *App) MySQLQuery(config *ConnectionConfig, dbName, query string) *QueryResult {
+func (a *App) MySQLQuery(config *connection.ConnectionConfig, dbName, query string) *connection.QueryResult {
 	config.Type = "mysql"
 	return a.DBQuery(config, dbName, query)
 }
 
-func (a *App) MySQLGetDatabases(config *ConnectionConfig) *QueryResult {
+func (a *App) MySQLGetDatabases(config *connection.ConnectionConfig) *connection.QueryResult {
 	config.Type = "mysql"
 	return a.DBGetDatabases(config)
 }
 
-func (a *App) MySQLGetTables(config *ConnectionConfig, dbName string) *QueryResult {
+func (a *App) MySQLGetTables(config *connection.ConnectionConfig, dbName string) *connection.QueryResult {
 	config.Type = "mysql"
 	return a.DBGetTables(config, dbName)
 }
 
-func (a *App) MySQLShowCreateTable(config *ConnectionConfig, dbName, tableName string) *QueryResult {
+func (a *App) MySQLShowCreateTable(config *connection.ConnectionConfig, dbName, tableName string) *connection.QueryResult {
 	config.Type = "mysql"
 	return a.DBShowCreateTable(config, dbName, tableName)
 }
 
 // CreateDatabase 创建一个新的数据库
-func (a *App) CreateDatabase(config *ConnectionConfig, dbName string) *QueryResult {
+func (a *App) CreateDatabase(config *connection.ConnectionConfig, dbName string) *connection.QueryResult {
 	runConfig := *config
 	runConfig.Database = ""
 
 	db, err := a.getDatabase(&runConfig)
 	if err != nil {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
@@ -172,20 +155,20 @@ func (a *App) CreateDatabase(config *ConnectionConfig, dbName string) *QueryResu
 
 	_, err = db.Exec(query)
 	if err != nil {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
 	}
 
-	return &QueryResult{
+	return &connection.QueryResult{
 		Success: true,
 		Message: "数据库创建成功",
 	}
 }
 
 // DBQuery 执行一个查询并返回结果
-func (a *App) DBQuery(config *ConnectionConfig, dbName, query string) *QueryResult {
+func (a *App) DBQuery(config *connection.ConnectionConfig, dbName, query string) *connection.QueryResult {
 	runConfig := *config
 
 	if dbName != "" {
@@ -194,7 +177,7 @@ func (a *App) DBQuery(config *ConnectionConfig, dbName, query string) *QueryResu
 
 	db, err := a.getDatabase(&runConfig)
 	if err != nil {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
@@ -205,12 +188,12 @@ func (a *App) DBQuery(config *ConnectionConfig, dbName, query string) *QueryResu
 	if strings.HasPrefix(lowerQuery, "select") || strings.HasPrefix(lowerQuery, "show") || strings.HasPrefix(lowerQuery, "describe") || strings.HasPrefix(lowerQuery, "explain") {
 		data, columns, err := db.Query(query)
 		if err != nil {
-			return &QueryResult{
+			return &connection.QueryResult{
 				Success: false,
 				Message: err.Error(),
 			}
 		}
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: true,
 			Message: "查询成功",
 			Data:    data,
@@ -220,12 +203,12 @@ func (a *App) DBQuery(config *ConnectionConfig, dbName, query string) *QueryResu
 		// Exec
 		affected, err := db.Exec(query)
 		if err != nil {
-			return &QueryResult{
+			return &connection.QueryResult{
 				Success: false,
 				Message: err.Error(),
 			}
 		}
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: true,
 			Message: fmt.Sprintf("执行成功，受影响的行数: %d", affected),
 			Data: map[string]int64{
@@ -236,10 +219,10 @@ func (a *App) DBQuery(config *ConnectionConfig, dbName, query string) *QueryResu
 }
 
 // DBGetDatabases 获取数据库列表
-func (a *App) DBGetDatabases(config *ConnectionConfig) *QueryResult {
+func (a *App) DBGetDatabases(config *connection.ConnectionConfig) *connection.QueryResult {
 	db, err := a.getDatabase(config)
 	if err != nil {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
@@ -247,7 +230,7 @@ func (a *App) DBGetDatabases(config *ConnectionConfig) *QueryResult {
 
 	dbs, err := db.GetDatabases()
 	if err != nil {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
@@ -260,7 +243,7 @@ func (a *App) DBGetDatabases(config *ConnectionConfig) *QueryResult {
 		})
 	}
 
-	return &QueryResult{
+	return &connection.QueryResult{
 		Success: true,
 		Message: "获取数据库列表成功",
 		Data:    resData,
@@ -268,7 +251,7 @@ func (a *App) DBGetDatabases(config *ConnectionConfig) *QueryResult {
 }
 
 // DBGetTables 获取表列表
-func (a *App) DBGetTables(config *ConnectionConfig, dbName string) *QueryResult {
+func (a *App) DBGetTables(config *connection.ConnectionConfig, dbName string) *connection.QueryResult {
 	runConfig := *config
 	if dbName != "" {
 		runConfig.Database = dbName
@@ -276,7 +259,7 @@ func (a *App) DBGetTables(config *ConnectionConfig, dbName string) *QueryResult 
 
 	db, err := a.getDatabase(&runConfig)
 	if err != nil {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
@@ -284,7 +267,7 @@ func (a *App) DBGetTables(config *ConnectionConfig, dbName string) *QueryResult 
 
 	tables, err := db.GetTables(dbName)
 	if err != nil {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
@@ -297,7 +280,7 @@ func (a *App) DBGetTables(config *ConnectionConfig, dbName string) *QueryResult 
 		})
 	}
 
-	return &QueryResult{
+	return &connection.QueryResult{
 		Success: true,
 		Message: "获取表列表成功",
 		Data:    resData,
@@ -305,7 +288,7 @@ func (a *App) DBGetTables(config *ConnectionConfig, dbName string) *QueryResult 
 }
 
 // DBShowCreateTable 获取建表语句
-func (a *App) DBShowCreateTable(config *ConnectionConfig, dbName, tableName string) *QueryResult {
+func (a *App) DBShowCreateTable(config *connection.ConnectionConfig, dbName, tableName string) *connection.QueryResult {
 	runeConfig := *config
 	if dbName != "" {
 		runeConfig.Database = dbName
@@ -313,7 +296,7 @@ func (a *App) DBShowCreateTable(config *ConnectionConfig, dbName, tableName stri
 
 	db, err := a.getDatabase(&runeConfig)
 	if err != nil {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
@@ -321,13 +304,13 @@ func (a *App) DBShowCreateTable(config *ConnectionConfig, dbName, tableName stri
 
 	sqlStr, err := db.GetCreateStatement(dbName, tableName)
 	if err != nil {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
 	}
 
-	return &QueryResult{
+	return &connection.QueryResult{
 		Success: true,
 		Message: "获取建表语句成功",
 		Data:    sqlStr,
@@ -335,7 +318,7 @@ func (a *App) DBShowCreateTable(config *ConnectionConfig, dbName, tableName stri
 }
 
 // DBGetColumns 获取列信息
-func (a *App) DBGetColumns(config *ConnectionConfig, dbName, tableName string) *QueryResult {
+func (a *App) DBGetColumns(config *connection.ConnectionConfig, dbName, tableName string) *connection.QueryResult {
 	runConfig := *config
 	if dbName != "" {
 		runConfig.Database = dbName
@@ -343,7 +326,7 @@ func (a *App) DBGetColumns(config *ConnectionConfig, dbName, tableName string) *
 
 	db, err := a.getDatabase(&runConfig)
 	if err != nil {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
@@ -351,13 +334,13 @@ func (a *App) DBGetColumns(config *ConnectionConfig, dbName, tableName string) *
 
 	columns, err := db.GetColumns(dbName, tableName)
 	if err != nil {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
 	}
 
-	return &QueryResult{
+	return &connection.QueryResult{
 		Success: true,
 		Message: "获取列信息成功",
 		Data:    columns,
@@ -365,7 +348,7 @@ func (a *App) DBGetColumns(config *ConnectionConfig, dbName, tableName string) *
 }
 
 // DBGetIndexes 获取索引信息
-func (a *App) DBGetIndexes(config *ConnectionConfig, dbName string, tableName string) *QueryResult {
+func (a *App) DBGetIndexes(config *connection.ConnectionConfig, dbName string, tableName string) *connection.QueryResult {
 	runeConfig := *config
 	if dbName != "" {
 		runeConfig.Database = dbName
@@ -373,7 +356,7 @@ func (a *App) DBGetIndexes(config *ConnectionConfig, dbName string, tableName st
 
 	db, err := a.getDatabase(&runeConfig)
 	if err != nil {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
@@ -381,13 +364,13 @@ func (a *App) DBGetIndexes(config *ConnectionConfig, dbName string, tableName st
 
 	indexes, err := db.GetIndexes(dbName, tableName)
 	if err != nil {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
 	}
 
-	return &QueryResult{
+	return &connection.QueryResult{
 		Success: true,
 		Message: "获取索引信息成功",
 		Data:    indexes,
@@ -395,7 +378,7 @@ func (a *App) DBGetIndexes(config *ConnectionConfig, dbName string, tableName st
 }
 
 // DBGetForeignKeys 获取外键信息
-func (a *App) DBGetForeignKeys(config *ConnectionConfig, dbName string, tableName string) *QueryResult {
+func (a *App) DBGetForeignKeys(config *connection.ConnectionConfig, dbName string, tableName string) *connection.QueryResult {
 	runeConfig := *config
 	if dbName != "" {
 		runeConfig.Database = dbName
@@ -403,7 +386,7 @@ func (a *App) DBGetForeignKeys(config *ConnectionConfig, dbName string, tableNam
 
 	db, err := a.getDatabase(&runeConfig)
 	if err != nil {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
@@ -411,13 +394,13 @@ func (a *App) DBGetForeignKeys(config *ConnectionConfig, dbName string, tableNam
 
 	fks, err := db.GetForeignKeys(dbName, tableName)
 	if err != nil {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
 	}
 
-	return &QueryResult{
+	return &connection.QueryResult{
 		Success: true,
 		Message: "获取外键信息成功",
 		Data:    fks,
@@ -425,7 +408,7 @@ func (a *App) DBGetForeignKeys(config *ConnectionConfig, dbName string, tableNam
 }
 
 // DBGetForeignKeys 获取外键信息
-func (a *App) DBGetTriggers(config *ConnectionConfig, dbName string, tableName string) *QueryResult {
+func (a *App) DBGetTriggers(config *connection.ConnectionConfig, dbName string, tableName string) *connection.QueryResult {
 	runeConfig := *config
 	if dbName != "" {
 		runeConfig.Database = dbName
@@ -433,7 +416,7 @@ func (a *App) DBGetTriggers(config *ConnectionConfig, dbName string, tableName s
 
 	db, err := a.getDatabase(&runeConfig)
 	if err != nil {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
@@ -441,13 +424,13 @@ func (a *App) DBGetTriggers(config *ConnectionConfig, dbName string, tableName s
 
 	triggers, err := db.GetTriggers(dbName, tableName)
 	if err != nil {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
 	}
 
-	return &QueryResult{
+	return &connection.QueryResult{
 		Success: true,
 		Message: "获取触发器信息成功",
 		Data:    triggers,
@@ -455,7 +438,7 @@ func (a *App) DBGetTriggers(config *ConnectionConfig, dbName string, tableName s
 }
 
 // DBGetAllColumns 获取所有列信息（包含系统表）
-func (a *App) DBGetAllColumns(config *ConnectionConfig, dbName string) *QueryResult {
+func (a *App) DBGetAllColumns(config *connection.ConnectionConfig, dbName string) *connection.QueryResult {
 	runConfig := *config
 	if dbName != "" {
 		runConfig.Database = dbName
@@ -463,7 +446,7 @@ func (a *App) DBGetAllColumns(config *ConnectionConfig, dbName string) *QueryRes
 
 	db, err := a.getDatabase(&runConfig)
 	if err != nil {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
@@ -471,13 +454,13 @@ func (a *App) DBGetAllColumns(config *ConnectionConfig, dbName string) *QueryRes
 
 	columns, err := db.GetAllColumns(dbName)
 	if err != nil {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
 	}
 
-	return &QueryResult{
+	return &connection.QueryResult{
 		Success: true,
 		Message: "获取所有列信息成功",
 		Data:    columns,
@@ -485,7 +468,7 @@ func (a *App) DBGetAllColumns(config *ConnectionConfig, dbName string) *QueryRes
 }
 
 // OpenSQLFile 打开一个文件选择对话框，允许用户选择一个SQL文件，并读取其内容返回
-func (a *App) OpenSQLFile() *QueryResult {
+func (a *App) OpenSQLFile() *connection.QueryResult {
 	selection, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
 		Title: "Select SQL File",
 		Filters: []runtime.FileFilter{
@@ -501,14 +484,14 @@ func (a *App) OpenSQLFile() *QueryResult {
 	})
 
 	if err != nil {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
 	}
 
 	if selection == "" {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: "Cancelled",
 		}
@@ -516,13 +499,13 @@ func (a *App) OpenSQLFile() *QueryResult {
 
 	content, err := os.ReadFile(selection)
 	if err != nil {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
 	}
 
-	return &QueryResult{
+	return &connection.QueryResult{
 		Success: true,
 		Message: "SQL文件加载成功",
 		Data:    string(content),
@@ -530,7 +513,7 @@ func (a *App) OpenSQLFile() *QueryResult {
 }
 
 // ImportData 打开一个文件选择对话框，允许用户选择一个CSV或JSON文件，并将其内容导入到指定的数据库表中
-func (a *App) ImportData(config *ConnectionConfig, dbName, tableName string) *QueryResult {
+func (a *App) ImportData(config *connection.ConnectionConfig, dbName, tableName string) *connection.QueryResult {
 	selection, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
 		Title: fmt.Sprintf("Import into %s", tableName),
 		Filters: []runtime.FileFilter{
@@ -542,14 +525,14 @@ func (a *App) ImportData(config *ConnectionConfig, dbName, tableName string) *Qu
 	})
 
 	if err != nil {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
 	}
 
 	if selection == "" {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: "Cancelled",
 		}
@@ -558,7 +541,7 @@ func (a *App) ImportData(config *ConnectionConfig, dbName, tableName string) *Qu
 	// 读取文件
 	f, err := os.Open(selection)
 	if err != nil {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
@@ -571,7 +554,7 @@ func (a *App) ImportData(config *ConnectionConfig, dbName, tableName string) *Qu
 	if strings.HasSuffix(strings.ToLower(selection), ".json") {
 		decoder := json.NewDecoder(f)
 		if err := decoder.Decode(&rows); err != nil {
-			return &QueryResult{
+			return &connection.QueryResult{
 				Success: false,
 				Message: fmt.Sprintf("Failed to parse JSON: %v", err),
 			}
@@ -580,13 +563,13 @@ func (a *App) ImportData(config *ConnectionConfig, dbName, tableName string) *Qu
 		reader := csv.NewReader(f)
 		records, err := reader.ReadAll()
 		if err != nil {
-			return &QueryResult{
+			return &connection.QueryResult{
 				Success: false,
 				Message: fmt.Sprintf("Failed to parse CSV: %v", err),
 			}
 		}
 		if len(records) < 2 {
-			return &QueryResult{
+			return &connection.QueryResult{
 				Success: false,
 				Message: "CSV是空的或没有头行",
 			}
@@ -606,14 +589,14 @@ func (a *App) ImportData(config *ConnectionConfig, dbName, tableName string) *Qu
 			rows = append(rows, row)
 		}
 	} else {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: "不支持的文件类型",
 		}
 	}
 
 	if len(rows) == 0 {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: true,
 			Message: "没有数据可导入",
 		}
@@ -627,7 +610,7 @@ func (a *App) ImportData(config *ConnectionConfig, dbName, tableName string) *Qu
 
 	db, err := a.getDatabase(&runConfig)
 	if err != nil {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
@@ -673,14 +656,14 @@ func (a *App) ImportData(config *ConnectionConfig, dbName, tableName string) *Qu
 		}
 	}
 
-	return &QueryResult{
+	return &connection.QueryResult{
 		Success: true,
 		Message: fmt.Sprintf("导入完成，成功: %d, 失败: %d", successCount, errCount),
 	}
 }
 
 // ApplyChanges 将更改集应用到数据库表中
-func (a *App) ApplyChanges(config *ConnectionConfig, dbName, tableName string, changes *ChangeSet) *QueryResult {
+func (a *App) ApplyChanges(config *connection.ConnectionConfig, dbName, tableName string, changes *connection.ChangeSet) *connection.QueryResult {
 	runConfig := *config
 	if dbName != "" {
 		runConfig.Database = dbName
@@ -688,7 +671,7 @@ func (a *App) ApplyChanges(config *ConnectionConfig, dbName, tableName string, c
 
 	db, err := a.getDatabase(&runConfig)
 	if err != nil {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
@@ -697,31 +680,31 @@ func (a *App) ApplyChanges(config *ConnectionConfig, dbName, tableName string, c
 	if applier, ok := db.(BatchApplier); ok {
 		err := applier.ApplyChanges(tableName, changes)
 		if err != nil {
-			return &QueryResult{
+			return &connection.QueryResult{
 				Success: false,
 				Message: err.Error(),
 			}
 		}
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: true,
 			Message: "批量更改应用成功",
 		}
 	}
-	return &QueryResult{
+	return &connection.QueryResult{
 		Success: false,
 		Message: "数据库不支持批量更改",
 	}
 }
 
 // ExportTable 导出表数据到CSV、JSON或Markdown文件
-func (a *App) ExportTable(config *ConnectionConfig, dbName, tableName string, format string) *QueryResult {
+func (a *App) ExportTable(config *connection.ConnectionConfig, dbName, tableName string, format string) *connection.QueryResult {
 	filename, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
 		Title:           fmt.Sprintf("导出 ", tableName),
 		DefaultFilename: fmt.Sprintf("%s.%s", tableName, format),
 	})
 
 	if err != nil || filename == "" {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: "Cancelled",
 		}
@@ -734,7 +717,7 @@ func (a *App) ExportTable(config *ConnectionConfig, dbName, tableName string, fo
 
 	db, err := a.getDatabase(&runConfig)
 	if err != nil {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
@@ -747,7 +730,7 @@ func (a *App) ExportTable(config *ConnectionConfig, dbName, tableName string, fo
 
 	data, columns, err := db.Query(query)
 	if err != nil {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
@@ -755,7 +738,7 @@ func (a *App) ExportTable(config *ConnectionConfig, dbName, tableName string, fo
 
 	f, err := os.Create(filename)
 	if err != nil {
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
@@ -773,7 +756,7 @@ func (a *App) ExportTable(config *ConnectionConfig, dbName, tableName string, fo
 		csvWriter = csv.NewWriter(f)
 		defer csvWriter.Flush()
 		if err := csvWriter.Write(columns); err != nil {
-			return &QueryResult{
+			return &connection.QueryResult{
 				Success: false,
 				Message: err.Error(),
 			}
@@ -790,7 +773,7 @@ func (a *App) ExportTable(config *ConnectionConfig, dbName, tableName string, fo
 		}
 		fmt.Fprint(f, "| %s |\n", strings.Join(seps, " | "))
 	default:
-		return &QueryResult{
+		return &connection.QueryResult{
 			Success: false,
 			Message: "不支持的导出格式",
 		}
@@ -815,7 +798,7 @@ func (a *App) ExportTable(config *ConnectionConfig, dbName, tableName string, fo
 		switch format {
 		case "csv", "xlsx":
 			if err := csvWriter.Write(record); err != nil {
-				return &QueryResult{
+				return &connection.QueryResult{
 					Success: false,
 					Message: err.Error(),
 				}
@@ -825,7 +808,7 @@ func (a *App) ExportTable(config *ConnectionConfig, dbName, tableName string, fo
 				f.WriteString(",\n")
 			}
 			if err := jsonEncoder.Encode(rowMap); err != nil {
-				return &QueryResult{
+				return &connection.QueryResult{
 					Success: false,
 					Message: err.Error(),
 				}
@@ -840,7 +823,7 @@ func (a *App) ExportTable(config *ConnectionConfig, dbName, tableName string, fo
 		f.WriteString("]\n")
 	}
 
-	return &QueryResult{
+	return &connection.QueryResult{
 		Success: true,
 		Message: "导出成功",
 	}

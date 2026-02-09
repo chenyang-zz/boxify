@@ -12,6 +12,7 @@
         "SQLDB",
         "Titlebar",
         "volicon",
-        "volname"
+        "volname",
+        "wailsapp"
     ]
 }

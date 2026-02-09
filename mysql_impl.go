@@ -15,6 +15,7 @@
 package main
 
 import (
+	"Boxify/internal/connection"
 	"database/sql"
 	"fmt"
 	"strings"
@@ -27,7 +28,7 @@ type MySQLDB struct {
 	conn *sql.DB
 }
 
-func (m *MySQLDB) getDSN(config *ConnectionConfig) string {
+func (m *MySQLDB) getDSN(config *connection.ConnectionConfig) string {
 	database := config.Database
 	protocol := "tcp"
 	address := fmt.Sprintf("%s:%d", config.Host, config.Port)
@@ -45,8 +46,8 @@ func (m *MySQLDB) getDSN(config *ConnectionConfig) string {
 	return fmt.Sprintf("%s:%s@%s(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local", config.User, config.Password, protocol, address, database)
 }
 
-func (m *MySQLDB) Connect(config ConnectionConfig) error {
-	dsn := m.getDSN(&config)
+func (m *MySQLDB) Connect(config *connection.ConnectionConfig) error {
+	dsn := m.getDSN(config)
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		return err
@@ -197,7 +198,7 @@ func (m *MySQLDB) GetCreateStatement(dbName, tableName string) (string, error) {
 	return "", fmt.Errorf("未找到创建语句")
 }
 
-func (m *MySQLDB) GetColumns(dbName, tableName string) ([]ColumnDefinition, error) {
+func (m *MySQLDB) GetColumns(dbName, tableName string) ([]connection.ColumnDefinition, error) {
 	query := fmt.Sprintf("SHOW FULL COLUMNS FROM `%s`.`%s`", dbName, tableName)
 	if dbName == "" {
 		query = fmt.Sprintf("SHOW FULL COLUMNS FROM `%s`", tableName)
@@ -208,9 +209,9 @@ func (m *MySQLDB) GetColumns(dbName, tableName string) ([]ColumnDefinition, erro
 		return nil, err
 	}
 
-	var columns []ColumnDefinition
+	var columns []connection.ColumnDefinition
 	for _, row := range data {
-		col := ColumnDefinition{
+		col := connection.ColumnDefinition{
 			Name:     fmt.Sprintf("%v", row["Field"]),
 			Type:     fmt.Sprintf("%v", row["Type"]),
 			Nullable: fmt.Sprintf("%v", row["Null"]),
@@ -230,7 +231,7 @@ func (m *MySQLDB) GetColumns(dbName, tableName string) ([]ColumnDefinition, erro
 	return columns, nil
 }
 
-func (m *MySQLDB) GetAllColumns(dbName string) ([]ColumnDefinitionWithTable, error) {
+func (m *MySQLDB) GetAllColumns(dbName string) ([]connection.ColumnDefinitionWithTable, error) {
 	query := fmt.Sprintf("SELECt TABLE_NAME, COLUMN_NAME, COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = `%s`", dbName)
 	if dbName == "" {
 		// 如果dbName为空，我们可能需要使用connection
@@ -245,9 +246,9 @@ func (m *MySQLDB) GetAllColumns(dbName string) ([]ColumnDefinitionWithTable, err
 		return nil, err
 	}
 
-	var cols []ColumnDefinitionWithTable
+	var cols []connection.ColumnDefinitionWithTable
 	for _, row := range data {
-		col := ColumnDefinitionWithTable{
+		col := connection.ColumnDefinitionWithTable{
 			TableName: fmt.Sprintf("%v", row["TABLE_NAME"]),
 			Name:      fmt.Sprintf("%v", row["COLUMN_NAME"]),
 			Type:      fmt.Sprintf("%v", row["COLUMN_TYPE"]),
@@ -258,7 +259,7 @@ func (m *MySQLDB) GetAllColumns(dbName string) ([]ColumnDefinitionWithTable, err
 	return cols, nil
 }
 
-func (m *MySQLDB) GetIndexes(dbName, tableName string) ([]IndexDefinition, error) {
+func (m *MySQLDB) GetIndexes(dbName, tableName string) ([]connection.IndexDefinition, error) {
 	query := fmt.Sprintf("SHOW INDEX FROM `%s`.`%s`", dbName, tableName)
 	if dbName == "" {
 		query = fmt.Sprintf("SHOW INDEX FROM `%s`", tableName)
@@ -269,7 +270,7 @@ func (m *MySQLDB) GetIndexes(dbName, tableName string) ([]IndexDefinition, error
 		return nil, err
 	}
 
-	var indexs []IndexDefinition
+	var indexs []connection.IndexDefinition
 	for _, row := range data {
 		// 需要小心处理类型 Non_unique通常是int
 		nonUnique := 0
@@ -291,7 +292,7 @@ func (m *MySQLDB) GetIndexes(dbName, tableName string) ([]IndexDefinition, error
 			}
 		}
 
-		idx := IndexDefinition{
+		idx := connection.IndexDefinition{
 			Name:       fmt.Sprintf("%v", row["Key_name"]),
 			ColumnName: fmt.Sprintf("%v", row["Column_name"]),
 			NonUnique:  nonUnique,
@@ -304,7 +305,7 @@ func (m *MySQLDB) GetIndexes(dbName, tableName string) ([]IndexDefinition, error
 	return indexs, nil
 }
 
-func (m *MySQLDB) GetForeignKeys(dbName, tableName string) ([]ForeignKeyDefinition, error) {
+func (m *MySQLDB) GetForeignKeys(dbName, tableName string) ([]connection.ForeignKeyDefinition, error) {
 	query := fmt.Sprintf(`SELECT CONSTRAINT_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME 
 	FROM information_schema.KEY_COLUMN_USAGE 
 	WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s' AND REFERENCED_TABLE_NAME IS NOT NULL`, dbName, tableName)
@@ -314,9 +315,9 @@ func (m *MySQLDB) GetForeignKeys(dbName, tableName string) ([]ForeignKeyDefiniti
 		return nil, err
 	}
 
-	var fks []ForeignKeyDefinition
+	var fks []connection.ForeignKeyDefinition
 	for _, row := range data {
-		fk := ForeignKeyDefinition{
+		fk := connection.ForeignKeyDefinition{
 			Name:          fmt.Sprintf("%v", row["CONSTRAINT_NAME"]),
 			ColumnName:    fmt.Sprintf("%v", row["COLUMN_NAME"]),
 			RefTableName:  fmt.Sprintf("%v", row["REFERENCED_TABLE_NAME"]),
@@ -328,16 +329,16 @@ func (m *MySQLDB) GetForeignKeys(dbName, tableName string) ([]ForeignKeyDefiniti
 	return fks, nil
 }
 
-func (m *MySQLDB) GetTriggers(dbName, tableName string) ([]TriggerDefinition, error) {
+func (m *MySQLDB) GetTriggers(dbName, tableName string) ([]connection.TriggerDefinition, error) {
 	query := fmt.Sprintf("SHOW TRIGGERS FROM `%s` WHERE `Table` = '%s'", dbName, tableName)
 	data, _, err := m.Query(query)
 	if err != nil {
 		return nil, err
 	}
 
-	var triggers []TriggerDefinition
+	var triggers []connection.TriggerDefinition
 	for _, row := range data {
-		trig := TriggerDefinition{
+		trig := connection.TriggerDefinition{
 			Name:      fmt.Sprintf("%v", row["Trigger"]),
 			Timing:    fmt.Sprintf("%v", row["Timing"]),
 			Event:     fmt.Sprintf("%v", row["Event"]),
@@ -349,7 +350,7 @@ func (m *MySQLDB) GetTriggers(dbName, tableName string) ([]TriggerDefinition, er
 	return triggers, nil
 }
 
-func (m *MySQLDB) ApplyChanges(tableName string, changes *ChangeSet) error {
+func (m *MySQLDB) ApplyChanges(tableName string, changes *connection.ChangeSet) error {
 	if m.conn == nil {
 		return fmt.Errorf("连接没有打开")
 	}
