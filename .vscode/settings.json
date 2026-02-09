@@ -6,6 +6,7 @@
         "Colour",
         "dbname",
         "indexs",
+        "Infof",
         "partialize",
         "seps",
         "SQLDB",
