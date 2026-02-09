@@ -12,13 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { FC } from "react";
+import { FC, useState } from "react";
 import { FIleTreeList } from ".";
 import { useFileTreeContext } from "./context";
 import { cn } from "@/lib/utils";
 import { ChevronRight, File } from "lucide-react";
-import { ConnectionType, FileSystemType, FileType } from "@/common/constrains";
-import { PropertyItemType } from "@/store/property.store";
+import {
+  ConnectionType,
+  DBFileType,
+  FileSystemType,
+  FileType,
+} from "@/common/constrains";
+import {
+  getPropertyItemByUUID,
+  PropertyItemType,
+} from "@/store/property.store";
+import { Spinner } from "../ui/spinner";
 
 interface FileTreeItemProps {
   item: PropertyItemType;
@@ -32,26 +41,39 @@ const FileIcon: FC<FileIconProps> = ({ isDir, type }) => {
   if (isDir) {
     switch (type) {
       case FileSystemType.FOLDER:
-        return <img className="size-5 mr-1 shrink-0" src="/icons/folder.svg" />;
+        return (
+          <img className="size-4.5 mr-1 shrink-0" src="/icons/folder.svg" />
+        );
       case ConnectionType.MYSQL:
-        return <img className="size-5 mr-1 shrink-0" src="/icons/mysql.svg" />;
+        return (
+          <img className="size-4.5 mr-1 shrink-0" src="/icons/mysql.svg" />
+        );
       case ConnectionType.REDIS:
-        return <img className="size-5 mr-1 shrink-0" src="/icons/redis.svg" />;
+        return (
+          <img className="size-4.5 mr-1 shrink-0" src="/icons/redis.svg" />
+        );
       case ConnectionType.MONGODB:
         return (
-          <img className="size-5 mr-1 shrink-0" src="/icons/mongodb.svg" />
+          <img className="size-4.5 mr-1 shrink-0" src="/icons/mongodb.svg" />
+        );
+      case DBFileType.DATABASE:
+        return (
+          <img className="size-4.5 mr-1 shrink-0" src="/icons/database.svg" />
         );
     }
   }
   switch (type) {
     case ConnectionType.SSH:
-      return <img className="size-5 mr-1 shrink-0" src="/icons/terminal.svg" />;
+      return (
+        <img className="size-4.5 mr-1 shrink-0" src="/icons/terminal.svg" />
+      );
     default:
-      return <File className="size-5 mr-1 shrink-0" />;
+      return <File className="size-4.5 mr-1 shrink-0" />;
   }
 };
 
 const FileTreeItem: FC<FileTreeItemProps> = ({ item }) => {
+  const [loading, setLoading] = useState(false);
   const { selectedUUID, setSelectedUUID, triggerDirOpen } =
     useFileTreeContext();
 
@@ -60,6 +82,27 @@ const FileTreeItem: FC<FileTreeItemProps> = ({ item }) => {
 
     // TODO
   };
+
+  const handleToggleDir = async () => {
+    const propertyItem = getPropertyItemByUUID(item.uuid);
+    if (!propertyItem) return;
+    if (!propertyItem.loaded) {
+      setLoading(true);
+    }
+
+    try {
+      await triggerDirOpen(item.uuid);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 如果正在加载，显示加载图标；否则根据文件类型显示对应的图标
+  const fileIcon = loading ? (
+    <Spinner className="size-3 mr-1" />
+  ) : (
+    <FileIcon isDir={item.isDir} type={item.type} />
+  );
 
   return (
     <>
@@ -73,7 +116,7 @@ const FileTreeItem: FC<FileTreeItemProps> = ({ item }) => {
           paddingLeft: item.level * 8, // 根据层级增加左侧缩进
         }}
         onClick={handleClickItem}
-        onDoubleClick={() => triggerDirOpen(item.uuid)}
+        onDoubleClick={handleToggleDir}
       >
         <ChevronRight
           className={cn("size-3 mr-0.5 shrink-0", !item.isDir && "opacity-0")}
@@ -81,9 +124,9 @@ const FileTreeItem: FC<FileTreeItemProps> = ({ item }) => {
             transition: "transform 0.2s",
             transform: item.opened ? "rotate(90deg)" : "rotate(0deg)",
           }}
-          onClick={() => triggerDirOpen(item.uuid)}
+          onClick={handleToggleDir}
         />
-        <FileIcon isDir={item.isDir} type={item.type} />
+        {fileIcon}
         <span className=" truncate">{item.label}</span>
       </div>
       {item.opened && <FIleTreeList data={item.children || []} />}

@@ -31,12 +31,11 @@ import { DBFileType, isDBConnection } from "@/common/constrains";
 import { connection } from "@wails/models";
 import { v4 as uuid } from "uuid";
 import { callWails } from "@/lib/utils";
-import { useShallow } from "zustand/react/shallow";
 
 export const fileTreeContext = {
   selectedUUID: "", // 当前选中的文件或文件夹的UUID
   setSelectedUUID: (uuid: string) => {}, // 更新选中的UUID
-  triggerDirOpen: (uuid: string) => {}, // 打开/关闭文件夹
+  triggerDirOpen: async (uuid: string) => {}, // 打开/关闭文件夹
 };
 
 export type FileTreeContextType = typeof fileTreeContext;

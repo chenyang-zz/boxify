@@ -1,4 +1,3 @@
-import { useState } from "react";
 import UtilBar from "@/components/UtilBar";
 import {
   ResizableHandle,
@@ -24,7 +23,7 @@ function App() {
             <ResizablePanelGroup orientation="horizontal">
               {isOpen && (
                 <>
-                  <ResizablePanel defaultSize="200px">
+                  <ResizablePanel defaultSize="200px" maxSize="300px">
                     <PropertyTree />
                   </ResizablePanel>
                   <ResizableHandle />

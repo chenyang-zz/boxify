@@ -42,6 +42,13 @@ interface PropertyState {
   setPropertyList: (list: PropertyItemType[]) => void;
 }
 
+// 根据UUID获取属性项的详细信息
+export function getPropertyItemByUUID(
+  uuid: string,
+): PropertyItemType | undefined {
+  return FileTreeMap.get(uuid);
+}
+
 // 递归遍历文件树数据，将所有文件项存储到FileTreeMap中，方便后续通过UUID快速访问
 function initTraverseTree(data: PropertyItemType[]) {
   for (const item of data) {
