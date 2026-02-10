@@ -18,7 +18,6 @@ export enum ConnectionType {
   POSTGRESQL = "postgresql",
   MONGODB = "mongodb",
   REDIS = "redis",
-  UNKNOWN = "unknown",
 }
 
 export enum FileSystemType {
@@ -28,6 +27,10 @@ export enum FileSystemType {
 
 // 数据库文件类型枚举
 export enum DBFileType {
+  TABLE_FOLDER = "table_folder",
+  VIEW_FOLDER = "view_folder",
+  QUERY_FOLDER = "query_folder",
+  FUNCTION_FOLDER = "function_folder",
   DATABASE = "database",
   TABLE = "table",
 }
@@ -38,7 +41,6 @@ export function isDirType(type: FileType): boolean {
   switch (type) {
     case FileSystemType.UNKNOWN:
     case ConnectionType.SSH:
-    case ConnectionType.UNKNOWN:
       return false;
     case FileSystemType.FOLDER:
     case ConnectionType.MYSQL:
@@ -57,6 +59,7 @@ export function isDBConnection(type: FileType): boolean {
     case ConnectionType.POSTGRESQL:
     case ConnectionType.MONGODB:
     case ConnectionType.REDIS:
+    case DBFileType.DATABASE:
       return true;
     default:
       return false;

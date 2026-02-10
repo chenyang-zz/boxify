@@ -13,10 +13,8 @@
 // limitations under the License.
 
 import { FC } from "react";
-import FileTreeProvider from "./context";
 import FileTreeItem from "./FileTreeItem";
 import { PropertyItemType, usePropertyStore } from "@/store/property.store";
-import { useShallow } from "zustand/react/shallow";
 
 interface FileTreeProps {
   data: PropertyItemType[];
@@ -24,7 +22,7 @@ interface FileTreeProps {
 
 export const FIleTreeList: FC<FileTreeProps> = ({ data }) => {
   return (
-    <div className="text-foreground text-sm">
+    <div className="text-foreground text-sm flex-1 overflow-auto">
       {data.map((item, index) => (
         <FileTreeItem key={index} item={item} />
       ))}
@@ -35,11 +33,7 @@ export const FIleTreeList: FC<FileTreeProps> = ({ data }) => {
 const FileTree: FC = () => {
   const propertyList = usePropertyStore((state) => state.propertyList);
 
-  return (
-    <FileTreeProvider>
-      <FIleTreeList data={propertyList}></FIleTreeList>
-    </FileTreeProvider>
-  );
+  return <FIleTreeList data={propertyList}></FIleTreeList>;
 };
 
 export default FileTree;

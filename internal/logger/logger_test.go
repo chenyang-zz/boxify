@@ -15,6 +15,7 @@
 package logger
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -48,7 +49,7 @@ func TestInit(t *testing.T) {
 	once = sync.Once{}
 
 	// 调用 Init
-	Init()
+	Init(context.Background())
 
 	// 验证日志文件已创建
 	expectedPath := filepath.Join(tempDir, logFileName)
@@ -76,7 +77,7 @@ func TestInitMultipleCalls(t *testing.T) {
 
 	// 多次调用 Init 应该是安全的
 	for i := 0; i < 10; i++ {
-		Init()
+		Init(context.Background())
 	}
 
 	// 验证只有一个日志文件被创建
@@ -419,7 +420,7 @@ func TestClose(t *testing.T) {
 	once = sync.Once{}
 
 	// 初始化并记录一些日志
-	Init()
+	Init(context.Background())
 	Infof("关闭前的日志")
 
 	// 关闭日志系统
@@ -559,7 +560,7 @@ func TestInitWithInvalidDir(t *testing.T) {
 
 	// Init 应该能够处理错误并回退到 os.Stderr
 	// 不应该 panic
-	Init()
+	Init(context.Background())
 	Infof("测试无效目录的情况")
 }
 
@@ -569,7 +570,7 @@ func TestInitOutput(t *testing.T) {
 	os.Setenv(envLogDir, tempDir)
 	defer os.Unsetenv(envLogDir)
 
-	path, writer := initOutput()
+	path, writer := initOutput(context.Background())
 
 	// 验证返回值
 	if writer == nil {
@@ -604,7 +605,7 @@ func TestPrintf(t *testing.T) {
 	once = sync.Once{}
 
 	// 初始化日志系统
-	Init()
+	Init(context.Background())
 
 	// 调用 printf 内部函数
 	testLevel := "TEST"

@@ -33,7 +33,7 @@ const PropertyTree: FC = () => {
   return (
     <>
       <div ref={ref} className="h-0"></div>
-      <div className="h-full w-full rounded-lg bg-card p-0.5">
+      <div className="h-full w-full rounded-lg bg-card p-0.5 flex flex-col">
         <TreeHeader />
         <FileTree />
       </div>

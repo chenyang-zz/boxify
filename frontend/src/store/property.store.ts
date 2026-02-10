@@ -24,7 +24,7 @@ import { persist } from "zustand/middleware";
 import { v4 as uuid } from "uuid";
 import { connection } from "@wails/models";
 import { callWails } from "@/lib/utils";
-import { DBGetDatabases } from "@wails/app/App";
+import { DBGetDatabases, DBGetTables } from "@wails/app/App";
 import { StoreMethods } from "./common";
 
 export const FileTreeMap = new Map<string, PropertyItemType>();
@@ -45,12 +45,16 @@ export interface PropertyItemType {
 
   // connection 属性
   connectionConfig?: ConnectionConfig; // 连接配置，具体结构根据连接类型而定
+
+  extra?: Record<string, any>; // 其他额外属性，根据需要添加
 }
 
 interface PropertyState {
   propertyList: PropertyItemType[];
   setPropertyList: (list: PropertyItemType[]) => void;
   triggerDirOpen: (uuid: string) => Promise<void>; // 打开/关闭文件夹
+  selectedUUID: string; // 当前选中的文件或文件夹的UUID
+  setSelectedUUID: (uuid: string) => void; // 更新选中的UUID
 }
 
 // 根据UUID获取属性项的详细信息
@@ -86,38 +90,127 @@ function createPropertyItemListFromDBQueryResult(
   pLevel: number,
   pType: FileType,
   res: Record<string, any>[],
+  config: ConnectionConfig,
 ): PropertyItemType[] {
   const list = [] as PropertyItemType[];
   for (const row of res) {
-    let item: PropertyItemType;
+    let partialItem: Partial<PropertyItemType>;
     switch (pType) {
       case ConnectionType.MYSQL:
-        item = {
-          uuid: uuid(),
-          level: pLevel + 1,
+        partialItem = {
           isDir: true,
           label: row["Database"],
           type: DBFileType.DATABASE,
-          opened: false,
-          loaded: false,
+        };
+        break;
+      case DBFileType.DATABASE:
+        partialItem = {
+          isDir: true,
+          label: row["Placeholder"],
+          type: row["type"],
+          children: row["children"] || [],
+        };
+        break;
+      case DBFileType.TABLE_FOLDER:
+        partialItem = {
+          isDir: false,
+          label: row["Table"],
+          type: DBFileType.TABLE,
         };
         break;
       default:
         continue;
     }
+
+    partialItem.uuid = uuid();
+    partialItem.level = pLevel + 1;
+    partialItem.connectionConfig = config;
+    partialItem.opened = false;
+    partialItem.loaded = false;
+
+    const item = partialItem as PropertyItemType;
+
+    // 如果查询结果中包含子项数据（如表列表），就直接设置到children属性中，并标记为已加载
+    if (row["children"] && row["children"].length > 0) {
+      if (!item.extra) item.extra = {};
+      item.extra["count"] = row["children"].length; // 记录子项数量，方便前端展示
+      item.children = createPropertyItemListFromDBQueryResult(
+        item.level,
+        item.type,
+        row["children"],
+        config,
+      );
+    }
+
+    // 记录到全局Map中，方便后续通过UUID快速访问
+    FileTreeMap.set(partialItem.uuid, item);
     list.push(item);
   }
   return list;
 }
 
-// 根据数据库连接项加载其子项数据
-export async function loadDBConnectionPropertyChildren(
-  pLevel: number,
+// 创建数据库属性项列表的占位符
+function createDatabaseQueryResult(): connection.QueryResult {
+  return {
+    success: true,
+    data: [
+      {
+        Placeholder: "表",
+        type: DBFileType.TABLE_FOLDER,
+      },
+      {
+        Placeholder: "视图",
+        type: DBFileType.VIEW_FOLDER,
+      },
+      {
+        Placeholder: "查询",
+        type: DBFileType.QUERY_FOLDER,
+      },
+      {
+        Placeholder: "存储过程/函数",
+        type: DBFileType.FUNCTION_FOLDER,
+      },
+    ],
+    message: "占位符",
+    fields: [],
+  };
+}
+
+// 加载数据库下的子项：表、视图等
+async function loadDBChildrenByDBName(
+  dbName: string,
   type: FileType,
   config: ConnectionConfig,
-) {
+): Promise<connection.QueryResult> {
+  try {
+    switch (type) {
+      case DBFileType.TABLE_FOLDER:
+        return await callWails(
+          DBGetTables,
+          connection.ConnectionConfig.createFrom(config),
+          dbName,
+        );
+
+      default:
+        throw new Error(`不支持的类型: ${type}`);
+    }
+  } catch (e) {
+    throw e;
+  }
+}
+
+// 根据数据库连接项加载其子项数据
+export async function loadDBConnectionPropertyChildren(
+  item: PropertyItemType,
+): Promise<PropertyItemType[]> {
+  const { type, level: pLevel, connectionConfig: config, label } = item;
+
   let res: connection.QueryResult;
   try {
+    if (!config) {
+      throw new Error("缺少连接配置");
+    }
+
     switch (type) {
       case ConnectionType.MYSQL:
         res = await callWails(
@@ -125,17 +218,44 @@ export async function loadDBConnectionPropertyChildren(
           connection.ConnectionConfig.createFrom(config),
         );
         break;
+      case DBFileType.DATABASE:
+        res = createDatabaseQueryResult();
+        // 需要立刻加载子项
+        for (const row of res.data) {
+          try {
+            const rowChildren = await loadDBChildrenByDBName(
+              label,
+              row["type"],
+              config,
+            );
+            row["children"] = rowChildren.data;
+          } catch {
+            continue;
+          }
+        }
+        break;
       default:
         throw new Error(`不支持 connection type: ${type}`);
     }
 
-    return createPropertyItemListFromDBQueryResult(pLevel, type, res.data);
-  } catch {}
+    return createPropertyItemListFromDBQueryResult(
+      pLevel,
+      type,
+      res.data,
+      config,
+    );
+  } catch {
+    return [];
+  }
 }
 
 export const usePropertyStore = create<PropertyState>()(
   persist(
     (set, get) => ({
+      selectedUUID: "",
+      setSelectedUUID: (uuid: string) => {
+        set(() => ({ selectedUUID: uuid }));
+      },
       propertyList: [],
       setPropertyList: (list: PropertyItemType[]) => {
         set(() => ({ propertyList: list }));
@@ -158,11 +278,7 @@ export const usePropertyStore = create<PropertyState>()(
         if (!dir.loaded) {
           // 数据库连接
           if (isDBConnection(dir.type)) {
-            const children = await loadDBConnectionPropertyChildren(
-              dir.level,
-              dir.type,
-              dir.connectionConfig!,
-            );
+            const children = await loadDBConnectionPropertyChildren(dir);
             dir.children = children;
           } else {
             // TODO: 其他连接

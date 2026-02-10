@@ -15,6 +15,7 @@
 package logger
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -25,6 +26,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/chenyang-zz/boxify/internal/utils"
 )
 
 const (
@@ -46,9 +49,9 @@ var (
 
 // Init 初始化日志系统，确保只执行一次。根据环境变量或系统默认路径创建日志文件，并设置日志输出。
 // 日志文件会自动轮转和清理旧日志。
-func Init() {
+func Init(ctx context.Context) {
 	once.Do(func() {
-		path, out := initOutput()
+		path, out := initOutput(ctx)
 		logMu.Lock()
 		defer logMu.Unlock()
 		logPath = path
@@ -60,7 +63,7 @@ func Init() {
 // Path 返回当前日志文件的路径。如果日志系统尚未初始化，则会先进行初始化。
 // 返回的路径可能是环境变量指定的目录、系统默认配置目录，或者临时目录中的日志文件路径。
 func Path() string {
-	Init()
+	Init(context.Background())
 	logMu.Lock()
 	defer logMu.Unlock()
 	return logPath
@@ -69,7 +72,7 @@ func Path() string {
 // Close 关闭日志系统，释放资源。会将日志输出重置为标准错误，并关闭日志文件。
 // 如果日志系统尚未初始化，则会先进行初始化。调用此函数后，日志文件将不再被写入，并且相关资源将被清理。
 func Close() {
-	Init()
+	Init(context.Background())
 	logMu.Lock()
 	defer logMu.Unlock()
 	if logInst != nil {
@@ -157,7 +160,7 @@ func ErrorChain(err error) string {
 // 函数首先确保日志系统已初始化，然后获取当前的日志实例，并使用指定的格式输出日志消息。
 // 如果日志实例不可用，则函数会直接返回，不进行任何操作。
 func printf(level string, format string, args ...any) {
-	Init()
+	Init(context.Background())
 	logMu.Lock()
 	inst := logInst
 	logMu.Unlock()
@@ -169,8 +172,9 @@ func printf(level string, format string, args ...any) {
 
 // initOutput 初始化日志输出，优先使用环境变量指定的目录，如果不可用则使用系统默认配置目录，最后退回到临时目录。
 // 返回日志文件路径和对应的io.Writer。
-func initOutput() (string, io.Writer) {
+func initOutput(ctx context.Context) (string, io.Writer) {
 	dir := strings.TrimSpace(os.Getenv(envLogDir))
+
 	if dir == "" {
 		base, err := os.UserConfigDir()
 		if err != nil || strings.TrimSpace(base) == "" {
@@ -192,7 +196,12 @@ func initOutput() (string, io.Writer) {
 	}
 
 	logFile = f
-	return path, f
+	writer := io.Writer(f)
+
+	if utils.IsDev(ctx) {
+		writer = io.MultiWriter(os.Stdout, f)
+	}
+	return path, writer
 }
 
 // rotateIfNeeded 检查日志文件大小，如果超过限制则进行轮转，并清理旧日志。

@@ -15,15 +15,18 @@ function App() {
   const isOpen = useAppStore(useShallow((state) => state.isPropertyOpen));
   return (
     <TooltipProvider>
-      <div id="App" className="h-screen w-screen bg-background flex flex-col">
+      <div
+        id="App"
+        className="h-screen w-screen bg-background flex flex-col overflow-hidden"
+      >
         <TitleBar />
-        <div className="flex-1 flex">
+        <div className="flex-1 flex overflow-hidden">
           <UtilBar />
-          <main className="w-full h-full flex flex-1 pb-2">
+          <main className="w-full h-full flex flex-1 pb-2 ">
             <ResizablePanelGroup orientation="horizontal">
               {isOpen && (
                 <>
-                  <ResizablePanel defaultSize="200px" maxSize="300px">
+                  <ResizablePanel defaultSize="200px" maxSize="400px">
                     <PropertyTree />
                   </ResizablePanel>
                   <ResizableHandle />

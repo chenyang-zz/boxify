@@ -62,7 +62,7 @@ func NewApp() *App {
 // Startup 是在应用程序启动时调用的函数
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
-	logger.Init()
+	logger.Init(ctx)
 	logger.Infof("应用启动完成")
 }
 
@@ -370,21 +370,20 @@ func (a *App) DBGetDatabases(config *connection.ConnectionConfig) *connection.Qu
 
 // DBGetTables 获取表列表
 func (a *App) DBGetTables(config *connection.ConnectionConfig, dbName string) *connection.QueryResult {
-	runConfig := *config
-	if dbName != "" {
-		runConfig.Database = dbName
-	}
+	runConfig := normalizeRunConfig(config, dbName)
 
-	db, err := a.getDatabase(&runConfig)
+	dbInst, err := a.getDatabase(runConfig)
 	if err != nil {
+		logger.ErrorfWithTrace(err, "DBGetTables 获取连接失败：%s", formatConnSummary(runConfig))
 		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
 	}
 
-	tables, err := db.GetTables(dbName)
+	tables, err := dbInst.GetTables(dbName)
 	if err != nil {
+		logger.ErrorfWithTrace(err, "DBGetTables 获取表列表失败：%s", formatConnSummary(runConfig))
 		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),

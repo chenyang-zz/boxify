@@ -8,19 +8,32 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 // 封装一个函数用于调用Wails后端函数，并统一处理错误
-export async function callWails(
-  fn: (...args: any) => Promise<connection.QueryResult>,
-  ...args: any
-) {
-  return new Promise<connection.QueryResult>(async (resolve, reject) => {
-    const res = await fn(...args);
+export async function callWails<
+  T extends (...args: any[]) => Promise<connection.QueryResult>,
+>(fn: T, ...args: Parameters<T>) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    const res = await Promise.race([
+      fn(...args),
+      new Promise<connection.QueryResult>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("请求超时")), 10000);
+      }),
+    ]);
+
     if (!res.success) {
-      toast.error("发生错误", {
-        description: res.message,
-      });
-      reject(new Error(res.message));
-      return;
+      throw new Error(res.message);
     }
-    resolve(res);
-  });
+
+    return res;
+  } catch (e) {
+    toast.error("发生错误", {
+      description: (e as Error).message,
+    });
+    throw e;
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
 }

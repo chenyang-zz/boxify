@@ -40,7 +40,7 @@ const TreeHeader: FC = () => {
   ];
 
   return (
-    <nav className="flex items-center p-2 justify-between text-foreground">
+    <nav className="flex items-center p-2 justify-between text-foreground shrink-0">
       <span className="text-sm font-bold">资产列表</span>
       <div className="flex gap-2">
         {actions.map((action, index) => (

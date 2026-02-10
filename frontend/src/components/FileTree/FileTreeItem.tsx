@@ -14,7 +14,6 @@
 
 import { FC, useState } from "react";
 import { FIleTreeList } from ".";
-import { useFileTreeContext } from "./context";
 import { cn } from "@/lib/utils";
 import { ChevronRight, File } from "lucide-react";
 import {
@@ -62,6 +61,20 @@ const FileIcon: FC<FileIconProps> = ({ isDir, type }) => {
         return (
           <img className="size-4.5 mr-1 shrink-0" src="/icons/database.svg" />
         );
+      case DBFileType.TABLE_FOLDER:
+        return (
+          <img className="size-4.5 mr-1 shrink-0" src="/icons/table.svg" />
+        );
+      case DBFileType.VIEW_FOLDER:
+        return <img className="size-4.5 mr-1 shrink-0" src="/icons/view.svg" />;
+      case DBFileType.QUERY_FOLDER:
+        return (
+          <img className="size-4.5 mr-1 shrink-0" src="/icons/query.svg" />
+        );
+      case DBFileType.FUNCTION_FOLDER:
+        return (
+          <img className="size-4.5 mr-1 shrink-0" src="/icons/function.svg" />
+        );
     }
   }
   switch (type) {
@@ -69,6 +82,8 @@ const FileIcon: FC<FileIconProps> = ({ isDir, type }) => {
       return (
         <img className="size-4.5 mr-1 shrink-0" src="/icons/terminal.svg" />
       );
+    case DBFileType.TABLE:
+      return <img className="size-4.5 mr-1 shrink-0" src="/icons/table.svg" />;
     default:
       return <File className="size-4.5 mr-1 shrink-0" />;
   }
@@ -76,10 +91,10 @@ const FileIcon: FC<FileIconProps> = ({ isDir, type }) => {
 
 const FileTreeItem: FC<FileTreeItemProps> = ({ item }) => {
   const [loading, setLoading] = useState(false);
-  const { selectedUUID, setSelectedUUID } = useFileTreeContext();
+  const selectedUUID = usePropertyStore((state) => state.selectedUUID);
 
   const handleClickItem = () => {
-    setSelectedUUID(item.uuid);
+    propertyStoreMethods.setSelectedUUID(item.uuid);
 
     // TODO
   };
