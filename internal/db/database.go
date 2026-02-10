@@ -24,16 +24,16 @@ type Database interface {
 	Connect(config *connection.ConnectionConfig) error
 	Close() error
 	Ping() error
-	Query(query string) ([]map[string]interface{}, []string, error)
-	Exec(query string) (int64, error)
+	Query(query string, args ...any) ([]map[string]interface{}, []string, error)
+	Exec(query string, args ...any) (int64, error)
 	GetDatabases() ([]string, error)
 	GetTables(dbName string) ([]string, error)
 	GetCreateStatement(dbName, tableName string) (string, error)
-	GetColumns(dbName, tableName string) ([]connection.ColumnDefinition, error)
-	GetAllColumns(dbName string) ([]connection.ColumnDefinitionWithTable, error)
-	GetIndexes(dbName, tableName string) ([]connection.IndexDefinition, error)
-	GetForeignKeys(dbName, tableName string) ([]connection.ForeignKeyDefinition, error)
-	GetTriggers(dbName, tableName string) ([]connection.TriggerDefinition, error)
+	GetColumns(dbName, tableName string) ([]*connection.ColumnDefinition, error)
+	GetAllColumns(dbName string) ([]*connection.ColumnDefinitionWithTable, error)
+	GetIndexes(dbName, tableName string) ([]*connection.IndexDefinition, error)
+	GetForeignKeys(dbName, tableName string) ([]*connection.ForeignKeyDefinition, error)
+	GetTriggers(dbName, tableName string) ([]*connection.TriggerDefinition, error)
 }
 
 type BatchApplier interface {

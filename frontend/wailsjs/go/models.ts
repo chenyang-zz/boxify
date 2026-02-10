@@ -48,6 +48,30 @@ export namespace connection {
 		    return a;
 		}
 	}
+	export class ColumnDefinition {
+	    name: string;
+	    type: string;
+	    nullable: string;
+	    key: string;
+	    default?: string;
+	    extra: string;
+	    comment: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ColumnDefinition(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.type = source["type"];
+	        this.nullable = source["nullable"];
+	        this.key = source["key"];
+	        this.default = source["default"];
+	        this.extra = source["extra"];
+	        this.comment = source["comment"];
+	    }
+	}
 	export class SSHConfig {
 	    host: string;
 	    port: number;

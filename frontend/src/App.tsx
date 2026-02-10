@@ -10,6 +10,7 @@ import { TooltipProvider } from "./components/ui/tooltip";
 import { useShallow } from "zustand/react/shallow";
 import { useAppStore } from "./store/app.store";
 import { Toaster } from "@/components/ui/sonner";
+import DBTable from "./components/DBTable";
 
 function App() {
   const isOpen = useAppStore(useShallow((state) => state.isPropertyOpen));
@@ -17,23 +18,25 @@ function App() {
     <TooltipProvider>
       <div
         id="App"
-        className="h-screen w-screen bg-background flex flex-col overflow-hidden"
+        className="h-screen w-screen bg-background flex flex-col overflow-hidden text-foreground"
       >
         <TitleBar />
         <div className="flex-1 flex overflow-hidden">
           <UtilBar />
-          <main className="w-full h-full flex flex-1 pb-2 ">
+          <main className="h-full flex flex-1 pb-2 overflow-hidden">
             <ResizablePanelGroup orientation="horizontal">
               {isOpen && (
                 <>
-                  <ResizablePanel defaultSize="200px" maxSize="400px">
+                  <ResizablePanel defaultSize="250px" maxSize="400px">
                     <PropertyTree />
                   </ResizablePanel>
-                  <ResizableHandle />
+                  <ResizableHandle className=" opacity-0" />
                 </>
               )}
 
-              <ResizablePanel></ResizablePanel>
+              <ResizablePanel className="pl-1 pr-2">
+                <DBTable />
+              </ResizablePanel>
             </ResizablePanelGroup>
           </main>
         </div>

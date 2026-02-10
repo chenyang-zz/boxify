@@ -20,7 +20,9 @@ import (
 	"github.com/chenyang-zz/boxify/internal/connection"
 )
 
-// normalizeRunConfig 根据连接配置和用户输入的 dbName 生成最终的运行配置。对于大多数数据库类型，dbName 被视为要连接的数据库名称，并覆盖连接配置中的 Database 字段。
+// normalizeRunConfig 根据连接配置和用户输入的 dbName 生成最终的运行配置
+// 对于大多数数据库类型，dbName 被视为要连接的数据库名称
+// 并覆盖连接配置中的 Database 字段。
 func normalizeRunConfig(config *connection.ConnectionConfig, dbName string) *connection.ConnectionConfig {
 	runConfig := *config
 	name := strings.TrimSpace(dbName)
@@ -42,4 +44,33 @@ func normalizeRunConfig(config *connection.ConnectionConfig, dbName string) *con
 	}
 
 	return &runConfig
+}
+
+// normalizeSchemaAndTable 根据数据库类型和用户输入的 dbName/tableName 规范化 schema 和 table 名称
+func normalizeSchemaAndTable(config *connection.ConnectionConfig, dbName string, tableName string) (string, string) {
+	rawTable := strings.TrimSpace(tableName)
+	rawDB := strings.TrimSpace(dbName)
+	if rawTable == "" {
+		return rawDB, rawTable
+	}
+
+	if parts := strings.SplitN(rawTable, ".", 2); len(parts) == 2 {
+		schema := strings.TrimSpace(parts[0])
+		table := strings.TrimSpace(parts[1])
+		if schema != "" && table != "" {
+			return schema, table
+		}
+	}
+
+	switch strings.ToLower(strings.TrimSpace(config.Type)) {
+	case "postgres", "kingbase", "highgo", "vastbase":
+		// PG/金仓/瀚高/海量：dbName 在 UI 里是"数据库"，schema 需从 tableName 或使用默认 public。
+		return "public", rawTable
+	case "sqlserver":
+		// SQL Server：dbName 表示数据库，schema 默认 dbo
+		return "dbo", rawTable
+	default:
+		// MySQL：dbName 表示数据库；Oracle/达梦：dbName 表示 schema/owner。
+		return rawDB, rawTable
+	}
 }

@@ -42,8 +42,8 @@ export function DBGetTriggers(arg1, arg2, arg3) {
   return window['go']['app']['App']['DBGetTriggers'](arg1, arg2, arg3);
 }
 
-export function DBQuery(arg1, arg2, arg3) {
-  return window['go']['app']['App']['DBQuery'](arg1, arg2, arg3);
+export function DBQuery(arg1, arg2, arg3, arg4) {
+  return window['go']['app']['App']['DBQuery'](arg1, arg2, arg3, arg4);
 }
 
 export function DBShowCreateTable(arg1, arg2, arg3) {
@@ -70,8 +70,8 @@ export function MySQLGetTables(arg1, arg2) {
   return window['go']['app']['App']['MySQLGetTables'](arg1, arg2);
 }
 
-export function MySQLQuery(arg1, arg2, arg3) {
-  return window['go']['app']['App']['MySQLQuery'](arg1, arg2, arg3);
+export function MySQLQuery(arg1, arg2, arg3, arg4) {
+  return window['go']['app']['App']['MySQLQuery'](arg1, arg2, arg3, arg4);
 }
 
 export function MySQLShowCreateTable(arg1, arg2, arg3) {
@@ -84,4 +84,8 @@ export function OpenSQLFile() {
 
 export function TestConnection(arg1) {
   return window['go']['app']['App']['TestConnection'](arg1);
+}
+
+export function TypeOnly_ColumnDefinition() {
+  return window['go']['app']['App']['TypeOnly_ColumnDefinition']();
 }

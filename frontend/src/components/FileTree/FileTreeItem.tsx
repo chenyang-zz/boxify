@@ -23,12 +23,17 @@ import {
   FileType,
 } from "@/common/constrains";
 import {
-  getPropertyItemByUUID,
   PropertyItemType,
   propertyStoreMethods,
   usePropertyStore,
 } from "@/store/property.store";
 import { Spinner } from "../ui/spinner";
+import { Badge } from "../ui/badge";
+import {
+  getPropertyItemByUUID,
+  triggerDirOpen,
+  triggerFileOpen,
+} from "@/lib/property";
 
 interface FileTreeItemProps {
   item: PropertyItemType;
@@ -99,15 +104,15 @@ const FileTreeItem: FC<FileTreeItemProps> = ({ item }) => {
     // TODO
   };
 
-  const handleToggleDir = async () => {
-    const propertyItem = getPropertyItemByUUID(item.uuid);
-    if (!propertyItem) return;
-    if (!propertyItem.loaded) {
-      setLoading(true);
-    }
-
+  // 打开/关闭 列表项
+  const handleTogglePropertyItem = async () => {
     try {
-      await propertyStoreMethods.triggerDirOpen(item.uuid);
+      setLoading(true);
+      if (!item.isDir) {
+        await triggerFileOpen(item.uuid);
+      } else {
+        await triggerDirOpen(item.uuid);
+      }
     } finally {
       setLoading(false);
     }
@@ -124,7 +129,7 @@ const FileTreeItem: FC<FileTreeItemProps> = ({ item }) => {
     <>
       <div
         className={cn(
-          "px-2 py-0.5 flex items-center hover:bg-accent hover:text-accent-foreground cursor-default select-none",
+          "px-2 py-0.5 flex items-center justify-between overflow-hidden hover:bg-accent hover:text-accent-foreground cursor-default select-none",
           selectedUUID === item.uuid &&
             "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground",
         )}
@@ -132,18 +137,26 @@ const FileTreeItem: FC<FileTreeItemProps> = ({ item }) => {
           paddingLeft: item.level * 8, // 根据层级增加左侧缩进
         }}
         onClick={handleClickItem}
-        onDoubleClick={handleToggleDir}
+        onDoubleClick={handleTogglePropertyItem}
       >
-        <ChevronRight
-          className={cn("size-3 mr-0.5 shrink-0", !item.isDir && "opacity-0")}
-          style={{
-            transition: "transform 0.2s",
-            transform: item.opened ? "rotate(90deg)" : "rotate(0deg)",
-          }}
-          onClick={handleToggleDir}
-        />
-        {fileIcon}
-        <span className=" truncate">{item.label}</span>
+        <div className="flex items-center">
+          <ChevronRight
+            className={cn("size-3 mr-0.5 shrink-0", !item.isDir && "opacity-0")}
+            style={{
+              transition: "transform 0.2s",
+              transform: item.opened ? "rotate(90deg)" : "rotate(0deg)",
+            }}
+            onClick={handleTogglePropertyItem}
+          />
+          {fileIcon}
+          <span className=" truncate">{item.label}</span>
+        </div>
+
+        {typeof item.extra?.["count"] === "number" && (
+          <Badge className="py-0" variant="secondary">
+            {item.extra["count"]}
+          </Badge>
+        )}
       </div>
       {item.opened && <FIleTreeList data={item.children || []} />}
     </>

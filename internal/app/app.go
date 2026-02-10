@@ -28,6 +28,7 @@ import (
 	"github.com/chenyang-zz/boxify/internal/connection"
 	"github.com/chenyang-zz/boxify/internal/db"
 	"github.com/chenyang-zz/boxify/internal/logger"
+	"github.com/chenyang-zz/boxify/internal/utils"
 
 	"github.com/pkg/errors"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -263,9 +264,9 @@ func (a *App) MySQLConnect(config *connection.ConnectionConfig) *connection.Quer
 	return a.DBConnect(config)
 }
 
-func (a *App) MySQLQuery(config *connection.ConnectionConfig, dbName, query string) *connection.QueryResult {
+func (a *App) MySQLQuery(config *connection.ConnectionConfig, dbName, query string, args []any) *connection.QueryResult {
 	config.Type = "mysql"
-	return a.DBQuery(config, dbName, query)
+	return a.DBQuery(config, dbName, query, args)
 }
 
 func (a *App) MySQLGetDatabases(config *connection.ConnectionConfig) *connection.QueryResult {
@@ -284,26 +285,41 @@ func (a *App) MySQLShowCreateTable(config *connection.ConnectionConfig, dbName, 
 }
 
 // DBQuery 执行一个查询并返回结果
-func (a *App) DBQuery(config *connection.ConnectionConfig, dbName, query string) *connection.QueryResult {
-	runConfig := *config
+func (a *App) DBQuery(config *connection.ConnectionConfig, dbName, query string, args []any) *connection.QueryResult {
+	runConfig := normalizeRunConfig(config, dbName)
 
-	if dbName != "" {
-		runConfig.Database = dbName
-	}
-
-	db, err := a.getDatabase(&runConfig)
+	dbInst, err := a.getDatabase(runConfig)
 	if err != nil {
+		logger.ErrorfWithTrace(err, "DBQuery 获取连接失败：%s", formatConnSummary(runConfig))
 		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
 	}
 
+	query = sanitizeSQLForPgLike(runConfig.Type, query)
+	timeoutSeconds := runConfig.Timeout
+	if timeoutSeconds <= 0 {
+		timeoutSeconds = 30
+	}
+	ctx, cancel := utils.ContextWithTimeout(time.Duration(timeoutSeconds) * time.Second)
+	defer cancel()
+
 	// 检查是否是一个 SELECT 查询
 	lowerQuery := strings.TrimSpace(strings.ToLower(query))
 	if strings.HasPrefix(lowerQuery, "select") || strings.HasPrefix(lowerQuery, "show") || strings.HasPrefix(lowerQuery, "describe") || strings.HasPrefix(lowerQuery, "explain") {
-		data, columns, err := db.Query(query)
+		var data []map[string]interface{}
+		var columns []string
+
+		if q, ok := dbInst.(interface {
+			QueryContext(context.Context, string, ...any) ([]map[string]interface{}, []string, error)
+		}); ok {
+			data, columns, err = q.QueryContext(ctx, query, args...)
+		} else {
+			data, columns, err = dbInst.Query(query, args...)
+		}
 		if err != nil {
+			logger.ErrorfWithTrace(err, "DBQuery 查询失败：%s SQL片段=%q", formatConnSummary(runConfig), sqlSnippet(query))
 			return &connection.QueryResult{
 				Success: false,
 				Message: err.Error(),
@@ -317,8 +333,17 @@ func (a *App) DBQuery(config *connection.ConnectionConfig, dbName, query string)
 		}
 	} else {
 		// Exec
-		affected, err := db.Exec(query)
+
+		var affected int64
+		if e, ok := dbInst.(interface {
+			ExecContext(context.Context, string) (int64, error)
+		}); ok {
+			affected, err = e.ExecContext(ctx, query)
+		} else {
+			affected, err = dbInst.Exec(query)
+		}
 		if err != nil {
+			logger.ErrorfWithTrace(err, "DBQuery 执行失败：%s SQL片段=%q", formatConnSummary(runConfig), sqlSnippet(query))
 			return &connection.QueryResult{
 				Success: false,
 				Message: err.Error(),
@@ -436,21 +461,21 @@ func (a *App) DBShowCreateTable(config *connection.ConnectionConfig, dbName, tab
 
 // DBGetColumns 获取列信息
 func (a *App) DBGetColumns(config *connection.ConnectionConfig, dbName, tableName string) *connection.QueryResult {
-	runConfig := *config
-	if dbName != "" {
-		runConfig.Database = dbName
-	}
+	runConfig := normalizeRunConfig(config, dbName)
 
-	db, err := a.getDatabase(&runConfig)
+	db, err := a.getDatabase(runConfig)
 	if err != nil {
+		logger.ErrorfWithTrace(err, "DBGetColumns 获取连接失败：%s", formatConnSummary(runConfig))
 		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
 	}
 
-	columns, err := db.GetColumns(dbName, tableName)
+	schemaName, pureTableName := normalizeSchemaAndTable(config, dbName, tableName)
+	columns, err := db.GetColumns(schemaName, pureTableName)
 	if err != nil {
+		logger.ErrorfWithTrace(err, "DBGetColumns 获取列信息失败：%s.%s.%s", formatConnSummary(runConfig), schemaName, pureTableName)
 		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
@@ -944,4 +969,18 @@ func (a *App) ExportTable(config *connection.ConnectionConfig, dbName, tableName
 		Success: true,
 		Message: "导出成功",
 	}
+}
+
+func (a *App) TypeOnly_ColumnDefinition() *connection.ColumnDefinition {
+	return &connection.ColumnDefinition{}
+}
+
+// sqlSnippet 返回SQL查询的简短片段，用于日志输出，限制长度以避免过长
+func sqlSnippet(query string) string {
+	q := strings.TrimSpace(query)
+	const max = 200
+	if len(q) <= max {
+		return q
+	}
+	return q[:max] + "..."
 }

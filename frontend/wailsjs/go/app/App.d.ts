@@ -22,7 +22,7 @@ export function DBGetTables(arg1:connection.ConnectionConfig,arg2:string):Promis
 
 export function DBGetTriggers(arg1:connection.ConnectionConfig,arg2:string,arg3:string):Promise<connection.QueryResult>;
 
-export function DBQuery(arg1:connection.ConnectionConfig,arg2:string,arg3:string):Promise<connection.QueryResult>;
+export function DBQuery(arg1:connection.ConnectionConfig,arg2:string,arg3:string,arg4:Array<any>):Promise<connection.QueryResult>;
 
 export function DBShowCreateTable(arg1:connection.ConnectionConfig,arg2:string,arg3:string):Promise<connection.QueryResult>;
 
@@ -36,10 +36,12 @@ export function MySQLGetDatabases(arg1:connection.ConnectionConfig):Promise<conn
 
 export function MySQLGetTables(arg1:connection.ConnectionConfig,arg2:string):Promise<connection.QueryResult>;
 
-export function MySQLQuery(arg1:connection.ConnectionConfig,arg2:string,arg3:string):Promise<connection.QueryResult>;
+export function MySQLQuery(arg1:connection.ConnectionConfig,arg2:string,arg3:string,arg4:Array<any>):Promise<connection.QueryResult>;
 
 export function MySQLShowCreateTable(arg1:connection.ConnectionConfig,arg2:string,arg3:string):Promise<connection.QueryResult>;
 
 export function OpenSQLFile():Promise<connection.QueryResult>;
 
 export function TestConnection(arg1:connection.ConnectionConfig):Promise<connection.QueryResult>;
+
+export function TypeOnly_ColumnDefinition():Promise<connection.ColumnDefinition>;

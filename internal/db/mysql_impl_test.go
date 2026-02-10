@@ -425,7 +425,7 @@ func TestMySQLDB_GetColumns(t *testing.T) {
 	}
 
 	// 检查是否包含必要的列
-	columnMap := make(map[string]connection.ColumnDefinition)
+	columnMap := make(map[string]*connection.ColumnDefinition)
 	for _, col := range columns {
 		columnMap[col.Name] = col
 	}
@@ -935,6 +935,287 @@ func TestMySQLDB_ExecContext(t *testing.T) {
 // createTestContext 创建测试用的上下文
 func createTestContext(timeout time.Duration) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), timeout)
+}
+
+// Test_normalizeMySQLDateTimeValue 测试日期时间值标准化
+func Test_normalizeMySQLDateTimeValue(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    interface{}
+		expected interface{}
+	}{
+		{
+			name:     "RFC3339带Z后缀",
+			input:    "2024-01-15T10:30:45Z",
+			expected: "2024-01-15 10:30:45",
+		},
+		{
+			name:     "RFC3339带毫秒和Z后缀",
+			input:    "2024-01-15T10:30:45.123Z",
+			expected: "2024-01-15 10:30:45.123000",
+		},
+		{
+			name:     "RFC3339带微秒和Z后缀",
+			input:    "2024-01-15T10:30:45.123456Z",
+			expected: "2024-01-15 10:30:45.123456",
+		},
+		{
+			name:     "RFC3339带正时区偏移",
+			input:    "2024-01-15T10:30:45+08:00",
+			expected: "2024-01-15 10:30:45",
+		},
+		{
+			name:     "RFC3339带负时区偏移",
+			input:    "2024-01-15T10:30:45-05:00",
+			expected: "2024-01-15 10:30:45",
+		},
+		{
+			name:     "RFC3339Nano带微秒和时区偏移",
+			input:    "2024-01-15T10:30:45.123456+08:00",
+			expected: "2024-01-15 10:30:45.123456",
+		},
+		{
+			name:     "空格分隔带Z后缀",
+			input:    "2024-01-15 10:30:45Z",
+			expected: "2024-01-15 10:30:45",
+		},
+		{
+			name:     "空格分隔带时区偏移",
+			input:    "2024-01-15 10:30:45+08:00",
+			expected: "2024-01-15 10:30:45",
+		},
+		{
+			name:     "标准MySQL DATETIME格式",
+			input:    "2024-01-15 10:30:45",
+			expected: "2024-01-15 10:30:45",
+		},
+		{
+			name:     "MySQL DATETIME带微秒",
+			input:    "2024-01-15 10:30:45.123456",
+			expected: "2024-01-15 10:30:45.123456",
+		},
+		{
+			name:     "带空格的时区偏移（加号）",
+			input:    "2024-01-15 10:30:45+ 08:00",
+			expected: "2024-01-15 10:30:45",
+		},
+		{
+			name:     "带空格的时区偏移（减号）",
+			input:    "2024-01-15 10:30:45- 05:00",
+			expected: "2024-01-15 10:30:45",
+		},
+		{
+			name:     "空字符串",
+			input:    "",
+			expected: "",
+		},
+		{
+			name:     "仅空格",
+			input:    "   ",
+			expected: "   ",
+		},
+		{
+			name:     "非字符串值",
+			input:    12345,
+			expected: 12345,
+		},
+		{
+			name:     "nil值",
+			input:    nil,
+			expected: nil,
+		},
+		{
+			name:     "无效的日期格式",
+			input:    "not-a-date",
+			expected: "not-a-date",
+		},
+		{
+			name:     "无时区偏移的ISO格式",
+			input:    "2024-01-15T10:30:45",
+			expected: "2024-01-15 10:30:45",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := normalizeMySQLDateTimeValue(tt.input)
+			if result != tt.expected {
+				t.Errorf("normalizeMySQLDateTimeValue(%v) = %v, 期望 %v", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+// Test_hasTimezoneOffset 测试时区偏移检测
+func Test_hasTimezoneOffset(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected bool
+	}{
+		{
+			name:     "带冒号的正时区偏移",
+			input:    "2024-01-15T10:30:45+08:00",
+			expected: true,
+		},
+		{
+			name:     "带冒号的负时区偏移",
+			input:    "2024-01-15T10:30:45-05:00",
+			expected: true,
+		},
+		{
+			name:     "不带冒号的正时区偏移",
+			input:    "2024-01-15T10:30:45+0800",
+			expected: true,
+		},
+		{
+			name:     "不带冒号的负时区偏移",
+			input:    "2024-01-15T10:30:45-0500",
+			expected: true,
+		},
+		{
+			name:     "Z后缀",
+			input:    "2024-01-15T10:30:45Z",
+			expected: false,
+		},
+		{
+			name:     "无时区偏移",
+			input:    "2024-01-15 10:30:45",
+			expected: false,
+		},
+		{
+			name:     "偏移符号位置太早",
+			input:    "2024-01-1+08:00",
+			expected: false,
+		},
+		{
+			name:     "偏移符号后无数字",
+			input:    "2024-01-15T10:30:45+",
+			expected: false,
+		},
+		{
+			name:     "偏移数字不足",
+			input:    "2024-01-15T10:30:45+08",
+			expected: false,
+		},
+		{
+			name:     "空字符串",
+			input:    "",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := hasTimezoneOffset(tt.input)
+			if result != tt.expected {
+				t.Errorf("hasTimezoneOffset(%q) = %v, 期望 %v", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+// Test_isAllDigits 测试字符串是否全是数字
+func Test_isAllDigits(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected bool
+	}{
+		{
+			name:     "纯数字",
+			input:    "12345",
+			expected: true,
+		},
+		{
+			name:     "单个数字",
+			input:    "5",
+			expected: true,
+		},
+		{
+			name:     "带字母",
+			input:    "123a45",
+			expected: false,
+		},
+		{
+			name:     "带特殊字符",
+			input:    "123:45",
+			expected: false,
+		},
+		{
+			name:     "带空格",
+			input:    "123 45",
+			expected: false,
+		},
+		{
+			name:     "空字符串",
+			input:    "",
+			expected: false,
+		},
+		{
+			name:     "全零",
+			input:    "0000",
+			expected: true,
+		},
+		{
+			name:     "带负号",
+			input:    "-123",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isAllDigits(tt.input)
+			if result != tt.expected {
+				t.Errorf("isAllDigits(%q) = %v, 期望 %v", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+// Test_formatMySQLDateTime 测试日期时间格式化
+func Test_formatMySQLDateTime(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    time.Time
+		expected string
+	}{
+		{
+			name:     "精确到秒",
+			input:    time.Date(2024, 1, 15, 10, 30, 45, 0, time.UTC),
+			expected: "2024-01-15 10:30:45",
+		},
+		{
+			name:     "精确到毫秒",
+			input:    time.Date(2024, 1, 15, 10, 30, 45, 123000000, time.UTC),
+			expected: "2024-01-15 10:30:45.123000",
+		},
+		{
+			name:     "精确到微秒",
+			input:    time.Date(2024, 1, 15, 10, 30, 45, 123456000, time.UTC),
+			expected: "2024-01-15 10:30:45.123456",
+		},
+		{
+			name:     "精确到纳秒（向上取整）",
+			input:    time.Date(2024, 1, 15, 10, 30, 45, 123456789, time.UTC),
+			expected: "2024-01-15 10:30:45.123456",
+		},
+		{
+			name:     "零时区",
+			input:    time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC),
+			expected: "2024-01-15 00:00:00",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := formatMySQLDateTime(tt.input)
+			if result != tt.expected {
+				t.Errorf("formatMySQLDateTime(%v) = %q, 期望 %q", tt.input, result, tt.expected)
+			}
+		})
+	}
 }
 
 // BenchmarkQuery 基准测试查询性能

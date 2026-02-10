@@ -104,12 +104,12 @@ func (m *MySQLDB) Ping() error {
 }
 
 // QueryContext 执行带有上下文的查询并返回结果
-func (m *MySQLDB) QueryContext(ctx context.Context, query string) ([]map[string]interface{}, []string, error) {
+func (m *MySQLDB) QueryContext(ctx context.Context, query string, args ...any) ([]map[string]interface{}, []string, error) {
 	if m.conn == nil {
 		return nil, nil, fmt.Errorf("连接没有打开")
 	}
 
-	rows, err := m.conn.QueryContext(ctx, query)
+	rows, err := m.conn.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -119,12 +119,12 @@ func (m *MySQLDB) QueryContext(ctx context.Context, query string) ([]map[string]
 }
 
 // Query 执行查询并返回结果
-func (m *MySQLDB) Query(query string) ([]map[string]interface{}, []string, error) {
+func (m *MySQLDB) Query(query string, args ...any) ([]map[string]interface{}, []string, error) {
 	if m.conn == nil {
 		return nil, nil, fmt.Errorf("连接没有打开")
 	}
 
-	rows, err := m.conn.Query(query)
+	rows, err := m.conn.Query(query, args...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -134,12 +134,12 @@ func (m *MySQLDB) Query(query string) ([]map[string]interface{}, []string, error
 }
 
 // ExecContext 执行带有上下文的命令并返回受影响的行数
-func (m *MySQLDB) ExecContext(ctx context.Context, query string) (int64, error) {
+func (m *MySQLDB) ExecContext(ctx context.Context, query string, args ...any) (int64, error) {
 	if m.conn == nil {
 		return 0, fmt.Errorf("连接没有打开")
 	}
 
-	res, err := m.conn.ExecContext(ctx, query)
+	res, err := m.conn.ExecContext(ctx, query, args...)
 	if err != nil {
 		return 0, err
 	}
@@ -148,12 +148,12 @@ func (m *MySQLDB) ExecContext(ctx context.Context, query string) (int64, error) 
 }
 
 // Exec 执行命令并返回受影响的行数
-func (m *MySQLDB) Exec(query string) (int64, error) {
+func (m *MySQLDB) Exec(query string, args ...any) (int64, error) {
 	if m.conn == nil {
 		return 0, fmt.Errorf("连接没有打开")
 	}
 
-	res, err := m.conn.Exec(query)
+	res, err := m.conn.Exec(query, args...)
 	if err != nil {
 		return 0, err
 	}
@@ -228,7 +228,7 @@ func (m *MySQLDB) GetCreateStatement(dbName, tableName string) (string, error) {
 }
 
 // GetColumns 返回指定表的列定义
-func (m *MySQLDB) GetColumns(dbName, tableName string) ([]connection.ColumnDefinition, error) {
+func (m *MySQLDB) GetColumns(dbName, tableName string) ([]*connection.ColumnDefinition, error) {
 	query := fmt.Sprintf("SHOW FULL COLUMNS FROM `%s`.`%s`", dbName, tableName)
 	if dbName == "" {
 		query = fmt.Sprintf("SHOW FULL COLUMNS FROM `%s`", tableName)
@@ -239,9 +239,9 @@ func (m *MySQLDB) GetColumns(dbName, tableName string) ([]connection.ColumnDefin
 		return nil, err
 	}
 
-	var columns []connection.ColumnDefinition
+	var columns []*connection.ColumnDefinition
 	for _, row := range data {
-		col := connection.ColumnDefinition{
+		col := &connection.ColumnDefinition{
 			Name:     fmt.Sprintf("%v", row["Field"]),
 			Type:     fmt.Sprintf("%v", row["Type"]),
 			Nullable: fmt.Sprintf("%v", row["Null"]),
@@ -263,7 +263,7 @@ func (m *MySQLDB) GetColumns(dbName, tableName string) ([]connection.ColumnDefin
 
 // GetAllColumns 返回指定数据库的所有列定义
 // 包含表名以区分不同表的同名列
-func (m *MySQLDB) GetAllColumns(dbName string) ([]connection.ColumnDefinitionWithTable, error) {
+func (m *MySQLDB) GetAllColumns(dbName string) ([]*connection.ColumnDefinitionWithTable, error) {
 	query := fmt.Sprintf("SELECT TABLE_NAME, COLUMN_NAME, COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '%s'", dbName)
 	if dbName == "" {
 		// 如果dbName为空，我们可能需要使用connection
@@ -278,9 +278,9 @@ func (m *MySQLDB) GetAllColumns(dbName string) ([]connection.ColumnDefinitionWit
 		return nil, err
 	}
 
-	var cols []connection.ColumnDefinitionWithTable
+	var cols []*connection.ColumnDefinitionWithTable
 	for _, row := range data {
-		col := connection.ColumnDefinitionWithTable{
+		col := &connection.ColumnDefinitionWithTable{
 			TableName: fmt.Sprintf("%v", row["TABLE_NAME"]),
 			Name:      fmt.Sprintf("%v", row["COLUMN_NAME"]),
 			Type:      fmt.Sprintf("%v", row["COLUMN_TYPE"]),
@@ -292,7 +292,7 @@ func (m *MySQLDB) GetAllColumns(dbName string) ([]connection.ColumnDefinitionWit
 }
 
 // GetIndexes 返回指定表的索引定义
-func (m *MySQLDB) GetIndexes(dbName, tableName string) ([]connection.IndexDefinition, error) {
+func (m *MySQLDB) GetIndexes(dbName, tableName string) ([]*connection.IndexDefinition, error) {
 	query := fmt.Sprintf("SHOW INDEX FROM `%s`.`%s`", dbName, tableName)
 	if dbName == "" {
 		query = fmt.Sprintf("SHOW INDEX FROM `%s`", tableName)
@@ -303,7 +303,7 @@ func (m *MySQLDB) GetIndexes(dbName, tableName string) ([]connection.IndexDefini
 		return nil, err
 	}
 
-	var indexs []connection.IndexDefinition
+	var indexs []*connection.IndexDefinition
 	for _, row := range data {
 		// 需要小心处理类型 Non_unique通常是int
 		nonUnique := 0
@@ -325,7 +325,7 @@ func (m *MySQLDB) GetIndexes(dbName, tableName string) ([]connection.IndexDefini
 			}
 		}
 
-		idx := connection.IndexDefinition{
+		idx := &connection.IndexDefinition{
 			Name:       fmt.Sprintf("%v", row["Key_name"]),
 			ColumnName: fmt.Sprintf("%v", row["Column_name"]),
 			NonUnique:  nonUnique,
@@ -339,7 +339,7 @@ func (m *MySQLDB) GetIndexes(dbName, tableName string) ([]connection.IndexDefini
 }
 
 // GetForeignKeys 返回指定表的外键定义
-func (m *MySQLDB) GetForeignKeys(dbName, tableName string) ([]connection.ForeignKeyDefinition, error) {
+func (m *MySQLDB) GetForeignKeys(dbName, tableName string) ([]*connection.ForeignKeyDefinition, error) {
 	query := fmt.Sprintf(`SELECT CONSTRAINT_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME 
 	FROM information_schema.KEY_COLUMN_USAGE 
 	WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s' AND REFERENCED_TABLE_NAME IS NOT NULL`, dbName, tableName)
@@ -349,9 +349,9 @@ func (m *MySQLDB) GetForeignKeys(dbName, tableName string) ([]connection.Foreign
 		return nil, err
 	}
 
-	var fks []connection.ForeignKeyDefinition
+	var fks []*connection.ForeignKeyDefinition
 	for _, row := range data {
-		fk := connection.ForeignKeyDefinition{
+		fk := &connection.ForeignKeyDefinition{
 			Name:          fmt.Sprintf("%v", row["CONSTRAINT_NAME"]),
 			ColumnName:    fmt.Sprintf("%v", row["COLUMN_NAME"]),
 			RefTableName:  fmt.Sprintf("%v", row["REFERENCED_TABLE_NAME"]),
@@ -364,16 +364,16 @@ func (m *MySQLDB) GetForeignKeys(dbName, tableName string) ([]connection.Foreign
 }
 
 // GetTriggers 返回指定表的触发器定义
-func (m *MySQLDB) GetTriggers(dbName, tableName string) ([]connection.TriggerDefinition, error) {
+func (m *MySQLDB) GetTriggers(dbName, tableName string) ([]*connection.TriggerDefinition, error) {
 	query := fmt.Sprintf("SHOW TRIGGERS FROM `%s` WHERE `Table` = '%s'", dbName, tableName)
 	data, _, err := m.Query(query)
 	if err != nil {
 		return nil, err
 	}
 
-	var triggers []connection.TriggerDefinition
+	var triggers []*connection.TriggerDefinition
 	for _, row := range data {
-		trig := connection.TriggerDefinition{
+		trig := &connection.TriggerDefinition{
 			Name:      fmt.Sprintf("%v", row["Trigger"]),
 			Timing:    fmt.Sprintf("%v", row["Timing"]),
 			Event:     fmt.Sprintf("%v", row["Event"]),

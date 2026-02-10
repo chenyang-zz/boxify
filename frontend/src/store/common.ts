@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { StoreApi, UseBoundStore } from "zustand";
+import { createJSONStorage, PersistStorage } from "zustand/middleware";
 
 export type StoreMethods<T> = {
   [K in keyof T as T[K] extends Function ? K : never]: T[K];
@@ -25,3 +26,32 @@ export function StoreMethods<T>(
 ): StoreMethods<T> {
   return store.getState() as StoreMethods<T>;
 }
+
+function safeStringify(obj: any) {
+  const seen = new WeakSet();
+
+  return JSON.stringify(obj, (key, value) => {
+    if (typeof value === "object" && value !== null) {
+      if (seen.has(value)) {
+        return undefined;
+      }
+      seen.add(value);
+    }
+    return value;
+  });
+}
+
+export const safeStorage: PersistStorage<any> = {
+  getItem: (name) => {
+    const value = localStorage.getItem(name);
+    return value ? JSON.parse(value) : null;
+  },
+
+  setItem: (name, value) => {
+    localStorage.setItem(name, safeStringify(value));
+  },
+
+  removeItem: (name) => {
+    localStorage.removeItem(name);
+  },
+};

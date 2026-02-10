@@ -53,7 +53,13 @@ export function isDirType(type: FileType): boolean {
   }
 }
 
-export function isDBConnection(type: FileType): boolean {
+// 判断是否是连接类型
+export function isConnectionType(type: FileType): boolean {
+  return Object.values(ConnectionType).includes(type as ConnectionType);
+}
+
+// 判断是否是数据库相关类型
+export function isDBType(type: FileType): boolean {
   switch (type) {
     case ConnectionType.MYSQL:
     case ConnectionType.POSTGRESQL:
