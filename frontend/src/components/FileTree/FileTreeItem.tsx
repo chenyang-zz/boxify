@@ -27,13 +27,10 @@ import {
   propertyStoreMethods,
   usePropertyStore,
 } from "@/store/property.store";
+import { tabStoreMethods } from "@/store/tabs.store";
 import { Spinner } from "../ui/spinner";
 import { Badge } from "../ui/badge";
-import {
-  getPropertyItemByUUID,
-  triggerDirOpen,
-  triggerFileOpen,
-} from "@/lib/property";
+import { triggerDirOpen, triggerFileOpen } from "@/lib/property";
 
 interface FileTreeItemProps {
   item: PropertyItemType;
@@ -100,8 +97,6 @@ const FileTreeItem: FC<FileTreeItemProps> = ({ item }) => {
 
   const handleClickItem = () => {
     propertyStoreMethods.setSelectedUUID(item.uuid);
-
-    // TODO
   };
 
   // 打开/关闭 列表项

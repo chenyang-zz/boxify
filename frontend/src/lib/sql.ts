@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { CompiledQuery, Kysely, MysqlDialect, sql } from "kysely";
+import { Kysely, MysqlDialect } from "kysely";
 
 const db = new Kysely<any>({
   dialect: new MysqlDialect({ pool: null as any }),

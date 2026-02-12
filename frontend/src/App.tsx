@@ -10,7 +10,7 @@ import { TooltipProvider } from "./components/ui/tooltip";
 import { useShallow } from "zustand/react/shallow";
 import { useAppStore } from "./store/app.store";
 import { Toaster } from "@/components/ui/sonner";
-import DBTable from "./components/DBTable";
+import Tabs from "./components/Tabs";
 
 function App() {
   const isOpen = useAppStore(useShallow((state) => state.isPropertyOpen));
@@ -35,7 +35,7 @@ function App() {
               )}
 
               <ResizablePanel className="pl-1 pr-2">
-                <DBTable />
+                <Tabs />
               </ResizablePanel>
             </ResizablePanelGroup>
           </main>

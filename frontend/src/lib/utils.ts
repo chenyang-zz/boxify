@@ -37,3 +37,12 @@ export async function callWails<
     }
   }
 }
+
+export async function copyText(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast.success("复制成功");
+  } catch (e) {
+    toast.error("复制失败");
+  }
+}

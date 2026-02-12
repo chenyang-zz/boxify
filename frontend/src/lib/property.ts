@@ -17,6 +17,7 @@ import {
   DBFileType,
   FileType,
   isDBType,
+  TabType,
 } from "@/common/constrains";
 import {
   FileTreeMap,
@@ -32,6 +33,7 @@ import { connection } from "@wails/models";
 import { getConnectionConfigByUUID } from "./connection";
 import { use } from "react";
 import { getDBTableColumnsByUUID } from "./dbTable";
+import { tabStoreMethods } from "@/store/tabs.store";
 
 // 根据UUID获取属性项的详细信息
 export function getPropertyItemByUUID(uuid: string): PropertyItemType | null {
@@ -270,7 +272,32 @@ export async function triggerFileOpen(uuid: string) {
 
   switch (item.type) {
     case DBFileType.TABLE:
-      getDBTableColumnsByUUID(item.uuid);
+      tabStoreMethods.openTab(item);
       break;
+  }
+}
+
+// 将属性类型转换为标签页类型
+export function propertyTypeToTabType(type: FileType): TabType {
+  switch (type) {
+    case DBFileType.TABLE:
+      return TabType.TABLE;
+    default:
+      throw new Error(`不支持的属性类型: ${type}`);
+  }
+}
+
+// 根据属性项UUID获取对应的标签页类型
+export function getTabTypeFromProperty(uuid: string): TabType {
+  const item = getPropertyItemByUUID(uuid);
+  if (!item) {
+    throw new Error("无法找到对应的属性项");
+  }
+
+  switch (item.type) {
+    case DBFileType.TABLE:
+      return TabType.TABLE;
+    default:
+      throw new Error(`不支持的属性类型: ${item.type}`);
   }
 }

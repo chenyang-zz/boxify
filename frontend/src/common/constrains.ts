@@ -37,6 +37,10 @@ export enum DBFileType {
 
 export type FileType = ConnectionType | FileSystemType | DBFileType;
 
+export enum TabType {
+  TABLE = "table",
+}
+
 export function isDirType(type: FileType): boolean {
   switch (type) {
     case FileSystemType.UNKNOWN:
