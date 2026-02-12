@@ -25,14 +25,11 @@ import {
   propertyStoreMethods,
   usePropertyStore,
 } from "@/store/property.store";
-import { ConnectionConfig } from "@/types";
-import { DBGetDatabases, DBGetTables } from "@wails/app/App";
+import { AppService } from "@wails/service";
 import { callWails } from "./utils";
 import { v4 as uuid } from "uuid";
-import { connection } from "@wails/models";
+import { ConnectionConfig, QueryResult } from "@wails/connection";
 import { getConnectionConfigByUUID } from "./connection";
-import { use } from "react";
-import { getDBTableColumnsByUUID } from "./dbTable";
 import { tabStoreMethods } from "@/store/tabs.store";
 
 // 根据UUID获取属性项的详细信息
@@ -135,7 +132,7 @@ export function createPropertyItemListFromDBQueryResult(
 }
 
 // 创建数据库属性项列表的占位符
-export function createDatabaseQueryResult(): connection.QueryResult {
+export function createDatabaseQueryResult(): QueryResult {
   return {
     success: true,
     data: [
@@ -166,13 +163,13 @@ async function loadDBChildrenByDBName(
   dbName: string,
   type: FileType,
   config: ConnectionConfig,
-): Promise<connection.QueryResult> {
+): Promise<QueryResult> {
   try {
     switch (type) {
       case DBFileType.TABLE_FOLDER:
         return await callWails(
-          DBGetTables,
-          connection.ConnectionConfig.createFrom(config),
+          AppService.DBGetTables,
+          ConnectionConfig.createFrom(config),
           dbName,
         );
 
@@ -196,7 +193,7 @@ export async function loadDBConnectionPropertyChildren(
 
   const config = getConnectionConfigByUUID(item.uuid);
 
-  let res: connection.QueryResult;
+  let res: QueryResult;
   try {
     if (!config) {
       throw new Error("缺少连接配置");
@@ -205,8 +202,8 @@ export async function loadDBConnectionPropertyChildren(
     switch (type) {
       case ConnectionType.MYSQL:
         res = await callWails(
-          DBGetDatabases,
-          connection.ConnectionConfig.createFrom(config),
+          AppService.DBGetDatabases,
+          ConnectionConfig.createFrom(config),
         );
         break;
       case DBFileType.DATABASE:
@@ -217,7 +214,7 @@ export async function loadDBConnectionPropertyChildren(
             const rowChildren = await loadDBChildrenByDBName(
               label,
               row["type"],
-              config,
+              ConnectionConfig.createFrom(config),
             );
             row["children"] = rowChildren.data;
           } catch {

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package app
+package service
 
 import (
 	"context"
@@ -31,7 +31,9 @@ import (
 	"github.com/chenyang-zz/boxify/internal/utils"
 
 	"github.com/pkg/errors"
+
 	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"strings"
 	"sync"
@@ -46,30 +48,32 @@ type cachedDatabase struct {
 	lastPing time.Time
 }
 
-// App struct
-type App struct {
+// AppService struct
+type AppService struct {
 	ctx     context.Context
+	app     *application.App
 	dbCache map[string]cachedDatabase // 缓存数据库连接
 	mu      sync.RWMutex
 }
 
 // NewApp 新建一个App实例
-func NewApp() *App {
-	return &App{
+func NewService(app *application.App) *AppService {
+	return &AppService{
+		app:     app,
 		dbCache: make(map[string]cachedDatabase),
 	}
 }
 
 // Startup 是在应用程序启动时调用的函数
-func (a *App) Startup(ctx context.Context) {
+func (a *AppService) ServiceStartup(ctx context.Context, options application.ServiceOptions) {
 	a.ctx = ctx
 	logger.Init(ctx)
-	logger.Infof("应用启动完成")
+	logger.Infof("服务启动完成")
 }
 
 // Shutdown 是在应用程序关闭时调用的函数
-func (a *App) Shutdown(ctx context.Context) {
-	logger.Infof("应用开始关闭，准备释放资源")
+func (a *AppService) ServiceShutdown(ctx context.Context) {
+	logger.Infof("服务开始关闭，准备释放资源")
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	for _, dbInst := range a.dbCache {
@@ -78,22 +82,22 @@ func (a *App) Shutdown(ctx context.Context) {
 		}
 	}
 
-	logger.Infof("资源释放完成，应用已关闭")
+	logger.Infof("资源释放完成，服务已关闭")
 	logger.Close()
 }
 
 // getDatabaseForcePing 强制ping数据库连接，适用于需要确保连接可用的场景
-func (a *App) getDatabaseForcePing(config *connection.ConnectionConfig) (db.Database, error) {
+func (a *AppService) getDatabaseForcePing(config *connection.ConnectionConfig) (db.Database, error) {
 	return a.getDatabaseWithPing(config, true)
 }
 
 // 获取或创建一个数据库连接
-func (a *App) getDatabase(config *connection.ConnectionConfig) (db.Database, error) {
+func (a *AppService) getDatabase(config *connection.ConnectionConfig) (db.Database, error) {
 	return a.getDatabaseWithPing(config, false)
 }
 
 // getDatabaseWithPing 在获取数据库连接时增加ping检查，确保连接可用
-func (a *App) getDatabaseWithPing(config *connection.ConnectionConfig, forcePing bool) (db.Database, error) {
+func (a *AppService) getDatabaseWithPing(config *connection.ConnectionConfig, forcePing bool) (db.Database, error) {
 	key := getCacheKey(config)
 	shortKey := key
 	if len(shortKey) > 12 {
@@ -259,33 +263,33 @@ func (e withLogHint) Unwrap() error {
 
 // 兼容性包装
 
-func (a *App) MySQLConnect(config *connection.ConnectionConfig) *connection.QueryResult {
+func (a *AppService) MySQLConnect(config *connection.ConnectionConfig) *connection.QueryResult {
 	config.Type = "mysql"
 	return a.DBConnect(config)
 }
 
-func (a *App) MySQLQuery(config *connection.ConnectionConfig, dbName, query string, args []any) *connection.QueryResult {
+func (a *AppService) MySQLQuery(config *connection.ConnectionConfig, dbName, query string, args []any) *connection.QueryResult {
 	config.Type = "mysql"
 	return a.DBQuery(config, dbName, query, args)
 }
 
-func (a *App) MySQLGetDatabases(config *connection.ConnectionConfig) *connection.QueryResult {
+func (a *AppService) MySQLGetDatabases(config *connection.ConnectionConfig) *connection.QueryResult {
 	config.Type = "mysql"
 	return a.DBGetDatabases(config)
 }
 
-func (a *App) MySQLGetTables(config *connection.ConnectionConfig, dbName string) *connection.QueryResult {
+func (a *AppService) MySQLGetTables(config *connection.ConnectionConfig, dbName string) *connection.QueryResult {
 	config.Type = "mysql"
 	return a.DBGetTables(config, dbName)
 }
 
-func (a *App) MySQLShowCreateTable(config *connection.ConnectionConfig, dbName, tableName string) *connection.QueryResult {
+func (a *AppService) MySQLShowCreateTable(config *connection.ConnectionConfig, dbName, tableName string) *connection.QueryResult {
 	config.Type = "mysql"
 	return a.DBShowCreateTable(config, dbName, tableName)
 }
 
 // DBQuery 执行一个查询并返回结果
-func (a *App) DBQuery(config *connection.ConnectionConfig, dbName, query string, args []any) *connection.QueryResult {
+func (a *AppService) DBQuery(config *connection.ConnectionConfig, dbName, query string, args []any) *connection.QueryResult {
 	runConfig := normalizeRunConfig(config, dbName)
 
 	dbInst, err := a.getDatabase(runConfig)
@@ -360,7 +364,7 @@ func (a *App) DBQuery(config *connection.ConnectionConfig, dbName, query string,
 }
 
 // DBGetDatabases 获取数据库列表
-func (a *App) DBGetDatabases(config *connection.ConnectionConfig) *connection.QueryResult {
+func (a *AppService) DBGetDatabases(config *connection.ConnectionConfig) *connection.QueryResult {
 	dbInst, err := a.getDatabase(config)
 	if err != nil {
 		logger.ErrorfWithTrace(err, "DBGetDatabases 获取连接失败：%s", formatConnSummary(config))
@@ -394,7 +398,7 @@ func (a *App) DBGetDatabases(config *connection.ConnectionConfig) *connection.Qu
 }
 
 // DBGetTables 获取表列表
-func (a *App) DBGetTables(config *connection.ConnectionConfig, dbName string) *connection.QueryResult {
+func (a *AppService) DBGetTables(config *connection.ConnectionConfig, dbName string) *connection.QueryResult {
 	runConfig := normalizeRunConfig(config, dbName)
 
 	dbInst, err := a.getDatabase(runConfig)
@@ -430,7 +434,7 @@ func (a *App) DBGetTables(config *connection.ConnectionConfig, dbName string) *c
 }
 
 // DBShowCreateTable 获取建表语句
-func (a *App) DBShowCreateTable(config *connection.ConnectionConfig, dbName, tableName string) *connection.QueryResult {
+func (a *AppService) DBShowCreateTable(config *connection.ConnectionConfig, dbName, tableName string) *connection.QueryResult {
 	runeConfig := *config
 	if dbName != "" {
 		runeConfig.Database = dbName
@@ -460,7 +464,7 @@ func (a *App) DBShowCreateTable(config *connection.ConnectionConfig, dbName, tab
 }
 
 // DBGetColumns 获取列信息
-func (a *App) DBGetColumns(config *connection.ConnectionConfig, dbName, tableName string) *connection.QueryResult {
+func (a *AppService) DBGetColumns(config *connection.ConnectionConfig, dbName, tableName string) *connection.QueryResult {
 	runConfig := normalizeRunConfig(config, dbName)
 
 	db, err := a.getDatabase(runConfig)
@@ -490,7 +494,7 @@ func (a *App) DBGetColumns(config *connection.ConnectionConfig, dbName, tableNam
 }
 
 // DBGetIndexes 获取索引信息
-func (a *App) DBGetIndexes(config *connection.ConnectionConfig, dbName string, tableName string) *connection.QueryResult {
+func (a *AppService) DBGetIndexes(config *connection.ConnectionConfig, dbName string, tableName string) *connection.QueryResult {
 	runeConfig := *config
 	if dbName != "" {
 		runeConfig.Database = dbName
@@ -520,7 +524,7 @@ func (a *App) DBGetIndexes(config *connection.ConnectionConfig, dbName string, t
 }
 
 // DBGetForeignKeys 获取外键信息
-func (a *App) DBGetForeignKeys(config *connection.ConnectionConfig, dbName string, tableName string) *connection.QueryResult {
+func (a *AppService) DBGetForeignKeys(config *connection.ConnectionConfig, dbName string, tableName string) *connection.QueryResult {
 	runeConfig := *config
 	if dbName != "" {
 		runeConfig.Database = dbName
@@ -550,7 +554,7 @@ func (a *App) DBGetForeignKeys(config *connection.ConnectionConfig, dbName strin
 }
 
 // DBGetForeignKeys 获取外键信息
-func (a *App) DBGetTriggers(config *connection.ConnectionConfig, dbName string, tableName string) *connection.QueryResult {
+func (a *AppService) DBGetTriggers(config *connection.ConnectionConfig, dbName string, tableName string) *connection.QueryResult {
 	runeConfig := *config
 	if dbName != "" {
 		runeConfig.Database = dbName
@@ -580,7 +584,7 @@ func (a *App) DBGetTriggers(config *connection.ConnectionConfig, dbName string, 
 }
 
 // DBGetAllColumns 获取所有列信息（包含系统表）
-func (a *App) DBGetAllColumns(config *connection.ConnectionConfig, dbName string) *connection.QueryResult {
+func (a *AppService) DBGetAllColumns(config *connection.ConnectionConfig, dbName string) *connection.QueryResult {
 	runConfig := *config
 	if dbName != "" {
 		runConfig.Database = dbName
@@ -610,7 +614,7 @@ func (a *App) DBGetAllColumns(config *connection.ConnectionConfig, dbName string
 }
 
 // OpenSQLFile 打开一个文件选择对话框，允许用户选择一个SQL文件，并读取其内容返回
-func (a *App) OpenSQLFile() *connection.QueryResult {
+func (a *AppService) OpenSQLFile() *connection.QueryResult {
 	selection, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
 		Title: "Select SQL File",
 		Filters: []runtime.FileFilter{
@@ -655,7 +659,7 @@ func (a *App) OpenSQLFile() *connection.QueryResult {
 }
 
 // ImportData 打开一个文件选择对话框，允许用户选择一个CSV或JSON文件，并将其内容导入到指定的数据库表中
-func (a *App) ImportData(config *connection.ConnectionConfig, dbName, tableName string) *connection.QueryResult {
+func (a *AppService) ImportData(config *connection.ConnectionConfig, dbName, tableName string) *connection.QueryResult {
 	selection, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
 		Title: fmt.Sprintf("Import into %s", tableName),
 		Filters: []runtime.FileFilter{
@@ -805,7 +809,7 @@ func (a *App) ImportData(config *connection.ConnectionConfig, dbName, tableName 
 }
 
 // ApplyChanges 将更改集应用到数据库表中
-func (a *App) ApplyChanges(config *connection.ConnectionConfig, dbName, tableName string, changes *connection.ChangeSet) *connection.QueryResult {
+func (a *AppService) ApplyChanges(config *connection.ConnectionConfig, dbName, tableName string, changes *connection.ChangeSet) *connection.QueryResult {
 	runConfig := *config
 	if dbName != "" {
 		runConfig.Database = dbName
@@ -839,7 +843,7 @@ func (a *App) ApplyChanges(config *connection.ConnectionConfig, dbName, tableNam
 }
 
 // ExportTable 导出表数据到CSV、JSON或Markdown文件
-func (a *App) ExportTable(config *connection.ConnectionConfig, dbName, tableName string, format string) *connection.QueryResult {
+func (a *AppService) ExportTable(config *connection.ConnectionConfig, dbName, tableName string, format string) *connection.QueryResult {
 	filename, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
 		Title:           fmt.Sprintf("导出 ", tableName),
 		DefaultFilename: fmt.Sprintf("%s.%s", tableName, format),
@@ -971,7 +975,7 @@ func (a *App) ExportTable(config *connection.ConnectionConfig, dbName, tableName
 	}
 }
 
-func (a *App) TypeOnly_ColumnDefinition() *connection.ColumnDefinition {
+func (a *AppService) TypeOnly_ColumnDefinition() *connection.ColumnDefinition {
 	return &connection.ColumnDefinition{}
 }
 

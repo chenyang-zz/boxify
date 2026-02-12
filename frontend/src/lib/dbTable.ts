@@ -12,9 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { DBGetColumns, DBQuery } from "@wails/app/App";
+import { AppService } from "@wails/service";
 import { callWails } from "./utils";
-import { connection } from "@wails/models";
+import {
+  ColumnDefinition,
+  ConnectionConfig,
+  QueryResult,
+} from "@wails/connection";
 import { getPropertyItemByUUID } from "./property";
 import { getConnectionConfigByUUID, getDatabaseNameByUUID } from "./connection";
 import { DBFileType } from "@/common/constrains";
@@ -23,7 +27,7 @@ import { selectAllFrom } from "./sql";
 // 根据表的 UUID 获取列信息
 export async function getDBTableColumnsByUUID(
   uuid: string,
-): Promise<connection.ColumnDefinition[]> {
+): Promise<ColumnDefinition[]> {
   const item = getPropertyItemByUUID(uuid);
   const config = getConnectionConfigByUUID(uuid);
   if (!item || !config) {
@@ -43,13 +47,13 @@ export async function getDBTableColumnsByUUID(
 
   try {
     const res = await callWails(
-      DBGetColumns,
-      connection.ConnectionConfig.createFrom(config),
+      AppService.DBGetColumns,
+      ConnectionConfig.createFrom(config),
       dbName,
       item.label,
     );
 
-    return res.data as connection.ColumnDefinition[];
+    return res.data as ColumnDefinition[];
   } catch {
     return [];
   }
@@ -58,7 +62,7 @@ export async function getDBTableColumnsByUUID(
 // 根据表的 UUID 获取表数据
 export async function getDBTableValuesByUUID(
   uuid: string,
-): Promise<connection.QueryResult | null> {
+): Promise<QueryResult | null> {
   const item = getPropertyItemByUUID(uuid);
   const config = getConnectionConfigByUUID(uuid);
   if (!item || !config) {
@@ -80,8 +84,8 @@ export async function getDBTableValuesByUUID(
 
   try {
     const res = await callWails(
-      DBQuery,
-      connection.ConnectionConfig.createFrom(config),
+      AppService.DBQuery,
+      ConnectionConfig.createFrom(config),
       dbName,
       compile.sql,
       compile.parameters,

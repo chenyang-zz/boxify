@@ -1,4 +1,4 @@
-import { connection } from "@wails/models";
+import { QueryResult } from "@wails/connection";
 import { clsx, type ClassValue } from "clsx";
 import { toast } from "sonner";
 import { twMerge } from "tailwind-merge";
@@ -9,17 +9,21 @@ export function cn(...inputs: ClassValue[]) {
 
 // 封装一个函数用于调用Wails后端函数，并统一处理错误
 export async function callWails<
-  T extends (...args: any[]) => Promise<connection.QueryResult>,
+  T extends (...args: any[]) => Promise<QueryResult | null>,
 >(fn: T, ...args: Parameters<T>) {
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   try {
     const res = await Promise.race([
       fn(...args),
-      new Promise<connection.QueryResult>((_, reject) => {
+      new Promise<QueryResult>((_, reject) => {
         timer = setTimeout(() => reject(new Error("请求超时")), 10000);
       }),
     ]);
+
+    if (!res) {
+      throw new Error("后端返回空结果");
+    }
 
     if (!res.success) {
       throw new Error(res.message);
