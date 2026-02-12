@@ -20,14 +20,16 @@ interface UseHorizontalScrollOptions {
   preventDefault?: boolean;
 }
 
-export function useHorizontalScroll(options: UseHorizontalScrollOptions = {}) {
+export function useHorizontalScroll<T extends HTMLElement = HTMLDivElement>(
+  options: UseHorizontalScrollOptions = {},
+) {
   const {
     hideScrollbar = false,
     scrollSpeed = 1,
     preventDefault = true,
   } = options;
 
-  const ref = useRef<HTMLDivElement>(null);
+  const ref = useRef<T>(null);
 
   useEffect(() => {
     const el = ref.current;

@@ -28,6 +28,7 @@ import { CopyIcon } from "lucide-react";
 import { Button } from "../ui/button";
 import HeaderAction from "./HeaderAction";
 import { getPropertyItemByUUID } from "@/lib/property";
+import { useHorizontalScroll } from "@/hooks/useHorizontalScroll";
 
 interface DBTableProps {
   uuid: string;

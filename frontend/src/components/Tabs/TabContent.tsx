@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { FC } from "react";
-import { cn } from "@/lib/utils";
+import { Activity, FC } from "react";
 import { TabContentProps } from "./types";
 import DBTable from "../DBTable";
 
@@ -25,12 +24,12 @@ const TabContent: FC<TabContentProps> = ({ tabs, activeTabId }) => {
       {/* React 19 Activity: 所有标签都渲染，使用 hidden 隐藏非活动标签
           这样每个标签的组件状态（滚动、分页等）都会被保留 */}
       {tabs.map((tab) => (
-        <div
+        <Activity
           key={tab.propertyUuid}
-          className={cn("h-full", tab.id === activeTabId ? "block" : "hidden")}
+          mode={tab.id === activeTabId ? "visible" : "hidden"}
         >
           <DBTable key={tab.propertyUuid} uuid={tab.propertyUuid} />
-        </div>
+        </Activity>
       ))}
 
       {/* 空状态 */}
