@@ -24,3 +24,7 @@ Boxify
 coverage.out
 *.out
 *.test
+
+# 忽略构建产物
+.task/
+bin/
