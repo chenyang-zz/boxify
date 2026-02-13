@@ -65,14 +65,20 @@ func NewService(app *application.App) *AppService {
 }
 
 // Startup 是在应用程序启动时调用的函数
-func (a *AppService) ServiceStartup(ctx context.Context, options application.ServiceOptions) {
-	a.ctx = ctx
-	logger.Init(ctx)
+func (a *AppService) ServiceStartup(ctx context.Context, options application.ServiceOptions) error {
+	buildType := "prod"
+	if a.app.Env.Info().Debug {
+		buildType = "dev"
+	}
+	a.ctx = context.WithValue(ctx, "buildType", buildType)
+
+	logger.Init(a.ctx)
 	logger.Infof("服务启动完成")
+	return nil
 }
 
 // Shutdown 是在应用程序关闭时调用的函数
-func (a *AppService) ServiceShutdown(ctx context.Context) {
+func (a *AppService) ServiceShutdown() error {
 	logger.Infof("服务开始关闭，准备释放资源")
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -84,6 +90,8 @@ func (a *AppService) ServiceShutdown(ctx context.Context) {
 
 	logger.Infof("资源释放完成，服务已关闭")
 	logger.Close()
+
+	return nil
 }
 
 // getDatabaseForcePing 强制ping数据库连接，适用于需要确保连接可用的场景

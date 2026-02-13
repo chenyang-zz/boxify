@@ -6,4 +6,14 @@
 // @ts-ignore: Unused imports
 import { Create as $Create } from "@wailsio/runtime";
 
-Object.freeze($Create.Events);
+function configure() {
+    Object.freeze(Object.assign($Create.Events, {
+        "window:closed": $$createType0,
+        "window:opened": $$createType0,
+    }));
+}
+
+// Private type creation functions
+const $$createType0 = $Create.Map($Create.Any, $Create.Any);
+
+configure();

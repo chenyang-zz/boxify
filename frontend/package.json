@@ -8,6 +8,7 @@
     "build:dev": "vite build --minify false --mode development",
     "build": "tsc && vite build --mode production",
     "preview": "vite preview"
+   
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.18",

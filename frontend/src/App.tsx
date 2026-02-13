@@ -1,49 +1,45 @@
-import UtilBar from "@/components/UtilBar";
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "./components/ui/resizable";
-import TitleBar from "./components/TitleBar";
-import PropertyTree from "./components/PropertyTree";
-import { TooltipProvider } from "./components/ui/tooltip";
-import { useShallow } from "zustand/react/shallow";
-import { useAppStore } from "./store/app.store";
-import { Toaster } from "@/components/ui/sonner";
-import Tabs from "./components/Tabs";
+// Copyright 2026 chenyang
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-function App() {
-  const isOpen = useAppStore(useShallow((state) => state.isPropertyOpen));
+import { FC, JSX, lazy } from "react";
+import { useWindowListener } from "./hooks/useWindowListener";
+
+// 获取当前页面 ID
+const pageId =
+  document.querySelector('meta[name="page-id"]')?.getAttribute("content") ||
+  "index";
+
+// 动态页面映射
+const pageComponents: Record<
+  string,
+  React.LazyExoticComponent<() => JSX.Element>
+> = {
+  index: lazy(() => import("./pages/main")),
+  settings: lazy(() => import("./pages/settings")),
+};
+
+const PageComponent = pageComponents[pageId] || pageComponents.index;
+
+console.log(pageId);
+
+const App: FC = () => {
+  useWindowListener();
   return (
-    <TooltipProvider>
-      <div
-        id="App"
-        className="h-screen w-screen bg-background flex flex-col overflow-hidden text-foreground"
-      >
-        <TitleBar />
-        <div className="flex-1 flex overflow-hidden">
-          <UtilBar />
-          <main className="h-full flex flex-1 pb-2 overflow-hidden">
-            <ResizablePanelGroup orientation="horizontal">
-              {isOpen && (
-                <>
-                  <ResizablePanel defaultSize="250px" maxSize="400px">
-                    <PropertyTree />
-                  </ResizablePanel>
-                  <ResizableHandle className=" opacity-0" />
-                </>
-              )}
-
-              <ResizablePanel className="pl-1 pr-2">
-                <Tabs />
-              </ResizablePanel>
-            </ResizablePanelGroup>
-          </main>
-        </div>
-        <Toaster />
-      </div>
-    </TooltipProvider>
+    <>
+      <PageComponent />
+    </>
   );
-}
+};
 
 export default App;

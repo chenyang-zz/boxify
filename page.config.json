@@ -1,0 +1,66 @@
+{
+  "pages": [
+    {
+      "id": "index",
+      "type": "main",
+      "title": "Boxify - 数据库管理",
+      "entry": "main.tsx",
+      "containerId": "root",
+      "isMain": true,
+      "window": {
+        "name": "main",
+        "title": "Boxify",
+        "url": "/",
+        "width": 1024,
+        "height": 768,
+        "minWidth": 800,
+        "minHeight": 600,
+        "maxWidth": 0,
+        "maxHeight": 0,
+        "x": 0,
+        "y": 0,
+        "disableResize": false,
+        "alwaysOnTop": false,
+        "hidden": false,
+        "center": true,
+        "mac": {
+          "titleBar": {
+            "appearsTransparent": true,
+            "fullSizeContent": true
+          }
+        }
+      }
+    },
+    {
+      "id": "settings",
+      "type": "singleton",
+      "title": "Boxify - 设置",
+      "entry": "main.tsx",
+      "containerId": "root",
+      "isMain": false,
+      "center": true,
+      "window": {
+        "name": "settings",
+        "title": "Settings",
+        "url": "/settings",
+        "width": 600,
+        "height": 400,
+        "minWidth": 500,
+        "minHeight": 300,
+        "maxWidth": 0,
+        "maxHeight": 0,
+        "x": 0,
+        "y": 0,
+        "disableResize": true,
+        "alwaysOnTop": false,
+        "hidden": false,
+        "mac": {
+          "titleBar": {
+            "appearsTransparent": true,
+            "fullSizeContent": true
+          }
+        }
+      }
+    }
+  ]
+}
