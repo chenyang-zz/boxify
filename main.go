@@ -17,6 +17,9 @@ func init() {
 	// 数据同步事件
 	application.RegisterEvent[service.DataSyncEvent]("data-sync:broadcast")
 	application.RegisterEvent[service.DataSyncEvent]("data-sync:targeted")
+
+	// 初始数据事件
+	application.RegisterEvent[service.InitialDataEntry]("initial-data:received")
 }
 
 //go:embed all:frontend/dist
@@ -36,6 +39,9 @@ func main() {
 		},
 		func(app *application.App) application.Service {
 			return application.NewService(service.NewDataSyncService(app, am.GetRegistry()))
+		},
+		func(app *application.App) application.Service {
+			return application.NewService(service.NewInitialDataService(am))
 		},
 	}
 

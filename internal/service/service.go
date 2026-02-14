@@ -853,7 +853,7 @@ func (a *AppService) ApplyChanges(config *connection.ConnectionConfig, dbName, t
 // ExportTable 导出表数据到CSV、JSON或Markdown文件
 func (a *AppService) ExportTable(config *connection.ConnectionConfig, dbName, tableName string, format string) *connection.QueryResult {
 	filename, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
-		Title:           fmt.Sprintf("导出 ", tableName),
+		Title:           fmt.Sprintf("导出 %s", tableName),
 		DefaultFilename: fmt.Sprintf("%s.%s", tableName, format),
 	})
 
@@ -920,12 +920,12 @@ func (a *AppService) ExportTable(config *connection.ConnectionConfig, dbName, ta
 		jsonEncoder = json.NewEncoder(f)
 		jsonEncoder.SetIndent("  ", "  ")
 	case "md":
-		fmt.Fprint(f, "| %s |\n", strings.Join(columns, " | "))
+		fmt.Fprintf(f, "| %s |\n", strings.Join(columns, " | "))
 		seps := make([]string, len(columns))
 		for i := range seps {
 			seps[i] = "---"
 		}
-		fmt.Fprint(f, "| %s |\n", strings.Join(seps, " | "))
+		fmt.Fprintf(f, "| %s |\n", strings.Join(seps, " | "))
 	default:
 		return &connection.QueryResult{
 			Success: false,

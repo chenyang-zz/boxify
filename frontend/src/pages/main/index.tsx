@@ -15,6 +15,7 @@ import { WindowService } from "@wails/service";
 import { callWails } from "@/lib/utils";
 import { useDataSync } from "@/hooks/useDataSync";
 import { DataChannel } from "@/store/data-sync.store";
+import { useOpenWindowWithData } from "@/hooks/useOpenWindowWithData";
 
 function MainApp() {
   const isOpen = useAppStore(useShallow((state) => state.isPropertyOpen));
@@ -25,11 +26,8 @@ function MainApp() {
     }
   });
 
-  const test = async () => {
-    try {
-      await callWails(WindowService.OpenPage, "settings");
-    } catch {}
-  };
+  const { openWindowWithData } = useOpenWindowWithData();
+
   return (
     <TooltipProvider>
       <div
@@ -50,7 +48,13 @@ function MainApp() {
                 </>
               )}
               <ResizablePanel className="pl-1 pr-2">
-                <div onClick={test}>打开窗口</div>
+                <div
+                  onClick={() =>
+                    openWindowWithData("settings", { title: "设置3" })
+                  }
+                >
+                  打开窗口
+                </div>
                 <Tabs />
               </ResizablePanel>
             </ResizablePanelGroup>

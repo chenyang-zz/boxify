@@ -52,6 +52,9 @@ function generateHTML() {
         title: string;
         entry: string;
         containerId: string;
+        window: {
+          name: string;
+        };
       }) =>
         `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -59,6 +62,7 @@ function generateHTML() {
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <meta name="page-id" content="${page.id}"/>
+  <meta name="window-name" content="${page.window.name}"/>
   <title>${page.title}</title>
 </head>
 <body>
@@ -74,6 +78,9 @@ function generateHTML() {
           title: string;
           entry: string;
           containerId: string;
+          window: {
+            name: string;
+          };
         }) => {
           console.log(page.title);
 

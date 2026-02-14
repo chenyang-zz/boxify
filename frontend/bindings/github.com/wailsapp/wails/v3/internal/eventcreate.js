@@ -14,13 +14,15 @@ function configure() {
     Object.freeze(Object.assign($Create.Events, {
         "data-sync:broadcast": $$createType0,
         "data-sync:targeted": $$createType0,
-        "window:closed": $$createType1,
-        "window:opened": $$createType1,
+        "initial-data:received": $$createType1,
+        "window:closed": $$createType2,
+        "window:opened": $$createType2,
     }));
 }
 
 // Private type creation functions
 const $$createType0 = service$0.DataSyncEvent.createFrom;
-const $$createType1 = $Create.Map($Create.Any, $Create.Any);
+const $$createType1 = service$0.InitialDataEntry.createFrom;
+const $$createType2 = $Create.Map($Create.Any, $Create.Any);
 
 configure();

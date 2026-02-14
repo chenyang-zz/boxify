@@ -15,13 +15,10 @@
 import { FC, JSX, lazy, useEffect } from "react";
 import { useWindowListener } from "./hooks/useWindowListener";
 import { dataSyncStoreMethods } from "./store/data-sync.store";
-import { callWails } from "./lib/utils";
-import { GetWindowNameByPageID } from "@wails/service/windowservice";
+import { currentPageId, currentWindowName } from "./lib/utils";
 
 // 获取当前页面 ID
-const pageId =
-  document.querySelector('meta[name="page-id"]')?.getAttribute("content") ||
-  "index";
+const pageId = currentPageId();
 
 // 动态页面映射
 const pageComponents: Record<
@@ -39,14 +36,9 @@ const App: FC = () => {
 
   useEffect(() => {
     console.log(`📄 当前页面ID: ${pageId}`);
-    callWails(GetWindowNameByPageID, pageId)
-      .then((res) => {
-        console.log(`📄  当前窗口名称: ${res.data}`);
-        dataSyncStoreMethods.setCurrentWindow(res.data);
-      })
-      .catch(() => {
-        console.error(" 获取窗口名称失败");
-      });
+    const windowName = currentWindowName();
+    console.log(`📄  当前窗口名称: ${windowName}`);
+    dataSyncStoreMethods.setCurrentWindow(windowName);
   }, []);
 
   return (

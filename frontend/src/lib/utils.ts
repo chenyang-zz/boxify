@@ -50,3 +50,20 @@ export async function copyText(text: string) {
     toast.error("复制失败");
   }
 }
+
+// 获取当前页面ID（从meta标签中读取）
+export function currentPageId() {
+  return (
+    document.querySelector('meta[name="page-id"]')?.getAttribute("content") ||
+    "index"
+  );
+}
+
+// 获取当前页面名称（从meta标签中读取）
+export function currentWindowName() {
+  return (
+    document
+      .querySelector('meta[name="window-name"]')
+      ?.getAttribute("content") || "index"
+  );
+}

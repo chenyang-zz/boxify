@@ -26,8 +26,9 @@ import (
 
 // WindowEntry 窗口注册表条目
 type WindowEntry struct {
-	Window *application.WebviewWindow
-	Config *config.PageConfig
+	Window     *application.WebviewWindow
+	Registered bool
+	Config     *config.PageConfig
 }
 
 // WindowRegistry 窗口注册表
@@ -56,7 +57,7 @@ func (wr *WindowRegistry) Register(config *config.PageConfig) *application.Webvi
 	windowType := ParseWindowType(config.Type)
 	if windowType == WindowTypeSingleton || windowType == WindowTypeMain {
 		if entry, exists := wr.windows[config.Window.Name]; exists {
-			if entry.Window.IsVisible() {
+			if entry.Registered {
 				wr.logger.Info("窗口已存在且可见，聚焦现有窗口", "name", config.Window.Name, "type", windowType)
 				entry.Window.Focus()
 				return nil
@@ -64,9 +65,7 @@ func (wr *WindowRegistry) Register(config *config.PageConfig) *application.Webvi
 			wr.logger.Info("窗口已存在，聚焦现有窗口", "name", config.Window.Name, "type", windowType)
 			entry.Window.Show()
 			entry.Window.Focus()
-
-			// 发送窗口打开事件
-			wr.emitWindowEvent("window:opened", config)
+			wr.emitWindowEvent("window:opened", entry.Config)
 			return entry.Window
 		}
 	}
@@ -84,8 +83,8 @@ func (wr *WindowRegistry) Register(config *config.PageConfig) *application.Webvi
 	// 设置生命周期钩子
 	wr.setupLifecycleHooks(entry)
 
-	// 发送窗口打开事件
-	wr.emitWindowEvent("window:opened", config)
+	entry.Registered = true
+	wr.emitWindowEvent("window:opened", entry.Config)
 
 	wr.logger.Info("窗口已注册", "name", config.Window.Name, "type", windowType, "url", config.Window.URL)
 
@@ -128,6 +127,8 @@ func (wr *WindowRegistry) setupLifecycleHooks(entry *WindowEntry) {
 		case WindowTypeMain, WindowTypeSingleton:
 			// 主窗口和单例窗口：隐藏而非关闭
 			window.Hide()
+			entry.Registered = false
+			wr.emitWindowEvent("window:closed", entry.Config)
 			event.Cancel()
 
 		case WindowTypeModal:
@@ -142,7 +143,6 @@ func (wr *WindowRegistry) setupLifecycleHooks(entry *WindowEntry) {
 			// 不调用 Cancel()，允许关闭
 		}
 
-		wr.emitWindowEvent("window:closed", entry.Config)
 	})
 }
 
@@ -226,6 +226,14 @@ func (wr *WindowRegistry) GetAllWindowInfos() []*WindowInfo {
 		})
 	}
 	return infos
+}
+
+func (wr *WindowRegistry) IsRegistered(name string) bool {
+	wr.mu.RLock()
+	defer wr.mu.RUnlock()
+
+	entry, exists := wr.windows[name]
+	return exists && entry.Registered
 }
 
 // emitWindowEvent 发送窗口事件
