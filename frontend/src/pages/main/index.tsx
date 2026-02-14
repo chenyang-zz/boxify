@@ -13,9 +13,18 @@ import { Toaster } from "@/components/ui/sonner";
 import Tabs from "@/components/Tabs";
 import { WindowService } from "@wails/service";
 import { callWails } from "@/lib/utils";
+import { useDataSync } from "@/hooks/useDataSync";
+import { DataChannel } from "@/store/data-sync.store";
 
 function MainApp() {
   const isOpen = useAppStore(useShallow((state) => state.isPropertyOpen));
+
+  useDataSync(DataChannel.Settings, (event) => {
+    if (event.dataType === "settings:update") {
+      console.log("[设置窗口] 收到配置更新", event.data);
+    }
+  });
+
   const test = async () => {
     try {
       await callWails(WindowService.OpenPage, "settings");

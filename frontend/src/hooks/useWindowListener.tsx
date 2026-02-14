@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { Events } from "@wailsio/runtime";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 export interface WindowInfo {
   id: number;
@@ -22,31 +22,12 @@ export interface WindowInfo {
 }
 
 export const useWindowListener = () => {
-  const [windowInfo, setWindowInfo] = useState<WindowInfo | null>(null);
-
   useEffect(() => {
-    // 🔧 修复：使用 Wails Runtime 的 Window.Name() API 获取窗口名称
-    const initializeWindow = async () => {
-      setWindowInfo({
-        id: 0,
-        name: "main", // 默认为主窗口
-        title: "Boxify",
-      });
-    };
-
-    // 立即初始化
-    initializeWindow();
-
     // 监听窗口打开事件（用于动态更新）
     const unbindOpened = Events.On(
       "window:opened",
       (event: { data: Record<string, unknown> }) => {
         console.log("🪟 窗口打开事件:", event.data);
-        setWindowInfo({
-          id: 0,
-          name: event.data.name as string,
-          title: event.data.title as string,
-        });
       },
     );
 
@@ -54,11 +35,6 @@ export const useWindowListener = () => {
       "window:closed",
       (event: { data: Record<string, unknown> }) => {
         console.log("🪟 窗口关闭事件:", event.data);
-        setWindowInfo({
-          id: 0,
-          name: event.data.name as string,
-          title: event.data.title as string,
-        });
       },
     );
 
@@ -67,6 +43,4 @@ export const useWindowListener = () => {
       unbindClosed();
     };
   }, []);
-
-  return { windowInfo };
 };

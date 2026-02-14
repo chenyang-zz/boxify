@@ -56,6 +56,11 @@ func (wr *WindowRegistry) Register(config *config.PageConfig) *application.Webvi
 	windowType := ParseWindowType(config.Type)
 	if windowType == WindowTypeSingleton || windowType == WindowTypeMain {
 		if entry, exists := wr.windows[config.Window.Name]; exists {
+			if entry.Window.IsVisible() {
+				wr.logger.Info("窗口已存在且可见，聚焦现有窗口", "name", config.Window.Name, "type", windowType)
+				entry.Window.Focus()
+				return nil
+			}
 			wr.logger.Info("窗口已存在，聚焦现有窗口", "name", config.Window.Name, "type", windowType)
 			entry.Window.Show()
 			entry.Window.Focus()
@@ -82,7 +87,7 @@ func (wr *WindowRegistry) Register(config *config.PageConfig) *application.Webvi
 	// 发送窗口打开事件
 	wr.emitWindowEvent("window:opened", config)
 
-	wr.logger.Info("窗口已注册", "name", config.Window.Name, "type", windowType)
+	wr.logger.Info("窗口已注册", "name", config.Window.Name, "type", windowType, "url", config.Window.URL)
 
 	return window
 }
@@ -178,6 +183,49 @@ func (wr *WindowRegistry) GetAllWindowNames() map[string]bool {
 		names[name] = true
 	}
 	return names
+}
+
+// WindowInfo 窗口信息
+type WindowInfo struct {
+	Name  string
+	Type  string
+	Title string
+	ID    uint
+}
+
+// GetWindowInfo 获取窗口详细信息
+func (wr *WindowRegistry) GetWindowInfo(name string) *WindowInfo {
+	wr.mu.RLock()
+	defer wr.mu.RUnlock()
+
+	entry, exists := wr.windows[name]
+	if !exists {
+		return nil
+	}
+
+	return &WindowInfo{
+		Name:  name,
+		Type:  entry.Config.Type,
+		Title: entry.Config.Title,
+		ID:    entry.Window.ID(),
+	}
+}
+
+// GetAllWindowInfos 获取所有窗口信息
+func (wr *WindowRegistry) GetAllWindowInfos() []*WindowInfo {
+	wr.mu.RLock()
+	defer wr.mu.RUnlock()
+
+	infos := make([]*WindowInfo, 0, len(wr.windows))
+	for name, entry := range wr.windows {
+		infos = append(infos, &WindowInfo{
+			Name:  name,
+			Type:  entry.Config.Type,
+			Title: entry.Config.Title,
+			ID:    entry.Window.ID(),
+		})
+	}
+	return infos
 }
 
 // emitWindowEvent 发送窗口事件

@@ -5,9 +5,15 @@
 // @ts-ignore: Unused imports
 import type { Events } from "@wailsio/runtime";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import type * as service$0 from "../../../../chenyang-zz/boxify/internal/service/models.js";
+
 declare module "@wailsio/runtime" {
     namespace Events {
         interface CustomEvents {
+            "data-sync:broadcast": service$0.DataSyncEvent;
+            "data-sync:targeted": service$0.DataSyncEvent;
             "window:closed": { [_ in string]?: any };
             "window:opened": { [_ in string]?: any };
         }

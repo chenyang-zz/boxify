@@ -84,3 +84,18 @@ func (ws *WindowService) GetPageList() *connection.QueryResult {
 		Data:    pageList,
 	}
 }
+
+func (ws *WindowService) GetWindowNameByPageID(pageId string) *connection.QueryResult {
+	pageConfig := ws.am.GetPageConfig().GetPageConfig(pageId)
+	if pageConfig == nil || pageConfig.Window == nil {
+		return &connection.QueryResult{
+			Success: false,
+			Message: fmt.Sprintf("页面不存在: %s", pageId),
+		}
+	}
+
+	return &connection.QueryResult{
+		Success: true,
+		Data:    pageConfig.Window.Name,
+	}
+}

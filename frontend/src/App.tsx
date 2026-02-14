@@ -12,8 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { FC, JSX, lazy } from "react";
+import { FC, JSX, lazy, useEffect } from "react";
 import { useWindowListener } from "./hooks/useWindowListener";
+import { dataSyncStoreMethods } from "./store/data-sync.store";
+import { callWails } from "./lib/utils";
+import { GetWindowNameByPageID } from "@wails/service/windowservice";
 
 // 获取当前页面 ID
 const pageId =
@@ -31,10 +34,21 @@ const pageComponents: Record<
 
 const PageComponent = pageComponents[pageId] || pageComponents.index;
 
-console.log(pageId);
-
 const App: FC = () => {
   useWindowListener();
+
+  useEffect(() => {
+    console.log(`📄 当前页面ID: ${pageId}`);
+    callWails(GetWindowNameByPageID, pageId)
+      .then((res) => {
+        console.log(`📄  当前窗口名称: ${res.data}`);
+        dataSyncStoreMethods.setCurrentWindow(res.data);
+      })
+      .catch(() => {
+        console.error(" 获取窗口名称失败");
+      });
+  }, []);
+
   return (
     <>
       <PageComponent />

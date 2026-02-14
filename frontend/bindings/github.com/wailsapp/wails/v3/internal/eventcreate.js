@@ -6,14 +6,21 @@
 // @ts-ignore: Unused imports
 import { Create as $Create } from "@wailsio/runtime";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as service$0 from "../../../../chenyang-zz/boxify/internal/service/models.js";
+
 function configure() {
     Object.freeze(Object.assign($Create.Events, {
-        "window:closed": $$createType0,
-        "window:opened": $$createType0,
+        "data-sync:broadcast": $$createType0,
+        "data-sync:targeted": $$createType0,
+        "window:closed": $$createType1,
+        "window:opened": $$createType1,
     }));
 }
 
 // Private type creation functions
-const $$createType0 = $Create.Map($Create.Any, $Create.Any);
+const $$createType0 = service$0.DataSyncEvent.createFrom;
+const $$createType1 = $Create.Map($Create.Any, $Create.Any);
 
 configure();

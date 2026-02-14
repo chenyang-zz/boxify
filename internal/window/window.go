@@ -46,6 +46,7 @@ func InitApplication(logInfo slog.Level, assets fs.FS) *AppManager {
 	am.app = application.New(application.Options{
 		Name:     "Boxify",
 		LogLevel: logInfo,
+		Logger:   logger,
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
 		},
@@ -133,6 +134,11 @@ func (am *AppManager) GetWindowID(name string) uint {
 // GetPageConfig 获取页面配置
 func (am *AppManager) GetPageConfig() *config.PageConfigFile {
 	return am.pageConfig
+}
+
+// GetRegistry 获取窗口注册表引用
+func (am *AppManager) GetRegistry() *WindowRegistry {
+	return am.registry
 }
 
 // generateModalName 生成模态窗口唯一名称

@@ -13,6 +13,10 @@ func init() {
 	// 新的窗口事件
 	application.RegisterEvent[map[string]interface{}]("window:opened")
 	application.RegisterEvent[map[string]interface{}]("window:closed")
+
+	// 数据同步事件
+	application.RegisterEvent[service.DataSyncEvent]("data-sync:broadcast")
+	application.RegisterEvent[service.DataSyncEvent]("data-sync:targeted")
 }
 
 //go:embed all:frontend/dist
@@ -29,6 +33,9 @@ func main() {
 		},
 		func(app *application.App) application.Service {
 			return application.NewService(service.NewWindowService(am))
+		},
+		func(app *application.App) application.Service {
+			return application.NewService(service.NewDataSyncService(app, am.GetRegistry()))
 		},
 	}
 

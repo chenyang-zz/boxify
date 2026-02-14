@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { DBFileType } from "@/common/constrains";
-import { getDBTableValuesByUUID } from "@/lib/dbTable";
+import { getDBTableValuesByUUID } from "@/lib/db-table";
 import { getPropertyItemByUUID } from "@/lib/property";
 import { useEffect, useState } from "react";
 
