@@ -32,6 +32,37 @@
       }
     },
     {
+      "id": "connection-edit",
+      "type": "singleton",
+      "title": "Boxify - 设置",
+      "entry": "main.tsx",
+      "containerId": "root",
+      "isMain": false,
+      "center": true,
+      "window": {
+        "name": "connection-edit",
+        "title": "ConnectionEdit",
+        "url": "/connection-edit",
+        "width": 550,
+        "height": 600,
+        "minWidth": 300,
+        "minHeight": 300,
+        "maxWidth": 0,
+        "maxHeight": 0,
+        "x": 0,
+        "y": 0,
+        "disableResize": true,
+        "alwaysOnTop": true,
+        "hidden": false,
+        "mac": {
+          "titleBar": {
+            "appearsTransparent": true,
+            "fullSizeContent": true
+          }
+        }
+      }
+    },
+    {
       "id": "settings",
       "type": "singleton",
       "title": "Boxify - 设置",

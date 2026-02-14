@@ -31,3 +31,33 @@ interface SaveInitialDataOptions<T> {
 interface SettingsInitialData {
   title: string;
 }
+
+interface ConnectionStandard {
+  tagColor: string;
+  environment: string;
+  name: string;
+  host: string;
+  user: string;
+  port: number;
+  validationWay: string;
+  password?: string;
+  remark?: string;
+}
+
+interface ConnectionAdvanced {
+  useSSH: boolean;
+  sshName?: string;
+  defaultDatabase?: string;
+  timeout?: number;
+  expiredAt?: number;
+}
+
+interface ConnectionParameters {
+  parameters: Record<string, string>;
+}
+
+interface ConnectionEditInitialData {
+  standard: ConnectionStandard;
+  advanced: ConnectionAdvanced;
+  parameters: ConnectionParameters;
+}

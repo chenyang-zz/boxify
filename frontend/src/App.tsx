@@ -27,6 +27,7 @@ const pageComponents: Record<
 > = {
   index: lazy(() => import("./pages/main")),
   settings: lazy(() => import("./pages/settings")),
+  "connection-edit": lazy(() => import("./pages/connectionEdit")),
 };
 
 const PageComponent = pageComponents[pageId] || pageComponents.index;

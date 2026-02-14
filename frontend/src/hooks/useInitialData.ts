@@ -54,10 +54,8 @@ export const useInitialData = <T>() => {
       if (result.success && result.data) {
         const data = result.data as InitialDataEntry<T>;
         setInitialData(data as any);
-        console.log("[初始数据] 已加载:", data);
         return data;
       } else {
-        console.log("[初始数据] 无数据或已过期:", result.message);
         return null;
       }
     } catch (error) {
@@ -79,7 +77,6 @@ export const useInitialData = <T>() => {
 
       await callWails(InitialDataService.ClearInitialData, targetWindow);
       setInitialData(null);
-      console.log("[初始数据] 已清除:", targetWindow);
     } catch (error) {
       console.error("[初始数据] 清除失败:", error);
     }
@@ -96,7 +93,6 @@ export const useInitialData = <T>() => {
       "initial-data:received",
       (event: { data: InitialDataEntry<T> }) => {
         if (event.data.windowName === currentWindowName()) {
-          console.log("[初始数据] 接收事件:", event.data);
           setInitialData(event.data);
         }
       },

@@ -50,7 +50,7 @@ function MainApp() {
               <ResizablePanel className="pl-1 pr-2">
                 <div
                   onClick={() =>
-                    openWindowWithData("settings", { title: "设置3" })
+                    openWindowWithData("connection-edit", { title: "设置3" })
                   }
                 >
                   打开窗口
