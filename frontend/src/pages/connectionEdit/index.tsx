@@ -23,10 +23,41 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import WindowHeader from "@/components/WindowHeader";
 import StandardForm from "./components/StandardForm";
-import { useRef } from "react";
+import type { ConnectionEditInitialData, ConnectionStandard } from "@/types/initial-data";
+import { useInitialData } from "@/hooks/useInitialData";
+import { useEffect, useState } from "react";
 
 function ConnectionEdit() {
-  const standardFormRef = useRef<HTMLFormElement>(null);
+  // 接收初始数据
+  const { initialData, isLoading } =
+    useInitialData<ConnectionEditInitialData>();
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+
+  // 检查初始数据是否加载
+  useEffect(() => {
+    if (initialData && !isLoading) {
+      setIsDataLoaded(true);
+      setIsEditMode(!!initialData.data.standard);
+      console.log("=== 接收到的初始数据 ===");
+      console.log("模式:", initialData.data.standard ? "编辑" : "创建");
+      console.log("数据:", initialData);
+      console.log("====================");
+    }
+  }, [initialData, isLoading]);
+
+  // 处理标准配置表单提交
+  const handleSaveStandard = (data: ConnectionStandard) => {
+    console.log("=== 保存连接配置 ===");
+    console.log("模式:", isEditMode ? "编辑" : "创建");
+    console.log("标准配置:", data);
+    console.log("==================");
+
+    // TODO: 后续添加实际的保存逻辑
+    // - 调用后端 API 保存
+    // - 或通过窗口通信传递给主窗口
+    // - 关闭当前窗口
+  };
 
   return (
     <div className="flex flex-col h-screen bg-background w-screen">
@@ -44,7 +75,11 @@ function ConnectionEdit() {
               <TabsTrigger value="settings">SSL</TabsTrigger>
             </TabsList>
             <TabsContent value="overview" className="w-full flex-1">
-              <StandardForm ref={standardFormRef} />
+              <StandardForm
+                initialData={initialData?.data.standard}
+                onSubmit={handleSaveStandard}
+                mode={isEditMode ? "edit" : "create"}
+              />
             </TabsContent>
             <TabsContent value="analytics" className="w-full">
               <Card>
@@ -102,9 +137,8 @@ function ConnectionEdit() {
             variant="ghost"
             size="sm"
             className=" text-blue-600 hover:text-blue-600"
-            onClick={() => {
-              standardFormRef.current?.requestSubmit();
-            }}
+            type="submit"
+            form="standard-form"
           >
             保存
           </Button>

@@ -1,6 +1,7 @@
 import { useInitialData } from "@/hooks/useInitialData";
 import { DataSyncAPI } from "@/lib/data-sync";
 import { DataChannel } from "@/store/data-sync.store";
+import type { SettingsInitialData } from "@/types/initial-data";
 
 export default function SettingApp() {
   const test = async () => {

@@ -1,9 +1,11 @@
+import type { TagColorValue } from "@/constants/color-constants";
+
 /**
  * 初始数据条目
  *
  * 用于在窗口间传递初始数据
  */
-interface InitialDataEntry<T> {
+export interface InitialDataEntry<T> {
   /** 目标窗口名称 */
   windowName: string;
   /** 源窗口名称 */
@@ -19,7 +21,7 @@ interface InitialDataEntry<T> {
 /**
  * 初始数据保存选项
  */
-interface SaveInitialDataOptions<T> {
+export interface SaveInitialDataOptions<T> {
   /** 目标窗口名称 */
   targetWindow: string;
   /** 要传递的数据 */
@@ -28,12 +30,12 @@ interface SaveInitialDataOptions<T> {
   ttl?: number;
 }
 
-interface SettingsInitialData {
+export interface SettingsInitialData {
   title: string;
 }
 
-interface ConnectionStandard {
-  tagColor: string;
+export interface ConnectionStandard {
+  tagColor: TagColorValue | "";
   environment: string;
   name: string;
   host: string;
@@ -44,7 +46,7 @@ interface ConnectionStandard {
   remark?: string;
 }
 
-interface ConnectionAdvanced {
+export interface ConnectionAdvanced {
   useSSH: boolean;
   sshName?: string;
   defaultDatabase?: string;
@@ -52,11 +54,11 @@ interface ConnectionAdvanced {
   expiredAt?: number;
 }
 
-interface ConnectionParameters {
+export interface ConnectionParameters {
   parameters: Record<string, string>;
 }
 
-interface ConnectionEditInitialData {
+export interface ConnectionEditInitialData {
   standard: ConnectionStandard;
   advanced: ConnectionAdvanced;
   parameters: ConnectionParameters;

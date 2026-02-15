@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Events } from "@wailsio/runtime";
 import { InitialDataService } from "@wails/service";
 import { callWails, currentWindowName } from "@/lib/utils";
+import type { InitialDataEntry } from "@/types/initial-data";
 
 /**
  * 初始数据传递 Hook

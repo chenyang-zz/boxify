@@ -17,7 +17,7 @@ import { FC } from "react";
 const TitleBar: FC = () => {
   return (
     <header
-      className="w-full h-8 cursor-default shrink-0"
+      className="w-full h-8 cursor-default shrink-0 font-black"
       style={{ "--wails-draggable": "drag" } as React.CSSProperties}
     ></header>
   );
