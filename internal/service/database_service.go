@@ -62,17 +62,14 @@ func NewDatabaseService(deps *ServiceDeps) *DatabaseService {
 
 // Startup 是在应用程序启动时调用的函数
 func (a *DatabaseService) ServiceStartup(ctx context.Context, options application.ServiceOptions) error {
-	if err := a.DefaultServiceStartup(ctx, options); err != nil {
-		return err
-	}
-
-	a.Logger().Info("数据库服务启动完成")
+	a.SetContext(ctx)
+	a.Logger().Info("服务启动", "service", "DatabaseService")
 	return nil
 }
 
 // Shutdown 是在应用程序关闭时调用的函数
 func (a *DatabaseService) ServiceShutdown() error {
-	a.Logger().Info("服务开始关闭，准备释放资源")
+	a.Logger().Info("服务开始关闭，准备释放资源", "service", "DatabaseService")
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -82,10 +79,7 @@ func (a *DatabaseService) ServiceShutdown() error {
 		}
 	}
 
-	a.Logger().Info("资源释放完成，服务已关闭")
-
-	// 调用基础服务默认关闭实现
-	a.DefaultServiceShutdown()
+	a.Logger().Info("服务关闭", "service", "DatabaseService")
 
 	return nil
 }

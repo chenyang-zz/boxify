@@ -3,7 +3,6 @@ package main
 import (
 	"embed"
 
-	"github.com/chenyang-zz/boxify/internal/logger"
 	"github.com/chenyang-zz/boxify/internal/service"
 	"github.com/chenyang-zz/boxify/internal/window"
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -28,9 +27,6 @@ var assets embed.FS
 func main() {
 	// 创建应用（logger 在 InitApplication 内部初始化）
 	am := window.InitApplication(assets)
-
-	// 确保在程序退出时关闭 logger
-	defer logger.Close()
 
 	// 创建依赖容器
 	deps := service.NewServiceDeps(am.App(), am)

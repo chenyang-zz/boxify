@@ -49,7 +49,7 @@ func (m *MySQLDB) getDSN(config *connection.ConnectionConfig) string {
 			protocol = netName
 			address = fmt.Sprintf("%s:%d", config.Host, config.Port)
 		} else {
-			logger.Warnf("注册 SSH 网络失败，将尝试直连：地址=%s:%d 用户=%s，原因：%v", config.Host, config.Port, config.User, err)
+			logger.Warn("注册 SSH 网络失败，将尝试直连：地址=%s:%d 用户=%s，原因：%v", config.Host, config.Port, config.User, err)
 		}
 	}
 

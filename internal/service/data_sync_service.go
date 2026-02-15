@@ -15,10 +15,12 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/chenyang-zz/boxify/internal/connection"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 // DataSyncEvent 数据同步事件
@@ -63,6 +65,20 @@ func NewDataSyncService(deps *ServiceDeps) *DataSyncService {
 		BaseService:   NewBaseService(deps),
 		lastEventTime: make(map[string]time.Time),
 	}
+}
+
+// Startup 是在应用程序启动时调用的函数
+func (ds *DataSyncService) ServiceStartup(ctx context.Context, options application.ServiceOptions) error {
+	ds.SetContext(ctx)
+	ds.Logger().Info("服务启动", "service", "DataSyncService")
+	return nil
+}
+
+// ServiceShutdown 服务关闭
+func (ds *DataSyncService) ServiceShutdown() error {
+	ds.Logger().Info("服务开始关闭，准备释放资源", "service", "DataSyncService")
+	ds.Logger().Info("服务关闭", "service", "DataSyncService")
+	return nil
 }
 
 // Broadcast 广播消息到所有窗口

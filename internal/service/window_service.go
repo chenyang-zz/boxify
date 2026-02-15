@@ -15,9 +15,11 @@
 package service
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/chenyang-zz/boxify/internal/connection"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 // WindowService 窗口管理服务
@@ -30,6 +32,20 @@ func NewWindowService(deps *ServiceDeps) *WindowService {
 	return &WindowService{
 		BaseService: NewBaseService(deps),
 	}
+}
+
+// Startup 是在应用程序启动时调用的函数
+func (ws *WindowService) ServiceStartup(ctx context.Context, options application.ServiceOptions) error {
+	ws.SetContext(ctx)
+	ws.Logger().Info("服务启动", "service", "WindowService")
+	return nil
+}
+
+// ServiceShutdown 服务关闭
+func (ws *WindowService) ServiceShutdown() error {
+	ws.Logger().Info("服务开始关闭，准备释放资源", "service", "WindowService")
+	ws.Logger().Info("服务关闭", "service", "WindowService")
+	return nil
 }
 
 // OpenPage 打开页面（统一 API）

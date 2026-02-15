@@ -63,15 +63,16 @@ func NewInitialDataService(deps *ServiceDeps) *InitialDataService {
 
 // ServiceStartup 服务启动
 func (ids *InitialDataService) ServiceStartup(ctx context.Context, options application.ServiceOptions) error {
-	ids.DefaultServiceStartup(ctx, options)
-	ids.Logger().Info("初始数据服务启动完成")
+	ids.SetContext(ctx)
+	ids.Logger().Info("服务启动", "service", "InitialDataService")
 	return nil
 }
 
 // ServiceShutdown 服务关闭
 func (ids *InitialDataService) ServiceShutdown() error {
-	ids.Shutdown() // 调用现有的 Shutdown 方法
-	ids.DefaultServiceShutdown()
+	ids.Logger().Info("服务开始关闭，准备释放资源", "service", "InitialDataService")
+	close(ids.cleanChan)
+	ids.Logger().Info("服务关闭", "service", "InitialDataService")
 	return nil
 }
 
@@ -255,11 +256,6 @@ func (ids *InitialDataService) cleanupExpiredData() {
 			return
 		}
 	}
-}
-
-// Shutdown 关闭服务
-func (ids *InitialDataService) Shutdown() {
-	close(ids.cleanChan)
 }
 
 // emitWindowEvent 发送窗口事件

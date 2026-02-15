@@ -54,28 +54,25 @@ func InitApplication(assets fs.FS) *AppManager {
 	}
 	ctx := context.WithValue(context.Background(), "buildType", buildType)
 
-	// 使用正确的上下文初始化 logger
-	logger.Init(ctx)
-	slogLogger := logger.GetSlogLogger()
+	// 初始化全局 logger
+	logger.Init(slog.LevelInfo)
 
 	// 使用初始化后的 logger 创建应用
 	app := application.New(application.Options{
 		Name:     "Boxify",
 		LogLevel: slog.LevelInfo,
-		Logger:   slogLogger,
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
 		},
 	})
 
 	am := &AppManager{
-		app:    app,
-		logger: slogLogger,
-		ctx:    ctx,
+		app: app,
+		ctx: ctx,
 	}
 
 	// 创建窗口注册表
-	am.registry = NewWindowRegistry(am.app, am.logger)
+	am.registry = NewWindowRegistry(am.app, logger.GetDefaultLogger())
 
 	// 加载页面配置
 	pageConfig, err := config.LoadPageConfig(config.GetPageConfigPath())

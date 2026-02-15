@@ -29,13 +29,13 @@ func (a *DatabaseService) DBConnect(config *connection.ConnectionConfig) *connec
 	// 连接测试需要强制 ping，避免缓存命中但连接已失效时误判成功
 	_, err := a.getDatabaseForcePing(config)
 	if err != nil {
-		logger.ErrorfWithTrace(err, "DBConnect 连接失败：%s", formatConnSummary(config))
+		logger.Error("DBConnect 连接失败：%s, err: %w", formatConnSummary(config), err)
 		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
 	}
-	logger.Infof("DBConnect 连接成功：%s", formatConnSummary(config))
+	logger.Info("DBConnect 连接成功：%s", formatConnSummary(config))
 
 	return &connection.QueryResult{
 		Success: true,
@@ -47,14 +47,14 @@ func (a *DatabaseService) DBConnect(config *connection.ConnectionConfig) *connec
 func (a *DatabaseService) TestConnection(config *connection.ConnectionConfig) *connection.QueryResult {
 	_, err := a.getDatabaseForcePing(config)
 	if err != nil {
-		logger.ErrorfWithTrace(err, "TestConnection 连接失败：%s", formatConnSummary(config))
+		logger.Error("TestConnection 连接失败：%s, err: %w", formatConnSummary(config), err)
 		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
 	}
 
-	logger.Infof("TestConnection 连接成功：%s", formatConnSummary(config))
+	logger.Info("TestConnection 连接成功：%s", formatConnSummary(config))
 	return &connection.QueryResult{
 		Success: true,
 		Message: "连接成功",

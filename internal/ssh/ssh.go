@@ -48,7 +48,7 @@ func RegisterSSHNetwork(sshConfig *connection.SSHConfig) (string, error) {
 
 	// 生产唯一的网络名
 	netName := fmt.Sprintf("ssh_%s_%d", sshConfig.Host, time.Now().UnixNano())
-	logger.Infof("注册 SSH 网络：%s（地址=%s:%d 用户=%s）", netName, sshConfig.Host, sshConfig.Port, sshConfig.User)
+	logger.Info("注册 SSH 网络：%s（地址=%s:%d 用户=%s）", netName, sshConfig.Host, sshConfig.Port, sshConfig.User)
 
 	mysql.RegisterDialContext(netName, func(ctx context.Context, addr string) (net.Conn, error) {
 		return dialContext(ctx, client, "tcp", addr)
@@ -59,17 +59,17 @@ func RegisterSSHNetwork(sshConfig *connection.SSHConfig) (string, error) {
 
 // connectSSH建立一个SSH连接并返回一个Dialer
 func connectSSH(config *connection.SSHConfig) (*ssh.Client, error) {
-	logger.Infof("开始建立ssh连接，地址=%s:%d 用户=%s", config.Host, config.Port, config.User)
+	logger.Info("开始建立ssh连接，地址=%s:%d 用户=%s", config.Host, config.Port, config.User)
 	authMethods := []ssh.AuthMethod{}
 
 	if config.KeyPath != "" {
 		key, err := os.ReadFile(config.KeyPath)
 		if err != nil {
-			logger.Warnf("读取 SSH 私钥失败：路径=%s，原因：%v", config.KeyPath, err)
+			logger.Warn("读取 SSH 私钥失败：路径=%s，原因：%v", config.KeyPath, err)
 		} else {
 			signer, err := ssh.ParsePrivateKey(key)
 			if err != nil {
-				logger.Warnf("解析 SSH 私钥失败：路径=%s，原因：%v", config.KeyPath, err)
+				logger.Warn("解析 SSH 私钥失败：路径=%s，原因：%v", config.KeyPath, err)
 			} else {
 				authMethods = append(authMethods, ssh.PublicKeys(signer))
 			}
@@ -81,7 +81,7 @@ func connectSSH(config *connection.SSHConfig) (*ssh.Client, error) {
 	}
 
 	if len(authMethods) == 0 {
-		logger.Warnf("SSH 未配置认证方式（密码或私钥）")
+		logger.Warn("SSH 未配置认证方式（密码或私钥）")
 	}
 
 	sshConfig := &ssh.ClientConfig{
@@ -94,10 +94,10 @@ func connectSSH(config *connection.SSHConfig) (*ssh.Client, error) {
 	addr := fmt.Sprintf("%s:%d", config.Host, config.Port)
 	client, err := ssh.Dial("tcp", addr, sshConfig)
 	if err != nil {
-		logger.ErrorfWithTrace(err, "SSH 连接建立失败：地址=%s 用户=%s", addr, config.User)
+		logger.Error("SSH 连接建立失败：地址=%s 用户=%s, err: %w", addr, config.User, err)
 		return nil, err
 	}
-	logger.Infof("SSH 连接建立成功：地址=%s 用户=%s", addr, config.User)
+	logger.Info("SSH 连接建立成功：地址=%s 用户=%s", addr, config.User)
 	return client, nil
 }
 
