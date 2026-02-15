@@ -18,101 +18,183 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"log"
+	"log/slog"
 	"os"
-	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"go.uber.org/zap"
 
 	"github.com/chenyang-zz/boxify/internal/utils"
 )
 
 const (
-	envLogDir  = "Boxify_LOG_DIR"
-	appDirName = "boxify"
-
-	logFileName         = "boxify.log"
-	logRotateMaxBytes   = 10 * 1024 * 1024 // 10 MB
-	logRotateMaxBackups = 10               // 保留最近的10个日志文件，超过这个数量的旧日志将被删除
+	envLogDir = "Boxify_LOG_DIR"
 )
 
 var (
-	once    sync.Once
-	logMu   sync.Mutex
-	logInst *log.Logger
-	logFile *os.File
-	logPath string
+	mu         sync.RWMutex
+	logger     *zap.Logger
+	sugar      *zap.SugaredLogger
+	logPath    string
+	initialized bool
 )
 
-// Init 初始化日志系统，确保只执行一次。根据环境变量或系统默认路径创建日志文件，并设置日志输出。
-// 日志文件会自动轮转和清理旧日志。
+// Init 初始化日志系统。根据环境变量或系统默认路径创建日志文件，并设置日志输出。
+// 支持使用新的 context 重新初始化。
 func Init(ctx context.Context) {
-	once.Do(func() {
-		path, out := initOutput(ctx)
-		logMu.Lock()
-		defer logMu.Unlock()
-		logPath = path
-		logInst = log.New(out, "", log.Ldate|log.Ltime|log.Lmicroseconds)
-		logInst.Printf("[INFO] 日志初始化完成，日志文件：%s", logPath)
-	})
+	mu.Lock()
+	defer mu.Unlock()
+
+	// 加载配置
+	config := loadConfig(ctx)
+
+	// 创建 zap logger
+	newLogger, err := NewLogger(config)
+	if err != nil {
+		panic(fmt.Sprintf("初始化 logger 失败: %v", err))
+	}
+
+	// 如果已经初始化过，先关闭旧的 logger
+	if initialized && logger != nil {
+		_ = logger.Sync()
+	}
+
+	logger = newLogger
+	sugar = logger.Sugar()
+	logPath = config.OutputPath
+	initialized = true
+
+	logger.Info("日志初始化完成",
+		zap.String("file", logPath),
+		zap.String("level", config.Level),
+	)
+}
+
+// loadConfig 加载日志配置
+func loadConfig(ctx context.Context) *Config {
+	// 确定日志级别
+	level := "INFO"
+	if utils.IsDev(ctx) {
+		level = "DEBUG"
+	}
+
+	// 从环境变量读取日志级别（如果设置）
+	if envLevel := strings.TrimSpace(os.Getenv("BOXIFY_LOG_LEVEL")); envLevel != "" {
+		level = envLevel
+	}
+
+	// 构建配置
+	return &Config{
+		Level:      level,
+		Format:      "text", // 默认文本格式
+		OutputPath:  getLogPath(),
+		MaxSize:     10,  // 10 MB
+		MaxBackups:  10,  // 保留 10 个
+		MaxAge:      30,  // 30 天
+		Compress:    false,
+	}
 }
 
 // Path 返回当前日志文件的路径。如果日志系统尚未初始化，则会先进行初始化。
-// 返回的路径可能是环境变量指定的目录、系统默认配置目录，或者临时目录中的日志文件路径。
 func Path() string {
 	Init(context.Background())
-	logMu.Lock()
-	defer logMu.Unlock()
 	return logPath
 }
 
-// Close 关闭日志系统，释放资源。会将日志输出重置为标准错误，并关闭日志文件。
-// 如果日志系统尚未初始化，则会先进行初始化。调用此函数后，日志文件将不再被写入，并且相关资源将被清理。
+// Close 关闭日志系统，释放资源。
 func Close() {
 	Init(context.Background())
-	logMu.Lock()
-	defer logMu.Unlock()
-	if logInst != nil {
-		logInst.SetOutput(os.Stderr)
-	}
-	if logFile != nil {
-		_ = logFile.Close()
-		logFile = nil
+	if logger != nil {
+		_ = logger.Sync()
 	}
 }
 
-// Infof 输出信息级别的日志消息，格式化字符串和参数列表。
-// 调用此函数会将日志消息以“信息”级别输出到日志文件中。
-// 如果日志系统尚未初始化，则会先进行初始化。
+// GetZapLogger 返回底层 zap logger 实例（供 Wails 等外部使用）
+func GetZapLogger() *zap.Logger {
+	Init(context.Background())
+	return logger
+}
+
+// GetSlogLogger 返回 slog.Logger 实例（底层使用 zap）
+// 注意：每次调用都会创建新的 slog logger 实例，如果 logger 已重新初始化，
+// 需要重新调用 GetSlogLogger() 获取新的实例。
+func GetSlogLogger() *slog.Logger {
+	mu.RLock()
+	defer mu.RUnlock()
+
+	// 确保 logger 已初始化
+	if !initialized || logger == nil {
+		mu.RUnlock()
+		Init(context.Background())
+		mu.RLock()
+	}
+
+	// 创建 zap handler
+	handler := newZapHandler(logger)
+
+	// 返回 slog logger
+	return slog.New(handler)
+}
+
+// Debug 输出 DEBUG 级别的日志消息（结构化 API）
+func Debug(msg string, fields ...zap.Field) {
+	Init(context.Background())
+	logger.Debug(msg, fields...)
+}
+
+// Info 输出 INFO 级别的日志消息（结构化 API）
+func Info(msg string, fields ...zap.Field) {
+	Init(context.Background())
+	logger.Info(msg, fields...)
+}
+
+// Warn 输出 WARN 级别的日志消息（结构化 API）
+func Warn(msg string, fields ...zap.Field) {
+	Init(context.Background())
+	logger.Warn(msg, fields...)
+}
+
+// Error 输出 ERROR 级别的日志消息（结构化 API）
+func Error(msg string, fields ...zap.Field) {
+	Init(context.Background())
+	logger.Error(msg, fields...)
+}
+
+// Fatal 输出 FATAL 级别的日志消息，然后退出程序
+func Fatal(msg string, fields ...zap.Field) {
+	Init(context.Background())
+	logger.Fatal(msg, fields...)
+}
+
+// Debugf 输出 DEBUG 级别的日志消息（格式化 API）
+func Debugf(format string, args ...any) {
+	Init(context.Background())
+	sugar.Debugf(format, args...)
+}
+
+// Infof 输出 INFO 级别的日志消息（格式化 API）
 func Infof(format string, args ...any) {
-	printf("INFO", format, args...)
+	Init(context.Background())
+	sugar.Infof(format, args...)
 }
 
-// Warnf 输出警告级别的日志消息，格式化字符串和参数列表。
-// 调用此函数会将日志消息以“警告”级别输出到日志文件中。
-// 如果日志系统尚未初始化，则会先进行初始化。
+// Warnf 输出 WARN 级别的日志消息（格式化 API）
 func Warnf(format string, args ...any) {
-	printf("WARN", format, args...)
+	Init(context.Background())
+	sugar.Warnf(format, args...)
 }
 
-// Errorf 输出错误级别的日志消息，格式化字符串和参数列表。
-// 调用此函数会将日志消息以“错误”级别输出到日志文件中。
-// 如果日志系统尚未初始化，则会先进行初始化。
+// Errorf 输出 ERROR 级别的日志消息（格式化 API）
 func Errorf(format string, args ...any) {
-	printf("ERROR", format, args...)
+	Init(context.Background())
+	sugar.Errorf(format, args...)
 }
 
 // ErrorfWithTrace 输出错误级别的日志消息，包含错误链信息。
-// 接受一个错误对象、格式字符串和参数列表。
-// 函数会将格式化后的消息与错误链信息一起输出到日志文件中。
-// 如果错误对象为nil，则只输出格式化后的消息；
-// 否则，会调用ErrorChain函数获取错误链的字符串表示，并将其附加到日志消息中。
-// 调用此函数会将日志消息以“错误”级别输出到日志文件中。
-// 如果日志系统尚未初始化，则会先进行初始化。
 func ErrorfWithTrace(err error, format string, args ...any) {
+	Init(context.Background())
 	msg := fmt.Sprintf(format, args...)
 	if err == nil {
 		Errorf("%s", msg)
@@ -122,8 +204,6 @@ func ErrorfWithTrace(err error, format string, args ...any) {
 }
 
 // ErrorChain 返回错误链的字符串表示，包含所有独特的错误消息，按顺序连接。
-// 对于每个错误，都会调用Error()方法获取其消息，并将它们连接成一个字符串。
-// 函数会避免重复的错误消息，并且如果错误链过长（超过20层），会在末尾添加提示信息表示已截断。
 func ErrorChain(err error) string {
 	if err == nil {
 		return "<nil>"
@@ -155,106 +235,27 @@ func ErrorChain(err error) string {
 	return strings.Join(parts, " -> ")
 }
 
-// printf 是一个内部函数，用于格式化日志消息并输出到日志文件。
-// 它接受日志级别、格式字符串和可变参数列表。
-// 函数首先确保日志系统已初始化，然后获取当前的日志实例，并使用指定的格式输出日志消息。
-// 如果日志实例不可用，则函数会直接返回，不进行任何操作。
-func printf(level string, format string, args ...any) {
-	Init(context.Background())
-	logMu.Lock()
-	inst := logInst
-	logMu.Unlock()
-	if inst == nil {
-		return
-	}
-	inst.Printf("[%s] %s", level, fmt.Sprintf(format, args...))
+// String 创建字符串字段（便捷方法）
+func String(key, val string) zap.Field {
+	return zap.String(key, val)
 }
 
-// initOutput 初始化日志输出，优先使用环境变量指定的目录，如果不可用则使用系统默认配置目录，最后退回到临时目录。
-// 返回日志文件路径和对应的io.Writer。
-func initOutput(ctx context.Context) (string, io.Writer) {
-	dir := strings.TrimSpace(os.Getenv(envLogDir))
-
-	if dir == "" {
-		base, err := os.UserConfigDir()
-		if err != nil || strings.TrimSpace(base) == "" {
-			base = os.TempDir()
-		}
-		dir = filepath.Join(base, appDirName, "logs")
-	}
-
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return filepath.Join(dir, logFileName), os.Stderr
-	}
-
-	path := filepath.Join(dir, logFileName)
-	rotateIfNeeded(path, dir)
-
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
-	if err != nil {
-		return path, os.Stderr
-	}
-
-	logFile = f
-	writer := io.Writer(f)
-
-	if utils.IsDev(ctx) {
-		writer = io.MultiWriter(os.Stdout, f)
-	}
-	return path, writer
+// Int 创建整数字段（便捷方法）
+func Int(key string, val int) zap.Field {
+	return zap.Int(key, val)
 }
 
-// rotateIfNeeded 检查日志文件大小，如果超过限制则进行轮转，并清理旧日志。
-func rotateIfNeeded(path, dir string) {
-	fi, err := os.Stat(path)
-	if err != nil || fi.IsDir() {
-		return
-	}
-
-	if fi.Size() < logRotateMaxBytes {
-		return
-	}
-
-	ts := time.Now().Format("20060102-150405")
-	rotated := filepath.Join(dir, "boxify-"+ts+".log")
-	if err = os.Rename(path, rotated); err != nil {
-		return
-	}
-	cleanupOldLogs(dir)
+// Err 创建错误字段（便捷方法）
+func Err(err error) zap.Field {
+	return zap.Error(err)
 }
 
-// cleanupOldLogs 删除超过保留数量的旧日志文件，保留最新的logRotateMaxBackups个日志。
-func cleanupOldLogs(dir string) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return
-	}
+// Duration 创建时间段字段（便捷方法）
+func Duration(key string, val time.Duration) zap.Field {
+	return zap.Duration(key, val)
+}
 
-	type item struct {
-		name string
-		path string
-	}
-	var logs []item
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-
-		name := entry.Name()
-		if !strings.HasPrefix(name, "boxify-") || !strings.HasSuffix(name, ".log") {
-			continue
-		}
-
-		logs = append(logs, item{name: name, path: filepath.Join(dir, name)})
-	}
-
-	sort.Slice(logs, func(i, j int) bool {
-		return logs[i].name > logs[j].name
-	})
-	if len(logs) <= logRotateMaxBackups {
-		return
-	}
-	for _, it := range logs[logRotateMaxBackups:] {
-		_ = os.Remove(it.path)
-	}
+// Any 创建任意类型字段（便捷方法）
+func Any(key string, val any) zap.Field {
+	return zap.Any(key, val)
 }

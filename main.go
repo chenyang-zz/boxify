@@ -2,8 +2,8 @@ package main
 
 import (
 	"embed"
-	"log/slog"
 
+	"github.com/chenyang-zz/boxify/internal/logger"
 	"github.com/chenyang-zz/boxify/internal/service"
 	"github.com/chenyang-zz/boxify/internal/window"
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -26,22 +26,28 @@ func init() {
 var assets embed.FS
 
 func main() {
+	// 创建应用（logger 在 InitApplication 内部初始化）
+	am := window.InitApplication(assets)
 
-	am := window.InitApplication(slog.LevelInfo, assets)
+	// 确保在程序退出时关闭 logger
+	defer logger.Close()
+
+	// 创建依赖容器
+	deps := service.NewServiceDeps(am.App(), am)
 
 	// 注册服务
 	services := []func(app *application.App) application.Service{
 		func(app *application.App) application.Service {
-			return application.NewService(service.NewService(app))
+			return application.NewService(service.NewDatabaseService(deps))
 		},
 		func(app *application.App) application.Service {
-			return application.NewService(service.NewWindowService(am))
+			return application.NewService(service.NewWindowService(deps))
 		},
 		func(app *application.App) application.Service {
-			return application.NewService(service.NewDataSyncService(app, am.GetRegistry()))
+			return application.NewService(service.NewDataSyncService(deps))
 		},
 		func(app *application.App) application.Service {
-			return application.NewService(service.NewInitialDataService(am))
+			return application.NewService(service.NewInitialDataService(deps))
 		},
 	}
 

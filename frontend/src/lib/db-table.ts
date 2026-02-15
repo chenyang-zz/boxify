@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { AppService } from "@wails/service";
+import { DatabaseService } from "@wails/service";
 import { callWails } from "./utils";
 import {
   ColumnDefinition,
@@ -47,7 +47,7 @@ export async function getDBTableColumnsByUUID(
 
   try {
     const res = await callWails(
-      AppService.DBGetColumns,
+      DatabaseService.DBGetColumns,
       ConnectionConfig.createFrom(config),
       dbName,
       item.label,
@@ -84,7 +84,7 @@ export async function getDBTableValuesByUUID(
 
   try {
     const res = await callWails(
-      AppService.DBQuery,
+      DatabaseService.DBQuery,
       ConnectionConfig.createFrom(config),
       dbName,
       compile.sql,

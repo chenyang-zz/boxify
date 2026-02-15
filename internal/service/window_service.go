@@ -18,24 +18,31 @@ import (
 	"fmt"
 
 	"github.com/chenyang-zz/boxify/internal/connection"
-	"github.com/chenyang-zz/boxify/internal/window"
 )
 
-// WindowService struct
+// WindowService 窗口管理服务
 type WindowService struct {
-	am *window.AppManager
+	BaseService
 }
 
-// NewWindowService 新建一个WindowService实例
-func NewWindowService(am *window.AppManager) *WindowService {
+// NewWindowService 创建 WindowService
+func NewWindowService(deps *ServiceDeps) *WindowService {
 	return &WindowService{
-		am: am,
+		BaseService: NewBaseService(deps),
 	}
 }
 
 // OpenPage 打开页面（统一 API）
 func (ws *WindowService) OpenPage(pageId string) *connection.QueryResult {
-	err := ws.am.OpenPage(pageId)
+	am := ws.AppManager()
+	if am == nil {
+		return &connection.QueryResult{
+			Success: false,
+			Message: "AppManager 未初始化",
+		}
+	}
+
+	err := am.OpenPage(pageId)
 	if err != nil {
 		return &connection.QueryResult{
 			Success: false,
@@ -51,7 +58,15 @@ func (ws *WindowService) OpenPage(pageId string) *connection.QueryResult {
 
 // ClosePage 关闭页面
 func (ws *WindowService) ClosePage(pageId string) *connection.QueryResult {
-	err := ws.am.ClosePage(pageId)
+	am := ws.AppManager()
+	if am == nil {
+		return &connection.QueryResult{
+			Success: false,
+			Message: "AppManager 未初始化",
+		}
+	}
+
+	err := am.ClosePage(pageId)
 	if err != nil {
 		return &connection.QueryResult{
 			Success: false,
@@ -67,7 +82,15 @@ func (ws *WindowService) ClosePage(pageId string) *connection.QueryResult {
 
 // GetPageList 获取所有可用页面列表
 func (ws *WindowService) GetPageList() *connection.QueryResult {
-	pages := ws.am.GetPageConfig()
+	am := ws.AppManager()
+	if am == nil {
+		return &connection.QueryResult{
+			Success: false,
+			Message: "AppManager 未初始化",
+		}
+	}
+
+	pages := am.GetPageConfig()
 
 	pageList := make([]map[string]interface{}, 0)
 	for _, page := range pages.Pages {
@@ -86,7 +109,15 @@ func (ws *WindowService) GetPageList() *connection.QueryResult {
 }
 
 func (ws *WindowService) GetWindowNameByPageID(pageId string) *connection.QueryResult {
-	pageConfig := ws.am.GetPageConfig().GetPageConfig(pageId)
+	am := ws.AppManager()
+	if am == nil {
+		return &connection.QueryResult{
+			Success: false,
+			Message: "AppManager 未初始化",
+		}
+	}
+
+	pageConfig := am.GetPageConfig().GetPageConfig(pageId)
 	if pageConfig == nil || pageConfig.Window == nil {
 		return &connection.QueryResult{
 			Success: false,

@@ -15,6 +15,7 @@
 package window
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -58,11 +59,17 @@ func (wr *WindowRegistry) Register(config *config.PageConfig) *application.Webvi
 	if windowType == WindowTypeSingleton || windowType == WindowTypeMain {
 		if entry, exists := wr.windows[config.Window.Name]; exists {
 			if entry.Registered {
-				wr.logger.Info("窗口已存在且可见，聚焦现有窗口", "name", config.Window.Name, "type", windowType)
+				wr.logger.LogAttrs(context.Background(), slog.LevelInfo,
+					"窗口已存在且可见，聚焦现有窗口",
+					slog.String("name", config.Window.Name),
+					slog.String("type", fmt.Sprint(windowType)))
 				entry.Window.Focus()
 				return nil
 			}
-			wr.logger.Info("窗口已存在，聚焦现有窗口", "name", config.Window.Name, "type", windowType)
+			wr.logger.LogAttrs(context.Background(), slog.LevelInfo,
+				"窗口已存在，聚焦现有窗口",
+				slog.String("name", config.Window.Name),
+				slog.String("type", fmt.Sprint(windowType)))
 			entry.Window.Show()
 			entry.Window.Focus()
 			wr.emitWindowEvent("window:opened", entry.Config)
@@ -86,7 +93,11 @@ func (wr *WindowRegistry) Register(config *config.PageConfig) *application.Webvi
 	entry.Registered = true
 	wr.emitWindowEvent("window:opened", entry.Config)
 
-	wr.logger.Info("窗口已注册", "name", config.Window.Name, "type", windowType, "url", config.Window.URL)
+	wr.logger.LogAttrs(context.Background(), slog.LevelInfo,
+		"窗口已注册",
+		slog.String("name", config.Window.Name),
+		slog.String("type", fmt.Sprint(windowType)),
+		slog.String("url", config.Window.URL))
 
 	return window
 }
@@ -99,7 +110,9 @@ func (wr *WindowRegistry) Unregister(name string) {
 	if _, exists := wr.windows[name]; exists {
 		delete(wr.windows, name)
 
-		wr.logger.Info("窗口已注销", "name", name)
+		wr.logger.LogAttrs(context.Background(), slog.LevelInfo,
+			"窗口已注销",
+			slog.String("name", name))
 	}
 }
 
@@ -121,7 +134,10 @@ func (wr *WindowRegistry) setupLifecycleHooks(entry *WindowEntry) {
 
 	// 窗口关闭事件
 	window.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
-		wr.logger.Info("窗口关闭事件", "name", config.Window.Name, "type", config.Type)
+		wr.logger.LogAttrs(context.Background(), slog.LevelInfo,
+			"窗口关闭事件",
+			slog.String("name", config.Window.Name),
+			slog.String("type", config.Type))
 
 		switch ParseWindowType(config.Type) {
 		case WindowTypeMain, WindowTypeSingleton:

@@ -12,26 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package utils
+package service
 
 import (
 	"context"
-	"time"
+
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
-// ContextWithTimeout是一个实用函数，用于创建带有指定超时时间的上下文
-func ContextWithTimeout(d time.Duration) (context.Context, context.CancelFunc) {
-	return context.WithTimeout(context.Background(), d)
+// ServiceLifecycle 服务生命周期接口
+type ServiceLifecycle interface {
+	ServiceStartup(ctx context.Context, options application.ServiceOptions) error
+	ServiceShutdown() error
 }
 
-// IsDev 是一个实用函数，用于检查当前运行环境是否为开发模式
-// 通过 context 中的 buildType 判断
-func IsDev(ctx context.Context) bool {
-	if ctx == nil {
-		return false
+// ServiceCleanup 可选的清理接口
+type ServiceCleanup interface {
+	Cleanup() error
+}
+
+// RegisterLifecycle 注册生命周期方法到服务（辅助函数）
+func RegisterLifecycle(service any) {
+	if lifecycle, ok := service.(ServiceLifecycle); ok {
+		// Wails v3 会自动调用这些方法
+		_ = lifecycle
 	}
-	if buildType, ok := ctx.Value("buildType").(string); ok {
-		return buildType == "dev"
-	}
-	return false
 }

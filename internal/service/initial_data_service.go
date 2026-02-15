@@ -15,14 +15,12 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
-	"sync"
 	"time"
 
 	"github.com/chenyang-zz/boxify/internal/connection"
-	"github.com/chenyang-zz/boxify/internal/window"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
@@ -42,29 +40,39 @@ type InitialDataEntry struct {
 
 // InitialDataService 初始数据服务
 type InitialDataService struct {
-	am        *window.AppManager
+	BaseService
 	data      map[string]*InitialDataEntry // windowName -> 数据条目
-	mu        sync.RWMutex                 // 读写锁
-	logger    *slog.Logger
-	maxAge    time.Duration // 最大存活时间
-	cleanChan chan struct{} // 清理通道
+	maxAge    time.Duration                // 最大存活时间
+	cleanChan chan struct{}                // 清理通道
 }
 
 // NewInitialDataService 创建初始数据服务
-func NewInitialDataService(am *window.AppManager) *InitialDataService {
-
+func NewInitialDataService(deps *ServiceDeps) *InitialDataService {
 	service := &InitialDataService{
-		am:        am,
-		data:      make(map[string]*InitialDataEntry),
-		maxAge:    30 * time.Minute, // 默认30分钟过期
-		cleanChan: make(chan struct{}),
-		logger:    application.Get().Logger,
+		BaseService: NewBaseService(deps),
+		data:        make(map[string]*InitialDataEntry),
+		maxAge:      30 * time.Minute, // 默认30分钟过期
+		cleanChan:   make(chan struct{}),
 	}
 
 	// 启动后台清理协程
 	go service.cleanupExpiredData()
 
 	return service
+}
+
+// ServiceStartup 服务启动
+func (ids *InitialDataService) ServiceStartup(ctx context.Context, options application.ServiceOptions) error {
+	ids.DefaultServiceStartup(ctx, options)
+	ids.Logger().Info("初始数据服务启动完成")
+	return nil
+}
+
+// ServiceShutdown 服务关闭
+func (ids *InitialDataService) ServiceShutdown() error {
+	ids.Shutdown() // 调用现有的 Shutdown 方法
+	ids.DefaultServiceShutdown()
+	return nil
 }
 
 // SaveInitialData 保存窗口初始数据
@@ -84,7 +92,8 @@ func (ids *InitialDataService) SaveInitialData(sourceWindow, targetWindow string
 	}
 
 	// 目标窗口不能打开
-	if ids.am.GetRegistry().IsRegistered(targetWindow) {
+	registry := ids.Registry()
+	if registry == nil || registry.IsRegistered(targetWindow) {
 		return &connection.QueryResult{
 			Success: false,
 			Message: fmt.Sprintf("目标窗口已打开: %s", targetWindow),
@@ -124,13 +133,11 @@ func (ids *InitialDataService) SaveInitialData(sourceWindow, targetWindow string
 	ids.data[targetWindow] = entry
 	ids.mu.Unlock()
 
-	if ids.logger != nil {
-		ids.logger.Info("初始数据已保存",
-			"source", sourceWindow,
-			"target", targetWindow,
-			"expiresAt", expiresAt,
-		)
-	}
+	ids.Logger().Info("初始数据已保存",
+		"source", sourceWindow,
+		"target", targetWindow,
+		"expiresAt", expiresAt,
+	)
 
 	// 发送事件通知目标窗口
 	ids.emitWindowInitialData(ids.GetInitialData(targetWindow).Data.(*InitialDataEntry))
@@ -177,12 +184,10 @@ func (ids *InitialDataService) GetInitialData(windowName string) *connection.Que
 		}
 	}
 
-	if ids.logger != nil {
-		ids.logger.Info("初始数据已获取",
-			"window", windowName,
-			"source", entry.Source,
-		)
-	}
+	ids.Logger().Info("初始数据已获取",
+		"window", windowName,
+		"source", entry.Source,
+	)
 
 	return &connection.QueryResult{
 		Success: true,
@@ -206,11 +211,9 @@ func (ids *InitialDataService) ClearInitialData(windowName string) *connection.Q
 	if _, exists := ids.data[windowName]; exists {
 		delete(ids.data, windowName)
 
-		if ids.logger != nil {
-			ids.logger.Info("初始数据已清除",
-				"window", windowName,
-			)
-		}
+		ids.Logger().Info("初始数据已清除",
+			"window", windowName,
+		)
 
 		return &connection.QueryResult{
 			Success: true,
@@ -243,8 +246,8 @@ func (ids *InitialDataService) cleanupExpiredData() {
 			}
 			ids.mu.Unlock()
 
-			if cleanedCount > 0 && ids.logger != nil {
-				ids.logger.Info("过期数据已清理",
+			if cleanedCount > 0 {
+				ids.Logger().Info("过期数据已清理",
 					"count", cleanedCount,
 				)
 			}

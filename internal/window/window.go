@@ -15,6 +15,7 @@
 package window
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -23,6 +24,7 @@ import (
 	"time"
 
 	"github.com/chenyang-zz/boxify/internal/config"
+	"github.com/chenyang-zz/boxify/internal/logger"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
@@ -32,33 +34,55 @@ type AppManager struct {
 	registry   *WindowRegistry
 	logger     *slog.Logger
 	pageConfig *config.PageConfigFile // 页面配置
+	ctx        context.Context        // 应用上下文，包含 buildType
 }
 
-func InitApplication(logInfo slog.Level, assets fs.FS) *AppManager {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: logInfo,
-	}))
-
-	am := &AppManager{
-		logger: logger,
-	}
-
-	am.app = application.New(application.Options{
+func InitApplication(assets fs.FS) *AppManager {
+	// 创建临时应用以获取环境信息
+	tempApp := application.New(application.Options{
 		Name:     "Boxify",
-		LogLevel: logInfo,
-		Logger:   logger,
+		LogLevel: slog.LevelInfo,
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
 		},
 	})
 
+	// 设置应用上下文，包含 buildType
+	buildType := "prod"
+	if tempApp.Env.Info().Debug {
+		buildType = "dev"
+	}
+	ctx := context.WithValue(context.Background(), "buildType", buildType)
+
+	// 使用正确的上下文初始化 logger
+	logger.Init(ctx)
+	slogLogger := logger.GetSlogLogger()
+
+	// 使用初始化后的 logger 创建应用
+	app := application.New(application.Options{
+		Name:     "Boxify",
+		LogLevel: slog.LevelInfo,
+		Logger:   slogLogger,
+		Assets: application.AssetOptions{
+			Handler: application.AssetFileServerFS(assets),
+		},
+	})
+
+	am := &AppManager{
+		app:    app,
+		logger: slogLogger,
+		ctx:    ctx,
+	}
+
 	// 创建窗口注册表
-	am.registry = NewWindowRegistry(am.app, logger)
+	am.registry = NewWindowRegistry(am.app, am.logger)
 
 	// 加载页面配置
 	pageConfig, err := config.LoadPageConfig(config.GetPageConfigPath())
 	if err != nil {
-		logger.Warn("无法加载页面配置，使用默认配置", "error", err)
+		am.logger.LogAttrs(context.Background(), slog.LevelWarn,
+			"无法加载页面配置，使用默认配置",
+			slog.String("error", err.Error()))
 		pageConfig = &config.PageConfigFile{Pages: []config.PageConfig{}}
 	}
 	am.pageConfig = pageConfig
@@ -139,6 +163,16 @@ func (am *AppManager) GetPageConfig() *config.PageConfigFile {
 // GetRegistry 获取窗口注册表引用
 func (am *AppManager) GetRegistry() *WindowRegistry {
 	return am.registry
+}
+
+// App 获取应用实例
+func (am *AppManager) App() *application.App {
+	return am.app
+}
+
+// GetContext 获取应用上下文（包含 buildType）
+func (am *AppManager) GetContext() context.Context {
+	return am.ctx
 }
 
 // generateModalName 生成模态窗口唯一名称

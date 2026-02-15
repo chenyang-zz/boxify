@@ -24,35 +24,48 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"go.uber.org/zap"
 )
+
+// resetLogger 重置全局 logger 状态（仅用于测试）
+func resetLogger() {
+	mu.Lock()
+	defer mu.Unlock()
+	logger = nil
+	sugar = nil
+	logPath = ""
+	initialized = false
+}
 
 // TestInit 测试日志系统的初始化
 func TestInit(t *testing.T) {
 	// 保存原始环境变量
 	oldEnv := os.Getenv(envLogDir)
+	oldLevel := os.Getenv("BOXIFY_LOG_LEVEL")
 	defer func() {
 		if oldEnv == "" {
 			os.Unsetenv(envLogDir)
 		} else {
 			os.Setenv(envLogDir, oldEnv)
 		}
+		if oldLevel == "" {
+			os.Unsetenv("BOXIFY_LOG_LEVEL")
+		} else {
+			os.Setenv("BOXIFY_LOG_LEVEL", oldLevel)
+		}
+		resetLogger()
 	}()
 
 	// 创建临时目录用于测试
 	tempDir := t.TempDir()
 	os.Setenv(envLogDir, tempDir)
 
-	// 重置全局变量以便测试（仅用于测试环境）
-	logPath = ""
-	logInst = nil
-	logFile = nil
-	once = sync.Once{}
-
 	// 调用 Init
 	Init(context.Background())
 
 	// 验证日志文件已创建
-	expectedPath := filepath.Join(tempDir, logFileName)
+	expectedPath := filepath.Join(tempDir, "boxify.log")
 	if _, err := os.Stat(expectedPath); os.IsNotExist(err) {
 		t.Errorf("日志文件未被创建: %s", expectedPath)
 	}
@@ -68,12 +81,7 @@ func TestInitMultipleCalls(t *testing.T) {
 	tempDir := t.TempDir()
 	os.Setenv(envLogDir, tempDir)
 	defer os.Unsetenv(envLogDir)
-
-	// 重置全局变量
-	logPath = ""
-	logInst = nil
-	logFile = nil
-	once = sync.Once{}
+	defer resetLogger()
 
 	// 多次调用 Init 应该是安全的
 	for i := 0; i < 10; i++ {
@@ -81,7 +89,7 @@ func TestInitMultipleCalls(t *testing.T) {
 	}
 
 	// 验证只有一个日志文件被创建
-	expectedPath := filepath.Join(tempDir, logFileName)
+	expectedPath := filepath.Join(tempDir, "boxify.log")
 	if _, err := os.Stat(expectedPath); os.IsNotExist(err) {
 		t.Errorf("日志文件未被创建: %s", expectedPath)
 	}
@@ -92,15 +100,10 @@ func TestPath(t *testing.T) {
 	tempDir := t.TempDir()
 	os.Setenv(envLogDir, tempDir)
 	defer os.Unsetenv(envLogDir)
-
-	// 重置全局变量
-	logPath = ""
-	logInst = nil
-	logFile = nil
-	once = sync.Once{}
+	defer resetLogger()
 
 	path := Path()
-	expectedPath := filepath.Join(tempDir, logFileName)
+	expectedPath := filepath.Join(tempDir, "boxify.log")
 
 	if path != expectedPath {
 		t.Errorf("Path() 返回错误的路径，得到: %s，期望: %s", path, expectedPath)
@@ -112,12 +115,7 @@ func TestInfof(t *testing.T) {
 	tempDir := t.TempDir()
 	os.Setenv(envLogDir, tempDir)
 	defer os.Unsetenv(envLogDir)
-
-	// 重置全局变量
-	logPath = ""
-	logInst = nil
-	logFile = nil
-	once = sync.Once{}
+	defer resetLogger()
 
 	testMsg := "这是一条测试信息"
 	Infof(testMsg)
@@ -133,8 +131,8 @@ func TestInfof(t *testing.T) {
 	}
 
 	logContent := string(content)
-	if !strings.Contains(logContent, "[INFO]") {
-		t.Errorf("日志内容缺少 [INFO] 标记")
+	if !strings.Contains(logContent, "INFO") {
+		t.Errorf("日志内容缺少 INFO 标记")
 	}
 	if !strings.Contains(logContent, testMsg) {
 		t.Errorf("日志内容缺少测试信息: %s", testMsg)
@@ -146,12 +144,7 @@ func TestInfofWithFormat(t *testing.T) {
 	tempDir := t.TempDir()
 	os.Setenv(envLogDir, tempDir)
 	defer os.Unsetenv(envLogDir)
-
-	// 重置全局变量
-	logPath = ""
-	logInst = nil
-	logFile = nil
-	once = sync.Once{}
+	defer resetLogger()
 
 	name := "测试用户"
 	count := 42
@@ -167,8 +160,8 @@ func TestInfofWithFormat(t *testing.T) {
 	}
 
 	logContent := string(content)
-	if !strings.Contains(logContent, "[INFO]") {
-		t.Errorf("日志内容缺少 [INFO] 标记")
+	if !strings.Contains(logContent, "INFO") {
+		t.Errorf("日志内容缺少 INFO 标记")
 	}
 	if !strings.Contains(logContent, name) {
 		t.Errorf("日志内容缺少用户名: %s", name)
@@ -178,17 +171,46 @@ func TestInfofWithFormat(t *testing.T) {
 	}
 }
 
+// TestInfoStructured 测试结构化 Info 日志
+func TestInfoStructured(t *testing.T) {
+	tempDir := t.TempDir()
+	os.Setenv(envLogDir, tempDir)
+	defer os.Unsetenv(envLogDir)
+	defer resetLogger()
+
+	testMsg := "结构化日志测试"
+	Info(testMsg, String("user", "test"), Int("count", 123))
+
+	// 等待日志写入
+	time.Sleep(100 * time.Millisecond)
+
+	logFilePath := Path()
+	content, err := os.ReadFile(logFilePath)
+	if err != nil {
+		t.Fatalf("无法读取日志文件: %v", err)
+	}
+
+	logContent := string(content)
+	if !strings.Contains(logContent, "INFO") {
+		t.Errorf("日志内容缺少 INFO 标记")
+	}
+	if !strings.Contains(logContent, testMsg) {
+		t.Errorf("日志内容缺少测试信息: %s", testMsg)
+	}
+	if !strings.Contains(logContent, "user") || !strings.Contains(logContent, "test") {
+		t.Errorf("日志内容缺少结构化字段")
+	}
+	if !strings.Contains(logContent, "count") || !strings.Contains(logContent, "123") {
+		t.Errorf("日志内容缺少计数字段")
+	}
+}
+
 // TestWarnf 测试 Warn 日志级别
 func TestWarnf(t *testing.T) {
 	tempDir := t.TempDir()
 	os.Setenv(envLogDir, tempDir)
 	defer os.Unsetenv(envLogDir)
-
-	// 重置全局变量
-	logPath = ""
-	logInst = nil
-	logFile = nil
-	once = sync.Once{}
+	defer resetLogger()
 
 	testMsg := "这是一条警告信息"
 	Warnf(testMsg)
@@ -203,11 +225,41 @@ func TestWarnf(t *testing.T) {
 	}
 
 	logContent := string(content)
-	if !strings.Contains(logContent, "[WARN]") {
-		t.Errorf("日志内容缺少 [WARN] 标记")
+	if !strings.Contains(logContent, "WARN") {
+		t.Errorf("日志内容缺少 WARN 标记")
 	}
 	if !strings.Contains(logContent, testMsg) {
 		t.Errorf("日志内容缺少警告信息: %s", testMsg)
+	}
+}
+
+// TestDebugf 测试 Debug 日志级别
+func TestDebugf(t *testing.T) {
+	tempDir := t.TempDir()
+	os.Setenv(envLogDir, tempDir)
+	os.Setenv("BOXIFY_LOG_LEVEL", "DEBUG")
+	defer os.Unsetenv(envLogDir)
+	defer os.Unsetenv("BOXIFY_LOG_LEVEL")
+	defer resetLogger()
+
+	testMsg := "这是一条调试信息"
+	Debugf(testMsg)
+
+	// 等待日志写入
+	time.Sleep(100 * time.Millisecond)
+
+	logFilePath := Path()
+	content, err := os.ReadFile(logFilePath)
+	if err != nil {
+		t.Fatalf("无法读取日志文件: %v", err)
+	}
+
+	logContent := string(content)
+	if !strings.Contains(logContent, "DEBUG") {
+		t.Errorf("日志内容缺少 DEBUG 标记")
+	}
+	if !strings.Contains(logContent, testMsg) {
+		t.Errorf("日志内容缺少调试信息: %s", testMsg)
 	}
 }
 
@@ -216,12 +268,7 @@ func TestErrorf(t *testing.T) {
 	tempDir := t.TempDir()
 	os.Setenv(envLogDir, tempDir)
 	defer os.Unsetenv(envLogDir)
-
-	// 重置全局变量
-	logPath = ""
-	logInst = nil
-	logFile = nil
-	once = sync.Once{}
+	defer resetLogger()
 
 	testMsg := "这是一条错误信息"
 	Errorf(testMsg)
@@ -236,33 +283,24 @@ func TestErrorf(t *testing.T) {
 	}
 
 	logContent := string(content)
-	if !strings.Contains(logContent, "[ERROR]") {
-		t.Errorf("日志内容缺少 [ERROR] 标记")
+	if !strings.Contains(logContent, "ERROR") {
+		t.Errorf("日志内容缺少 ERROR 标记")
 	}
 	if !strings.Contains(logContent, testMsg) {
 		t.Errorf("日志内容缺少错误信息: %s", testMsg)
 	}
 }
 
-// TestErrorfWithTrace 测试带错误链的错误日志
-func TestErrorfWithTrace(t *testing.T) {
+// TestErrorStructured 测试结构化 Error 日志
+func TestErrorStructured(t *testing.T) {
 	tempDir := t.TempDir()
 	os.Setenv(envLogDir, tempDir)
 	defer os.Unsetenv(envLogDir)
+	defer resetLogger()
 
-	// 重置全局变量
-	logPath = ""
-	logInst = nil
-	logFile = nil
-	once = sync.Once{}
-
-	// 创建一个错误链
-	baseErr := errors.New("基础错误")
-	midErr := fmt.Errorf("中间错误: %w", baseErr)
-	topErr := fmt.Errorf("顶层错误: %w", midErr)
-
+	testErr := errors.New("测试错误")
 	testMsg := "操作失败"
-	ErrorfWithTrace(topErr, testMsg)
+	Error(testMsg, Err(testErr), String("operation", "test"))
 
 	// 等待日志写入
 	time.Sleep(100 * time.Millisecond)
@@ -274,11 +312,46 @@ func TestErrorfWithTrace(t *testing.T) {
 	}
 
 	logContent := string(content)
-	if !strings.Contains(logContent, "[ERROR]") {
-		t.Errorf("日志内容缺少 [ERROR] 标记")
+	if !strings.Contains(logContent, "ERROR") {
+		t.Errorf("日志内容缺少 ERROR 标记")
 	}
 	if !strings.Contains(logContent, testMsg) {
 		t.Errorf("日志内容缺少消息: %s", testMsg)
+	}
+	if !strings.Contains(logContent, "测试错误") {
+		t.Errorf("日志内容缺少错误信息")
+	}
+}
+
+// TestErrorfWithTrace 测试带错误链的错误日志
+func TestErrorfWithTrace(t *testing.T) {
+	tempDir := t.TempDir()
+	os.Setenv(envLogDir, tempDir)
+	defer os.Unsetenv(envLogDir)
+	defer resetLogger()
+
+	// 创建一个错误链
+	baseErr := errors.New("基础错误")
+	midErr := fmt.Errorf("中间错误: %w", baseErr)
+	topErr := fmt.Errorf("顶层错误: %w", midErr)
+
+	ErrorfWithTrace(topErr, "操作失败")
+
+	// 等待日志写入
+	time.Sleep(100 * time.Millisecond)
+
+	logFilePath := Path()
+	content, err := os.ReadFile(logFilePath)
+	if err != nil {
+		t.Fatalf("无法读取日志文件: %v", err)
+	}
+
+	logContent := string(content)
+	if !strings.Contains(logContent, "ERROR") {
+		t.Errorf("日志内容缺少 ERROR 标记")
+	}
+	if !strings.Contains(logContent, "操作失败") {
+		t.Errorf("日志内容缺少消息")
 	}
 	if !strings.Contains(logContent, "错误链：") {
 		t.Errorf("日志内容缺少错误链标记")
@@ -300,15 +373,9 @@ func TestErrorfWithTraceNilError(t *testing.T) {
 	tempDir := t.TempDir()
 	os.Setenv(envLogDir, tempDir)
 	defer os.Unsetenv(envLogDir)
+	defer resetLogger()
 
-	// 重置全局变量
-	logPath = ""
-	logInst = nil
-	logFile = nil
-	once = sync.Once{}
-
-	testMsg := "没有错误的消息"
-	ErrorfWithTrace(nil, testMsg)
+	ErrorfWithTrace(nil, "没有错误的消息")
 
 	// 等待日志写入
 	time.Sleep(100 * time.Millisecond)
@@ -320,11 +387,11 @@ func TestErrorfWithTraceNilError(t *testing.T) {
 	}
 
 	logContent := string(content)
-	if !strings.Contains(logContent, "[ERROR]") {
-		t.Errorf("日志内容缺少 [ERROR] 标记")
+	if !strings.Contains(logContent, "ERROR") {
+		t.Errorf("日志内容缺少 ERROR 标记")
 	}
-	if !strings.Contains(logContent, testMsg) {
-		t.Errorf("日志内容缺少消息: %s", testMsg)
+	if !strings.Contains(logContent, "没有错误的消息") {
+		t.Errorf("日志内容缺少消息")
 	}
 	// 不应该包含错误链
 	if strings.Contains(logContent, "错误链：") {
@@ -374,7 +441,7 @@ func TestErrorChainDeduplication(t *testing.T) {
 
 	// 创建多个包装，但都使用相同的错误消息字符串
 	err1 := baseErr
-	_ = fmt.Errorf("操作失败: %w", err1)     // 这个错误不会用在最终链中
+	_ = fmt.Errorf("操作失败: %w", err1) // 这个错误不会用在最终链中
 	err3 := fmt.Errorf("任务失败: %w", err1) // 再次包装 err1
 
 	result := ErrorChain(err3)
@@ -407,17 +474,78 @@ func TestErrorChainTruncation(t *testing.T) {
 	}
 }
 
+// TestHelperMethods 测试便捷字段方法
+func TestHelperMethods(t *testing.T) {
+	tests := []struct {
+		name   string
+		field  zap.Field
+		key    string
+		verify func(string) bool
+	}{
+		{
+			name:   "String",
+			field:  String("key", "value"),
+			key:    "key",
+			verify: func(s string) bool { return strings.Contains(s, "value") },
+		},
+		{
+			name:   "Int",
+			field:  Int("count", 42),
+			key:    "count",
+			verify: func(s string) bool { return strings.Contains(s, "42") },
+		},
+		{
+			name:   "Err",
+			field:  Err(errors.New("test error")),
+			key:    "error",
+			verify: func(s string) bool { return strings.Contains(s, "test error") },
+		},
+		{
+			name:   "Duration",
+			field:  Duration("elapsed", time.Second),
+			key:    "elapsed",
+			verify: func(s string) bool { return strings.Contains(s, "1s") || strings.Contains(s, "1000") },
+		},
+		{
+			name:   "Any",
+			field:  Any("data", map[string]int{"a": 1}),
+			key:    "data",
+			verify: func(s string) bool { return strings.Contains(s, "map") || strings.Contains(s, "a") },
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// 验证字段可以正常创建
+			if tt.field.Key != tt.key {
+				t.Errorf("字段 key 不匹配，得到: %s，期望: %s", tt.field.Key, tt.key)
+			}
+		})
+	}
+}
+
+// TestGetZapLogger 测试获取底层 zap logger
+func TestGetZapLogger(t *testing.T) {
+	tempDir := t.TempDir()
+	os.Setenv(envLogDir, tempDir)
+	defer os.Unsetenv(envLogDir)
+	defer resetLogger()
+
+	zapLogger := GetZapLogger()
+	if zapLogger == nil {
+		t.Error("GetZapLogger 返回 nil")
+	}
+
+	// 验证返回的 logger 可以正常使用
+	zapLogger.Info("test", zap.String("key", "value"))
+}
+
 // TestClose 测试关闭日志系统
 func TestClose(t *testing.T) {
 	tempDir := t.TempDir()
 	os.Setenv(envLogDir, tempDir)
 	defer os.Unsetenv(envLogDir)
-
-	// 重置全局变量
-	logPath = ""
-	logInst = nil
-	logFile = nil
-	once = sync.Once{}
+	defer resetLogger()
 
 	// 初始化并记录一些日志
 	Init(context.Background())
@@ -438,12 +566,7 @@ func TestConcurrentLogging(t *testing.T) {
 	tempDir := t.TempDir()
 	os.Setenv(envLogDir, tempDir)
 	defer os.Unsetenv(envLogDir)
-
-	// 重置全局变量
-	logPath = ""
-	logInst = nil
-	logFile = nil
-	once = sync.Once{}
+	defer resetLogger()
 
 	// 使用 WaitGroup 等待所有 goroutine 完成
 	var wg sync.WaitGroup
@@ -474,161 +597,194 @@ func TestConcurrentLogging(t *testing.T) {
 
 	logContent := string(content)
 	// 验证至少有一些日志被记录
-	infoCount := strings.Count(logContent, "[INFO]")
+	infoCount := strings.Count(logContent, "INFO")
 	if infoCount < numGoroutines*logsPerGoroutine/2 {
 		t.Errorf("日志记录不完整，期望至少 %d 条，实际得到 %d 条", numGoroutines*logsPerGoroutine/2, infoCount)
 	}
 }
 
-// TestLogRotation 测试日志轮转
-func TestLogRotation(t *testing.T) {
+// TestNewLogger 测试 NewLogger 函数
+func TestNewLogger(t *testing.T) {
 	tempDir := t.TempDir()
+	logPath := filepath.Join(tempDir, "test.log")
 
-	// 创建一个超过轮转大小的日志文件
-	logFilePath := filepath.Join(tempDir, logFileName)
-	largeData := make([]byte, logRotateMaxBytes+1000)
-	for i := range largeData {
-		largeData[i] = 'A'
+	tests := []struct {
+		name    string
+		config  *Config
+		wantErr bool
+	}{
+		{
+			name: "基本配置",
+			config: &Config{
+				Level:      "INFO",
+				Format:     "text",
+				OutputPath:  logPath,
+				MaxSize:     1,
+				MaxBackups:  3,
+				MaxAge:      7,
+				Compress:    false,
+			},
+			wantErr: false,
+		},
+		{
+			name: "JSON 格式",
+			config: &Config{
+				Level:      "DEBUG",
+				Format:     "json",
+				OutputPath:  logPath + ".json",
+				MaxSize:     1,
+				MaxBackups:  3,
+				MaxAge:      7,
+				Compress:    false,
+			},
+			wantErr: false,
+		},
+		{
+			name: "无效日志级别",
+			config: &Config{
+				Level:      "INVALID",
+				Format:     "text",
+				OutputPath:  logPath + ".invalid",
+				MaxSize:     1,
+				MaxBackups:  3,
+				MaxAge:      7,
+				Compress:    false,
+			},
+			wantErr: true,
+		},
 	}
 
-	if err := os.WriteFile(logFilePath, largeData, 0o644); err != nil {
-		t.Fatalf("无法创建测试日志文件: %v", err)
-	}
-
-	// 调用 rotateIfNeeded
-	rotateIfNeeded(logFilePath, tempDir)
-
-	// 验证原文件被重命名
-	matches, err := filepath.Glob(filepath.Join(tempDir, "boxify-*.log"))
-	if err != nil {
-		t.Fatalf("查找轮转日志文件失败: %v", err)
-	}
-
-	// 应该至少有一个轮转的文件
-	if len(matches) == 0 {
-		t.Error("日志文件未被轮转")
-	}
-
-	// 原文件应该不存在或已被重命名
-	if _, err := os.Stat(logFilePath); err == nil {
-		// 如果原文件还在，检查它是否是空文件或者大小变小了
-		info, _ := os.Stat(logFilePath)
-		if info.Size() >= logRotateMaxBytes {
-			t.Error("原日志文件应该被轮转")
-		}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logger, err := NewLogger(tt.config)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("NewLogger() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr {
+				if logger == nil {
+					t.Error("NewLogger() 返回 nil logger")
+				}
+				// 测试 logger 可以正常使用
+				logger.Info("test", zap.String("message", "test message"))
+				logger.Sync()
+			}
+		})
 	}
 }
 
-// TestCleanupOldLogs 测试清理旧日志
-func TestCleanupOldLogs(t *testing.T) {
-	tempDir := t.TempDir()
-
-	// 创建多个旧的日志文件
-	for i := 0; i < 15; i++ {
-		filename := fmt.Sprintf("boxify-20060102-15040%d.log", i)
-		path := filepath.Join(tempDir, filename)
-		if err := os.WriteFile(path, []byte("test"), 0o644); err != nil {
-			t.Fatalf("无法创建测试日志文件: %v", err)
+// TestLoadConfig 测试 loadConfig 函数
+func TestLoadConfig(t *testing.T) {
+	oldLevel := os.Getenv("BOXIFY_LOG_LEVEL")
+	defer func() {
+		if oldLevel == "" {
+			os.Unsetenv("BOXIFY_LOG_LEVEL")
+		} else {
+			os.Setenv("BOXIFY_LOG_LEVEL", oldLevel)
 		}
+	}()
+
+	tests := []struct {
+		name           string
+		envLevel       string
+		expectedLevel  string
+		expectedFormat string
+	}{
+		{
+			name:           "默认配置",
+			envLevel:       "",
+			expectedLevel:  "INFO", // 默认生产环境
+			expectedFormat: "text",
+		},
+		{
+			name:           "环境变量覆盖",
+			envLevel:       "WARN",
+			expectedLevel:  "WARN",
+			expectedFormat: "text",
+		},
+		{
+			name:           "环境变量 INFO",
+			envLevel:       "INFO",
+			expectedLevel:  "INFO",
+			expectedFormat: "text",
+		},
 	}
 
-	// 调用清理函数
-	cleanupOldLogs(tempDir)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.envLevel != "" {
+				os.Setenv("BOXIFY_LOG_LEVEL", tt.envLevel)
+			} else {
+				os.Unsetenv("BOXIFY_LOG_LEVEL")
+			}
 
-	// 验证只保留 logRotateMaxBackups 个文件
-	matches, err := filepath.Glob(filepath.Join(tempDir, "boxify-*.log"))
-	if err != nil {
-		t.Fatalf("查找日志文件失败: %v", err)
+			config := loadConfig(context.Background())
+			if config.Level != tt.expectedLevel {
+				t.Errorf("loadConfig() Level = %s，期望 %s", config.Level, tt.expectedLevel)
+			}
+			if config.Format != tt.expectedFormat {
+				t.Errorf("loadConfig() Format = %s，期望 %s", config.Format, tt.expectedFormat)
+			}
+		})
+	}
+}
+
+// TestGetLogPath 测试 getLogPath 函数
+func TestGetLogPath(t *testing.T) {
+	oldEnv := os.Getenv(envLogDir)
+	defer func() {
+		if oldEnv == "" {
+			os.Unsetenv(envLogDir)
+		} else {
+			os.Setenv(envLogDir, oldEnv)
+		}
+	}()
+
+	tests := []struct {
+		name          string
+		envDir        string
+		expectedInDir string
+	}{
+		{
+			name:          "使用环境变量",
+			envDir:        "/tmp/test_logs",
+			expectedInDir: "/tmp/test_logs",
+		},
+		{
+			name:          "使用默认路径",
+			envDir:        "",
+			expectedInDir: "boxify",
+		},
 	}
 
-	if len(matches) > logRotateMaxBackups {
-		t.Errorf("清理后剩余 %d 个日志文件，期望最多 %d 个", len(matches), logRotateMaxBackups)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.envDir != "" {
+				os.Setenv(envLogDir, tt.envDir)
+			} else {
+				os.Unsetenv(envLogDir)
+			}
+
+			path := getLogPath()
+			if !strings.Contains(path, tt.expectedInDir) {
+				t.Errorf("getLogPath() = %s，期望包含 %s", path, tt.expectedInDir)
+			}
+		})
 	}
 }
 
 // TestInitWithInvalidDir 测试使用无效目录初始化
 func TestInitWithInvalidDir(t *testing.T) {
 	// 设置一个无效的环境变量（例如：一个无法创建的路径）
-	os.Setenv(envLogDir, "/root/nonexistent_dir_12345")
+	// 在 Unix 系统上，使用 /root 可能需要权限
+	// 这里我们使用一个不存在的路径
+	invalidPath := "/this/path/does/not/exist/and/cannot/be/created/12345"
+	os.Setenv(envLogDir, invalidPath)
 	defer os.Unsetenv(envLogDir)
+	defer resetLogger()
 
-	// 重置全局变量
-	logPath = ""
-	logInst = nil
-	logFile = nil
-	once = sync.Once{}
-
-	// Init 应该能够处理错误并回退到 os.Stderr
+	// Init 应该能够处理错误
 	// 不应该 panic
 	Init(context.Background())
 	Infof("测试无效目录的情况")
-}
-
-// TestInitOutput 测试 initOutput 函数
-func TestInitOutput(t *testing.T) {
-	tempDir := t.TempDir()
-	os.Setenv(envLogDir, tempDir)
-	defer os.Unsetenv(envLogDir)
-
-	path, writer := initOutput(context.Background())
-
-	// 验证返回值
-	if writer == nil {
-		t.Error("initOutput 返回的 writer 不应该为 nil")
-	}
-
-	if !strings.Contains(path, logFileName) {
-		t.Errorf("路径应该包含日志文件名: %s", logFileName)
-	}
-
-	// 验证文件已创建
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		t.Errorf("日志文件未被创建: %s", path)
-	}
-
-	// 清理
-	if file, ok := writer.(*os.File); ok {
-		file.Close()
-	}
-}
-
-// TestPrintf 测试 printf 内部函数通过日志文件
-func TestPrintf(t *testing.T) {
-	tempDir := t.TempDir()
-	os.Setenv(envLogDir, tempDir)
-	defer os.Unsetenv(envLogDir)
-
-	// 重置全局变量
-	logPath = ""
-	logInst = nil
-	logFile = nil
-	once = sync.Once{}
-
-	// 初始化日志系统
-	Init(context.Background())
-
-	// 调用 printf 内部函数
-	testLevel := "TEST"
-	testFormat := "测试消息: %s"
-	testArg := "参数"
-
-	printf(testLevel, testFormat, testArg)
-
-	// 等待日志写入
-	time.Sleep(100 * time.Millisecond)
-
-	// 从日志文件读取内容
-	logFilePath := Path()
-	content, err := os.ReadFile(logFilePath)
-	if err != nil {
-		t.Fatalf("无法读取日志文件: %v", err)
-	}
-
-	output := string(content)
-	if !strings.Contains(output, "["+testLevel+"]") {
-		t.Errorf("输出缺少级别标记: %s", testLevel)
-	}
-	if !strings.Contains(output, "测试消息: 参数") {
-		t.Errorf("输出缺少格式化消息")
-	}
 }

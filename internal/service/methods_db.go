@@ -25,7 +25,7 @@ import (
 // 通用数据库方法
 
 // DBConnect 连接数据库，成功则返回成功消息，失败则返回错误信息
-func (a *AppService) DBConnect(config *connection.ConnectionConfig) *connection.QueryResult {
+func (a *DatabaseService) DBConnect(config *connection.ConnectionConfig) *connection.QueryResult {
 	// 连接测试需要强制 ping，避免缓存命中但连接已失效时误判成功
 	_, err := a.getDatabaseForcePing(config)
 	if err != nil {
@@ -44,7 +44,7 @@ func (a *AppService) DBConnect(config *connection.ConnectionConfig) *connection.
 }
 
 // TestConnection 测试数据库连接，成功则返回成功消息，失败则返回错误信息
-func (a *AppService) TestConnection(config *connection.ConnectionConfig) *connection.QueryResult {
+func (a *DatabaseService) TestConnection(config *connection.ConnectionConfig) *connection.QueryResult {
 	_, err := a.getDatabaseForcePing(config)
 	if err != nil {
 		logger.ErrorfWithTrace(err, "TestConnection 连接失败：%s", formatConnSummary(config))
@@ -62,7 +62,7 @@ func (a *AppService) TestConnection(config *connection.ConnectionConfig) *connec
 }
 
 // CreateDatabase 创建一个新的数据库
-func (a *AppService) CreateDatabase(config *connection.ConnectionConfig, dbName string) *connection.QueryResult {
+func (a *DatabaseService) CreateDatabase(config *connection.ConnectionConfig, dbName string) *connection.QueryResult {
 	runConfig := *config
 	runConfig.Database = ""
 

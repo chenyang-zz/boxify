@@ -16,13 +16,9 @@ package service
 
 import (
 	"fmt"
-	"log/slog"
-	"sync"
 	"time"
 
 	"github.com/chenyang-zz/boxify/internal/connection"
-	"github.com/chenyang-zz/boxify/internal/window"
-	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 // DataSyncEvent 数据同步事件
@@ -57,19 +53,14 @@ const (
 
 // DataSyncService 数据同步服务
 type DataSyncService struct {
-	app           *application.App
-	registry      *window.WindowRegistry
-	mu            sync.RWMutex
-	logger        *slog.Logger
+	BaseService
 	lastEventTime map[string]time.Time // 消息去重
 }
 
 // NewDataSyncService 创建数据同步服务
-func NewDataSyncService(app *application.App, registry *window.WindowRegistry) *DataSyncService {
+func NewDataSyncService(deps *ServiceDeps) *DataSyncService {
 	return &DataSyncService{
-		app:           app,
-		registry:      registry,
-		logger:        app.Logger,
+		BaseService:   NewBaseService(deps),
 		lastEventTime: make(map[string]time.Time),
 	}
 }
@@ -89,7 +80,8 @@ func (ds *DataSyncService) Broadcast(channel, dataType string, data map[string]i
 // SendTo 发送消息到指定窗口
 func (ds *DataSyncService) SendTo(targetWindow, channel, dataType string, data map[string]interface{}, source string) error {
 	// 验证目标窗口是否存在
-	if ds.registry.Get(targetWindow) == nil {
+	registry := ds.Registry()
+	if registry == nil || registry.Get(targetWindow) == nil {
 		return fmt.Errorf("目标窗口不存在: %s", targetWindow)
 	}
 
@@ -113,7 +105,7 @@ func (ds *DataSyncService) Emit(event DataSyncEvent) error {
 
 	if lastTime, exists := ds.lastEventTime[key]; exists {
 		if time.Since(lastTime) < time.Second {
-			ds.logger.Debug("数据同步事件去重", "key", key)
+			ds.Logger().Debug("数据同步事件去重", "key", key)
 			return nil
 		}
 	}
@@ -127,9 +119,9 @@ func (ds *DataSyncService) Emit(event DataSyncEvent) error {
 	eventName := ds.getEventName(event.Target)
 
 	// 发送事件
-	ds.app.Event.Emit(eventName, event)
+	ds.App().Event.Emit(eventName, event)
 
-	ds.logger.Info("数据同步事件已发送",
+	ds.Logger().Info("数据同步事件已发送",
 		"source", event.Source,
 		"target", event.Target,
 		"channel", event.Channel,
@@ -157,7 +149,15 @@ func (ds *DataSyncService) GetWindowsList() *connection.QueryResult {
 	ds.mu.RLock()
 	defer ds.mu.RUnlock()
 
-	windowInfos := ds.registry.GetAllWindowInfos()
+	registry := ds.Registry()
+	if registry == nil {
+		return &connection.QueryResult{
+			Success: false,
+			Message: "窗口注册表未初始化",
+		}
+	}
+
+	windowInfos := registry.GetAllWindowInfos()
 	result := make([]map[string]interface{}, 0, len(windowInfos))
 
 	for _, info := range windowInfos {

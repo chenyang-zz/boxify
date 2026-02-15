@@ -25,7 +25,7 @@ import {
   propertyStoreMethods,
   usePropertyStore,
 } from "@/store/property.store";
-import { AppService } from "@wails/service";
+import { DatabaseService } from "@wails/service";
 import { callWails } from "./utils";
 import { v4 as uuid } from "uuid";
 import { ConnectionConfig, QueryResult } from "@wails/connection";
@@ -168,7 +168,7 @@ async function loadDBChildrenByDBName(
     switch (type) {
       case DBFileType.TABLE_FOLDER:
         return await callWails(
-          AppService.DBGetTables,
+          DatabaseService.DBGetTables,
           ConnectionConfig.createFrom(config),
           dbName,
         );
@@ -202,7 +202,7 @@ export async function loadDBConnectionPropertyChildren(
     switch (type) {
       case ConnectionType.MYSQL:
         res = await callWails(
-          AppService.DBGetDatabases,
+          DatabaseService.DBGetDatabases,
           ConnectionConfig.createFrom(config),
         );
         break;
