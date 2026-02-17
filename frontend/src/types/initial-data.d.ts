@@ -59,7 +59,7 @@ export interface ConnectionParameters {
 }
 
 export interface ConnectionEditInitialData {
-  standard: ConnectionStandard;
-  advanced: ConnectionAdvanced;
-  parameters: ConnectionParameters;
+  standard?: ConnectionStandard;
+  advanced?: ConnectionAdvanced;
+  parameters?: ConnectionParameters;
 }

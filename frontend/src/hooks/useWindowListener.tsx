@@ -12,29 +12,37 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { WindowType } from "@/common/enums/window";
 import { Events } from "@wailsio/runtime";
 import { useEffect } from "react";
 
 export interface WindowInfo {
-  id: number;
   name: string;
   title: string;
+  type: WindowType;
 }
 
-export const useWindowListener = () => {
+interface CallbackInfo {
+  isClose: boolean;
+  data: WindowInfo;
+}
+
+export const useWindowListener = (callback?: (info: CallbackInfo) => void) => {
   useEffect(() => {
     // 监听窗口打开事件（用于动态更新）
     const unbindOpened = Events.On(
       "window:opened",
-      (event: { data: Record<string, unknown> }) => {
-        console.log("🪟 窗口打开事件:", event.data);
+      (event: { data: WindowInfo }) => {
+        console.log("🪟 窗口打开事件:", event);
+        callback && callback({ isClose: false, data: event.data });
       },
     );
 
     const unbindClosed = Events.On(
       "window:closed",
-      (event: { data: Record<string, unknown> }) => {
-        console.log("🪟 窗口关闭事件:", event.data);
+      (event: { data: WindowInfo }) => {
+        console.log("🪟 窗口关闭事件:", event);
+        callback && callback({ isClose: true, data: event.data });
       },
     );
 

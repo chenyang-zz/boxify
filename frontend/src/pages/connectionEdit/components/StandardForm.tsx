@@ -35,7 +35,7 @@ import { FC, useEffect, useState } from "react";
 import ColorTagSelector from "@/components/ColorTagSelector";
 import ColorTagBadge from "@/components/ColorTagBadge";
 
-enum Environment {
+export enum Environment {
   None = "none",
   Development = "development",
   Testing = "testing",
@@ -49,7 +49,7 @@ const environmentOptions = [
   { label: "生产", value: Environment.Production },
 ];
 
-enum AuthMethod {
+export enum AuthMethod {
   Password = "password",
   InQuiry = "inquiry",
 }
@@ -62,7 +62,6 @@ const authMethodOptions = [
 interface StandardFormProps {
   initialData?: ConnectionStandard; // 初始数据（编辑场景）
   onSubmit: (data: ConnectionStandard) => void; // 提交回调
-  mode: "create" | "edit"; // 模式标识
 }
 
 interface FormErrors {
@@ -73,22 +72,22 @@ interface FormErrors {
   password?: string;
 }
 
-const StandardForm: FC<StandardFormProps> = ({
-  initialData,
-  onSubmit,
-  mode,
-}) => {
+const defaultFormData: ConnectionStandard = {
+  tagColor: "",
+  environment: Environment.None,
+  name: "",
+  host: "localhost",
+  user: "root",
+  port: 3306,
+  validationWay: AuthMethod.Password,
+  password: "",
+  remark: "",
+};
+
+const StandardForm: FC<StandardFormProps> = ({ initialData, onSubmit }) => {
   // 表单状态管理
   const [formData, setFormData] = useState<ConnectionStandard>({
-    tagColor: "",
-    environment: Environment.None,
-    name: "",
-    host: "",
-    user: "",
-    port: 3306,
-    validationWay: AuthMethod.Password,
-    password: "",
-    remark: "",
+    ...defaultFormData,
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
@@ -97,7 +96,8 @@ const StandardForm: FC<StandardFormProps> = ({
   // 初始化数据填充（编辑场景）
   useEffect(() => {
     if (initialData) {
-      setFormData(initialData);
+      setFormData({ ...initialData });
+      setErrors({});
     }
   }, [initialData]);
 

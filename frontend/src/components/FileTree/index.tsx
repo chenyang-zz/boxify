@@ -15,6 +15,8 @@
 import { FC } from "react";
 import FileTreeItem from "./FileTreeItem";
 import { PropertyItemType, usePropertyStore } from "@/store/property.store";
+import { useDataSync } from "@/hooks/useDataSync";
+import { DataChannel } from "@/store/data-sync.store";
 
 interface FileTreeProps {
   data: PropertyItemType[];
@@ -31,6 +33,11 @@ export const FIleTreeList: FC<FileTreeProps> = ({ data }) => {
 };
 
 const FileTree: FC = () => {
+  useDataSync(DataChannel.Connection, (event) => {
+    if (event.dataType === "connection:save") {
+      console.log("[主窗口] 收到连接保存", event.data);
+    }
+  });
   const propertyList = usePropertyStore((state) => state.propertyList);
 
   return <FIleTreeList data={propertyList}></FIleTreeList>;

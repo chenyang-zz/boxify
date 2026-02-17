@@ -13,7 +13,6 @@
 // limitations under the License.
 
 import { FC, JSX, lazy, useEffect } from "react";
-import { useWindowListener } from "./hooks/useWindowListener";
 import { dataSyncStoreMethods } from "./store/data-sync.store";
 import { currentPageId, currentWindowName } from "./lib/utils";
 
@@ -33,8 +32,6 @@ const pageComponents: Record<
 const PageComponent = pageComponents[pageId] || pageComponents.index;
 
 const App: FC = () => {
-  useWindowListener();
-
   useEffect(() => {
     console.log(`📄 当前页面ID: ${pageId}`);
     const windowName = currentWindowName();

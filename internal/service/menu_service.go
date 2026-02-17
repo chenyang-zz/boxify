@@ -404,20 +404,6 @@ func (ms *MenuService) GetMenuList() *connection.QueryResult {
 	}
 }
 
-// canReuse 检查是否可以复用现有菜单
-func (ms *MenuService) canReuse(definition MenuDefinition) bool {
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
-
-	if wrapper, exists := ms.menus[definition.MenuID]; exists {
-		if wrapper.metadata.Label == definition.Label &&
-			wrapper.metadata.Window == definition.Window {
-			return true
-		}
-	}
-	return false
-}
-
 // sendMenuEvent 发送菜单点击事件到前端
 func (ms *MenuService) sendMenuEvent(
 	menuID string,

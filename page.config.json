@@ -57,7 +57,8 @@
         "mac": {
           "titleBar": {
             "appearsTransparent": true,
-            "fullSizeContent": true
+            "fullSizeContent": true,
+            "hideTitle": true
           }
         }
       }

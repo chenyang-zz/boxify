@@ -13,11 +13,13 @@
 // limitations under the License.
 
 import { CopyMinus, CopyPlus, PlusIcon } from "lucide-react";
-import { DOMAttributes, FC, ReactNode, useState } from "react";
+import { DOMAttributes, FC, ReactNode, useMemo, useState } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { useContextMenu } from "@/hooks/use-context-menu";
 import { MenuConfig } from "@/types/menu";
 import { MenuItemType } from "@wails/service";
+import { useOpenWindowWithData } from "@/hooks/useOpenWindowWithData";
+import { ConnectionEditInitialData } from "@/types/initial-data";
 
 interface TreeHeaderAction {
   icon: ReactNode;
@@ -25,144 +27,153 @@ interface TreeHeaderAction {
   onClick: DOMAttributes<HTMLElement>["onClick"];
 }
 
-const addPropertyMenu: MenuConfig = {
-  items: [
-    {
-      label: "目录",
-      type: MenuItemType.MenuItemTypeItem,
-      onClick: async (payload) => {
-        console.log(payload);
-      },
-    },
-    {
-      label: "本地终端",
-      type: MenuItemType.MenuItemTypeItem,
-      onClick: async (payload) => {
-        console.log(payload);
-      },
-    },
-    {
-      label: "Docker",
-      type: MenuItemType.MenuItemTypeItem,
-      onClick: async (payload) => {
-        console.log(payload);
-      },
-    },
-    {
-      label: "远程连接",
-      type: MenuItemType.MenuItemTypeSubmenu,
-      items: [
-        {
-          label: "SSH",
-          type: MenuItemType.MenuItemTypeItem,
-          onClick: async (payload) => {
-            console.log(payload);
-          },
-        },
-        {
-          label: "SSH隧道",
-          type: MenuItemType.MenuItemTypeItem,
-          onClick: async (payload) => {
-            console.log(payload);
-          },
-        },
-        {
-          label: "RDP",
-          type: MenuItemType.MenuItemTypeItem,
-          onClick: async (payload) => {
-            console.log(payload);
-          },
-        },
-        {
-          label: "Telnet",
-          type: MenuItemType.MenuItemTypeItem,
-          onClick: async (payload) => {
-            console.log(payload);
-          },
-        },
-        {
-          label: "串口",
-          type: MenuItemType.MenuItemTypeItem,
-          onClick: async (payload) => {
-            console.log(payload);
-          },
-        },
-      ],
-    },
-    {
-      label: "数据库",
-      type: MenuItemType.MenuItemTypeSubmenu,
-      items: [
-        {
-          label: "Redis",
-          type: MenuItemType.MenuItemTypeItem,
-          onClick: async (payload) => {
-            console.log(payload);
-          },
-        },
-        {
-          label: "MySql",
-          type: MenuItemType.MenuItemTypeItem,
-          onClick: async (payload) => {
-            console.log(payload);
-          },
-        },
-        {
-          label: "MariaDB",
-          type: MenuItemType.MenuItemTypeItem,
-          onClick: async (payload) => {
-            console.log(payload);
-          },
-        },
-        {
-          label: "PostgreSQL",
-          type: MenuItemType.MenuItemTypeItem,
-          onClick: async (payload) => {
-            console.log(payload);
-          },
-        },
-        {
-          label: "SqlServer",
-          type: MenuItemType.MenuItemTypeItem,
-          onClick: async (payload) => {
-            console.log(payload);
-          },
-        },
-        {
-          label: "ClickHouse",
-          type: MenuItemType.MenuItemTypeItem,
-          onClick: async (payload) => {
-            console.log(payload);
-          },
-        },
-        {
-          label: "SQLite",
-          type: MenuItemType.MenuItemTypeItem,
-          onClick: async (payload) => {
-            console.log(payload);
-          },
-        },
-        {
-          label: "Oracle",
-          type: MenuItemType.MenuItemTypeItem,
-          onClick: async (payload) => {
-            console.log(payload);
-          },
-        },
-        {
-          label: "达梦",
-          type: MenuItemType.MenuItemTypeItem,
-          onClick: async (payload) => {
-            console.log(payload);
-          },
-        },
-      ],
-    },
-  ],
-};
-
 const TreeHeader: FC = () => {
   const [isCollapsed, setIsCollapsed] = useState(true);
+
+  const { openWindowWithData } = useOpenWindowWithData();
+
+  const addPropertyMenu: MenuConfig = useMemo(
+    () => ({
+      items: [
+        {
+          label: "目录",
+          type: MenuItemType.MenuItemTypeItem,
+          onClick: async (payload) => {
+            console.log(payload);
+          },
+        },
+        {
+          label: "本地终端",
+          type: MenuItemType.MenuItemTypeItem,
+          onClick: async (payload) => {
+            console.log(payload);
+          },
+        },
+        {
+          label: "Docker",
+          type: MenuItemType.MenuItemTypeItem,
+          onClick: async (payload) => {
+            console.log(payload);
+          },
+        },
+        {
+          label: "远程连接",
+          type: MenuItemType.MenuItemTypeSubmenu,
+          items: [
+            {
+              label: "SSH",
+              type: MenuItemType.MenuItemTypeItem,
+              onClick: async (payload) => {
+                console.log(payload);
+              },
+            },
+            {
+              label: "SSH隧道",
+              type: MenuItemType.MenuItemTypeItem,
+              onClick: async (payload) => {
+                console.log(payload);
+              },
+            },
+            {
+              label: "RDP",
+              type: MenuItemType.MenuItemTypeItem,
+              onClick: async (payload) => {
+                console.log(payload);
+              },
+            },
+            {
+              label: "Telnet",
+              type: MenuItemType.MenuItemTypeItem,
+              onClick: async (payload) => {
+                console.log(payload);
+              },
+            },
+            {
+              label: "串口",
+              type: MenuItemType.MenuItemTypeItem,
+              onClick: async (payload) => {
+                console.log(payload);
+              },
+            },
+          ],
+        },
+        {
+          label: "数据库",
+          type: MenuItemType.MenuItemTypeSubmenu,
+          items: [
+            {
+              label: "Redis",
+              type: MenuItemType.MenuItemTypeItem,
+              onClick: async (payload) => {
+                console.log(payload);
+              },
+            },
+            {
+              label: "MySql",
+              type: MenuItemType.MenuItemTypeItem,
+              onClick: () => {
+                // 打开连接弹窗
+                openWindowWithData(
+                  "connection-edit",
+                  {} as ConnectionEditInitialData,
+                );
+              },
+            },
+            {
+              label: "MariaDB",
+              type: MenuItemType.MenuItemTypeItem,
+              onClick: async (payload) => {
+                console.log(payload);
+              },
+            },
+            {
+              label: "PostgreSQL",
+              type: MenuItemType.MenuItemTypeItem,
+              onClick: async (payload) => {
+                console.log(payload);
+              },
+            },
+            {
+              label: "SqlServer",
+              type: MenuItemType.MenuItemTypeItem,
+              onClick: async (payload) => {
+                console.log(payload);
+              },
+            },
+            {
+              label: "ClickHouse",
+              type: MenuItemType.MenuItemTypeItem,
+              onClick: async (payload) => {
+                console.log(payload);
+              },
+            },
+            {
+              label: "SQLite",
+              type: MenuItemType.MenuItemTypeItem,
+              onClick: async (payload) => {
+                console.log(payload);
+              },
+            },
+            {
+              label: "Oracle",
+              type: MenuItemType.MenuItemTypeItem,
+              onClick: async (payload) => {
+                console.log(payload);
+              },
+            },
+            {
+              label: "达梦",
+              type: MenuItemType.MenuItemTypeItem,
+              onClick: async (payload) => {
+                console.log(payload);
+              },
+            },
+          ],
+        },
+      ],
+    }),
+    [openWindowWithData],
+  );
 
   const addMenu = useContextMenu(addPropertyMenu);
 

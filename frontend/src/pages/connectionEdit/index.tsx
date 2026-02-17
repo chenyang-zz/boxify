@@ -22,25 +22,49 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import WindowHeader from "@/components/WindowHeader";
-import StandardForm from "./components/StandardForm";
-import type { ConnectionEditInitialData, ConnectionStandard } from "@/types/initial-data";
+import StandardForm, {
+  AuthMethod,
+  Environment,
+} from "./components/StandardForm";
+import type {
+  ConnectionEditInitialData,
+  ConnectionStandard,
+} from "@/types/initial-data";
 import { useInitialData } from "@/hooks/useInitialData";
 import { useEffect, useState } from "react";
+import { DataSyncAPI } from "@/lib/data-sync";
+import { DataChannel } from "@/store/data-sync.store";
+import { useWindowListener } from "@/hooks/useWindowListener";
+import { currentWindowName } from "@/lib/utils";
+
+const defaultStandardFormData: ConnectionStandard = {
+  tagColor: "",
+  environment: Environment.None,
+  name: "",
+  host: "localhost",
+  user: "root",
+  port: 3306,
+  validationWay: AuthMethod.Password,
+  password: "",
+  remark: "",
+};
 
 function ConnectionEdit() {
   // 接收初始数据
-  const { initialData, isLoading } =
+  const { initialData, isLoading, clearInitialData } =
     useInitialData<ConnectionEditInitialData>();
-  const [isDataLoaded, setIsDataLoaded] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
+
+  useWindowListener(({ isClose, data }) => {
+    if (isClose && data.name === currentWindowName()) {
+      console.log("当前窗口已关闭, 清理相关资源");
+      clearInitialData();
+    }
+  });
 
   // 检查初始数据是否加载
   useEffect(() => {
     if (initialData && !isLoading) {
-      setIsDataLoaded(true);
-      setIsEditMode(!!initialData.data.standard);
       console.log("=== 接收到的初始数据 ===");
-      console.log("模式:", initialData.data.standard ? "编辑" : "创建");
       console.log("数据:", initialData);
       console.log("====================");
     }
@@ -49,9 +73,16 @@ function ConnectionEdit() {
   // 处理标准配置表单提交
   const handleSaveStandard = (data: ConnectionStandard) => {
     console.log("=== 保存连接配置 ===");
-    console.log("模式:", isEditMode ? "编辑" : "创建");
     console.log("标准配置:", data);
     console.log("==================");
+
+    // 发送给主窗口
+    DataSyncAPI.sendToWindow(
+      "main",
+      DataChannel.Connection,
+      "connection:save",
+      { ...data },
+    );
 
     // TODO: 后续添加实际的保存逻辑
     // - 调用后端 API 保存
@@ -76,9 +107,11 @@ function ConnectionEdit() {
             </TabsList>
             <TabsContent value="overview" className="w-full flex-1">
               <StandardForm
-                initialData={initialData?.data.standard}
+                initialData={{
+                  ...defaultStandardFormData,
+                  ...initialData?.data.standard,
+                }}
                 onSubmit={handleSaveStandard}
-                mode={isEditMode ? "edit" : "create"}
               />
             </TabsContent>
             <TabsContent value="analytics" className="w-full">
