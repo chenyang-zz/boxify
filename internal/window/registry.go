@@ -244,12 +244,24 @@ func (wr *WindowRegistry) GetAllWindowInfos() []*WindowInfo {
 	return infos
 }
 
+// IsRegistered 检查窗口是否已注册
 func (wr *WindowRegistry) IsRegistered(name string) bool {
 	wr.mu.RLock()
 	defer wr.mu.RUnlock()
 
 	entry, exists := wr.windows[name]
 	return exists && entry.Registered
+}
+
+// EmitWindowEventByPageName 根据窗口名称发送窗口事件
+func (wr *WindowRegistry) EmitWindowEventByPageName(eventType string, name string) {
+	wr.mu.RLock()
+	defer wr.mu.RUnlock()
+
+	entry, exists := wr.windows[name]
+	if exists {
+		wr.emitWindowEvent(eventType, entry.Config)
+	}
 }
 
 // emitWindowEvent 发送窗口事件

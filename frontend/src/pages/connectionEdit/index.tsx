@@ -35,7 +35,8 @@ import { useEffect, useState } from "react";
 import { DataSyncAPI } from "@/lib/data-sync";
 import { DataChannel } from "@/store/data-sync.store";
 import { useWindowListener } from "@/hooks/useWindowListener";
-import { currentWindowName } from "@/lib/utils";
+import { currentPageId, currentWindowName } from "@/lib/utils";
+import { WindowService } from "@wails/service";
 
 const defaultStandardFormData: ConnectionStandard = {
   tagColor: "",
@@ -84,10 +85,10 @@ function ConnectionEdit() {
       { ...data },
     );
 
-    // TODO: 后续添加实际的保存逻辑
-    // - 调用后端 API 保存
-    // - 或通过窗口通信传递给主窗口
-    // - 关闭当前窗口
+    // 关闭当前窗口
+    WindowService.ClosePage(currentPageId()).catch((err) => {
+      console.error("关闭窗口失败:", err);
+    });
   };
 
   return (

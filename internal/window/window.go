@@ -136,6 +136,7 @@ func (am *AppManager) ClosePage(pageId string) error {
 	windowName := pageConfig.Window.Name
 	if window := am.registry.Get(windowName); window != nil {
 		window.Hide()
+		am.registry.EmitWindowEventByPageName("window:closed", windowName)
 	}
 
 	return nil
