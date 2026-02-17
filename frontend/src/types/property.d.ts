@@ -11,11 +11,3 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-import { ConnectionConfig as _ConnectionConfig } from "@wails/connection";
-
-type ConnectionConfig = {
-  [K in keyof _ConnectionConfig as _ConnectionConfig[K] extends Function
-    ? never
-    : K]: _ConnectionConfig[K];
-};

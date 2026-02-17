@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export enum ConnectionType {
+export enum ConnectionEnum {
   SSH = "ssh",
   MYSQL = "mysql",
   POSTGRESQL = "postgresql",
@@ -35,7 +35,7 @@ export enum DBFileType {
   TABLE = "table",
 }
 
-export type FileType = ConnectionType | FileSystemType | DBFileType;
+export type FileType = ConnectionEnum | FileSystemType | DBFileType;
 
 export enum TabType {
   TABLE = "table",
@@ -44,13 +44,13 @@ export enum TabType {
 export function isDirType(type: FileType): boolean {
   switch (type) {
     case FileSystemType.UNKNOWN:
-    case ConnectionType.SSH:
+    case ConnectionEnum.SSH:
       return false;
     case FileSystemType.FOLDER:
-    case ConnectionType.MYSQL:
-    case ConnectionType.POSTGRESQL:
-    case ConnectionType.MONGODB:
-    case ConnectionType.REDIS:
+    case ConnectionEnum.MYSQL:
+    case ConnectionEnum.POSTGRESQL:
+    case ConnectionEnum.MONGODB:
+    case ConnectionEnum.REDIS:
       return true;
     default:
       return false;
@@ -59,16 +59,16 @@ export function isDirType(type: FileType): boolean {
 
 // 判断是否是连接类型
 export function isConnectionType(type: FileType): boolean {
-  return Object.values(ConnectionType).includes(type as ConnectionType);
+  return Object.values(ConnectionEnum).includes(type as ConnectionEnum);
 }
 
 // 判断是否是数据库相关类型
 export function isDBType(type: FileType): boolean {
   switch (type) {
-    case ConnectionType.MYSQL:
-    case ConnectionType.POSTGRESQL:
-    case ConnectionType.MONGODB:
-    case ConnectionType.REDIS:
+    case ConnectionEnum.MYSQL:
+    case ConnectionEnum.POSTGRESQL:
+    case ConnectionEnum.MONGODB:
+    case ConnectionEnum.REDIS:
     case DBFileType.DATABASE:
       return true;
     default:

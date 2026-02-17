@@ -13,8 +13,9 @@
 // limitations under the License.
 
 import {
-  ConnectionType,
+  ConnectionEnum,
   DBFileType,
+  FileSystemType,
   FileType,
   isDBType,
   TabType,
@@ -78,7 +79,7 @@ export function createPropertyItemListFromDBQueryResult(
   for (const row of res) {
     let partialItem: Partial<PropertyItemType>;
     switch (pType) {
-      case ConnectionType.MYSQL:
+      case ConnectionEnum.MYSQL:
         partialItem = {
           isDir: true,
           label: row["Database"],
@@ -200,7 +201,7 @@ export async function loadDBConnectionPropertyChildren(
     }
 
     switch (type) {
-      case ConnectionType.MYSQL:
+      case ConnectionEnum.MYSQL:
         res = await callWails(
           DatabaseService.DBGetDatabases,
           ConnectionConfig.createFrom(config),
@@ -246,12 +247,16 @@ export async function triggerDirOpen(uuid: string) {
   // 如果没有加载过，应该去后端请求获取子项数据，然后更新树数据
   if (!item.loaded) {
     // 数据库连接
+    let res: PropertyItemType[] = [];
     if (isDBType(item.type)) {
-      await loadDBConnectionPropertyChildren(uuid);
+      res = await loadDBConnectionPropertyChildren(uuid);
     } else {
       // TODO: 其他连接
     }
-    item.loaded = true;
+
+    if (res.length > 0) {
+      item.loaded = true;
+    }
   }
 
   propertyStoreMethods.setPropertyList([
@@ -297,4 +302,51 @@ export function getTabTypeFromProperty(uuid: string): TabType {
     default:
       throw new Error(`不支持的属性类型: ${item.type}`);
   }
+}
+
+// 将新的属性项添加到指定父级下
+export function addPropertyItemToParent(
+  pUuid: string | null,
+  item: PropertyItemType,
+) {
+  if (pUuid) {
+    const parent = getPropertyItemByUUID(pUuid);
+    if (!parent) {
+      throw new Error("无法找到父级属性项");
+    }
+
+    if (!parent.children) {
+      parent.children = [];
+    }
+
+    parent.children.push(item);
+    item.parent = parent; // 设置父级引用，方便后续向上访问
+  } else {
+    // 如果没有指定父级UUID，说明是添加到根级
+    const rootList = usePropertyStore.getState().propertyList;
+    rootList.push(item);
+  }
+
+  FileTreeMap.set(item.uuid, item); // 同时记录到全局Map中
+
+  propertyStoreMethods.setPropertyList([
+    ...usePropertyStore.getState().propertyList,
+  ]); // 触发状态更新，刷新UI
+}
+
+// 根据属性项UUID获取最近的文件夹
+// 如果当前项是文件夹，则返回当前文件夹
+// 如果当前项是文件，则返回其父级文件夹
+// 如果没有父级文件夹（即已经是根级项），则返回null
+export function getClosestFolder(uuid: string): PropertyItemType | null {
+  let item = getPropertyItemByUUID(uuid);
+  if (!item) {
+    return null;
+  }
+
+  while (item && item.type !== FileSystemType.FOLDER) {
+    item = item.parent ?? null;
+  }
+
+  return item;
 }

@@ -30,11 +30,11 @@ func normalizeRunConfig(config *connection.ConnectionConfig, dbName string) *con
 		return &runConfig
 	}
 
-	switch strings.ToLower(strings.TrimSpace(config.Type)) {
-	case "mysql", "mariadb", "postgres", "kingbase", "highgo", "vastbase", "sqlserver", "mongodb", "tdengine":
+	switch config.Type {
+	case connection.ConnectionTypeMySQL, connection.ConnectionTypeMariaDB, connection.ConnectionTypePostgreSQL, connection.ConnectionTypeKingbase, connection.ConnectionTypeHighGo, connection.ConnectionTypeVastBase, connection.ConnectionTypeSQLServer, connection.ConnectionTypeMongoDB, connection.ConnectionTypeTDengine:
 		// 这些类型的 dbName 表示"数据库"，需要写入连接配置以选择目标库
 		runConfig.Database = name
-	case "dameng":
+	case connection.ConnectionTypeDameng:
 		// 达梦使用 schema 参数，沿用现有行为：dbName 表示 schema。
 		runConfig.Database = name
 	default:
@@ -62,11 +62,11 @@ func normalizeSchemaAndTable(config *connection.ConnectionConfig, dbName string,
 		}
 	}
 
-	switch strings.ToLower(strings.TrimSpace(config.Type)) {
-	case "postgres", "kingbase", "highgo", "vastbase":
+	switch config.Type {
+	case connection.ConnectionTypePostgreSQL, connection.ConnectionTypeKingbase, connection.ConnectionTypeHighGo, connection.ConnectionTypeVastBase:
 		// PG/金仓/瀚高/海量：dbName 在 UI 里是"数据库"，schema 需从 tableName 或使用默认 public。
 		return "public", rawTable
-	case "sqlserver":
+	case connection.ConnectionTypeSQLServer:
 		// SQL Server：dbName 表示数据库，schema 默认 dbo
 		return "dbo", rawTable
 	default:

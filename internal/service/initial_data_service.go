@@ -95,6 +95,8 @@ func (ids *InitialDataService) SaveInitialData(sourceWindow, targetWindow string
 	// 目标窗口不能打开
 	registry := ids.Registry()
 	if registry == nil || registry.IsRegistered(targetWindow) {
+		// 如果窗口已打开，尝试将其置于前台
+		registry.Get(targetWindow).Show()
 		return &connection.QueryResult{
 			Success: false,
 			Message: fmt.Sprintf("目标窗口已打开: %s", targetWindow),

@@ -11,22 +11,9 @@ import { useShallow } from "zustand/react/shallow";
 import { useAppStore } from "@/store/app.store";
 import { Toaster } from "@/components/ui/sonner";
 import Tabs from "@/components/Tabs";
-import { WindowService } from "@wails/service";
-import { callWails } from "@/lib/utils";
-import { useDataSync } from "@/hooks/useDataSync";
-import { DataChannel } from "@/store/data-sync.store";
-import { useOpenWindowWithData } from "@/hooks/useOpenWindowWithData";
 
 function MainApp() {
   const isOpen = useAppStore(useShallow((state) => state.isPropertyOpen));
-
-  useDataSync(DataChannel.Settings, (event) => {
-    if (event.dataType === "settings:update") {
-      console.log("[设置窗口] 收到配置更新", event.data);
-    }
-  });
-
-  const { openWindowWithData } = useOpenWindowWithData();
 
   return (
     <TooltipProvider>
@@ -48,13 +35,6 @@ function MainApp() {
                 </>
               )}
               <ResizablePanel className="pl-1 pr-2">
-                <div
-                  onClick={() =>
-                    openWindowWithData("connection-edit", { title: "设置3" })
-                  }
-                >
-                  打开窗口
-                </div>
                 <Tabs />
               </ResizablePanel>
             </ResizablePanelGroup>

@@ -17,6 +17,10 @@ import FileTreeItem from "./FileTreeItem";
 import { PropertyItemType, usePropertyStore } from "@/store/property.store";
 import { useDataSync } from "@/hooks/useDataSync";
 import { DataChannel } from "@/store/data-sync.store";
+import { addPropertyItemToParent, getClosestFolder } from "@/lib/property";
+import { ConnectionEnum } from "@/common/constrains";
+import { ConnectionConfig, ConnectionType } from "@wails/connection";
+import { v4 } from "uuid";
 
 interface FileTreeProps {
   data: PropertyItemType[];
@@ -33,9 +37,36 @@ export const FIleTreeList: FC<FileTreeProps> = ({ data }) => {
 };
 
 const FileTree: FC = () => {
+  // const folder = getClosestFolder()
+  const selectedUUID = usePropertyStore((state) => state.selectedUUID);
+
   useDataSync(DataChannel.Connection, (event) => {
     if (event.dataType === "connection:save") {
       console.log("[主窗口] 收到连接保存", event.data);
+      let pUuid: string | null = null;
+      let folder: PropertyItemType | null = null;
+      if (selectedUUID) {
+        folder = getClosestFolder(selectedUUID);
+        pUuid = folder?.uuid ?? null;
+      }
+
+      // mysql
+      const newPropertyItem: PropertyItemType = {
+        uuid: v4(),
+        level: folder ? folder.level + 1 : 1,
+        isDir: true,
+        label: event.data.name,
+        type: ConnectionEnum.MYSQL,
+        connectionConfig: ConnectionConfig.createFrom({
+          type: ConnectionType.ConnectionTypeMySQL,
+          host: event.data.host,
+          port: event.data.port,
+          user: event.data.user,
+          password: event.data.password,
+          useSSH: false,
+        }),
+      };
+      addPropertyItemToParent(pUuid, newPropertyItem);
     }
   });
   const propertyList = usePropertyStore((state) => state.propertyList);

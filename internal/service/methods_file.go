@@ -14,18 +14,22 @@
 
 package service
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/chenyang-zz/boxify/internal/connection"
+)
 
 // quoteIdentByType 根据数据库类型对标识符进行适当的引用和转义，防止SQL注入和语法错误
-func quoteIdentByType(dbType string, ident string) string {
+func quoteIdentByType(dbType connection.ConnectionType, ident string) string {
 	if ident == "" {
 		return ident
 	}
 
 	switch dbType {
-	case "mysql", "mariadb", "tdengine":
+	case connection.ConnectionTypeMySQL, connection.ConnectionTypeMariaDB, connection.ConnectionTypeTDengine:
 		return "`" + strings.ReplaceAll(ident, "`", "``") + "`"
-	case "sqlserver":
+	case connection.ConnectionTypeSQLServer:
 		escaped := strings.ReplaceAll(ident, "]", "]]")
 		return "[" + escaped + "]"
 	default:

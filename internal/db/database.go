@@ -41,13 +41,13 @@ type BatchApplier interface {
 }
 
 // Factory
-func NewDatabase(dbType string) (Database, error) {
+func NewDatabase(dbType connection.ConnectionType) (Database, error) {
 	switch dbType {
-	case "mysql":
+	case connection.ConnectionTypeMySQL:
 		return &MySQLDB{}, nil
-	case "postgres":
+	case connection.ConnectionTypePostgreSQL:
 		return nil, nil
-	case "sqlite":
+	case connection.ConnectionTypeSQLite:
 		return nil, nil
 	default:
 		// Default to MySQL for backward compatibility if empty

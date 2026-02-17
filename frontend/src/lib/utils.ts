@@ -33,6 +33,9 @@ export async function callWails<
   } catch (e) {
     toast.error("发生错误", {
       description: (e as Error).message,
+      style: {
+        textAlign: "left",
+      },
     });
     throw e;
   } finally {
@@ -45,9 +48,17 @@ export async function callWails<
 export async function copyText(text: string) {
   try {
     await navigator.clipboard.writeText(text);
-    toast.success("复制成功");
+    toast.success("复制成功", {
+      style: {
+        textAlign: "left",
+      },
+    });
   } catch (e) {
-    toast.error("复制失败");
+    toast.error("复制失败", {
+      style: {
+        textAlign: "left",
+      },
+    });
   }
 }
 

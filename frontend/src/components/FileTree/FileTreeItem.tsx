@@ -17,7 +17,7 @@ import { FIleTreeList } from ".";
 import { cn } from "@/lib/utils";
 import { ChevronRight, File } from "lucide-react";
 import {
-  ConnectionType,
+  ConnectionEnum,
   DBFileType,
   FileSystemType,
   FileType,
@@ -47,15 +47,15 @@ const FileIcon: FC<FileIconProps> = ({ isDir, type }) => {
         return (
           <img className="size-4.5 mr-1 shrink-0" src="/icons/folder.svg" />
         );
-      case ConnectionType.MYSQL:
+      case ConnectionEnum.MYSQL:
         return (
           <img className="size-4.5 mr-1 shrink-0" src="/icons/mysql.svg" />
         );
-      case ConnectionType.REDIS:
+      case ConnectionEnum.REDIS:
         return (
           <img className="size-4.5 mr-1 shrink-0" src="/icons/redis.svg" />
         );
-      case ConnectionType.MONGODB:
+      case ConnectionEnum.MONGODB:
         return (
           <img className="size-4.5 mr-1 shrink-0" src="/icons/mongodb.svg" />
         );
@@ -80,7 +80,7 @@ const FileIcon: FC<FileIconProps> = ({ isDir, type }) => {
     }
   }
   switch (type) {
-    case ConnectionType.SSH:
+    case ConnectionEnum.SSH:
       return (
         <img className="size-4.5 mr-1 shrink-0" src="/icons/terminal.svg" />
       );
@@ -102,7 +102,9 @@ const FileTreeItem: FC<FileTreeItemProps> = ({ item }) => {
   // 打开/关闭 列表项
   const handleTogglePropertyItem = async () => {
     try {
-      setLoading(true);
+      if (!item.loaded) {
+        setLoading(true);
+      }
       if (!item.isDir) {
         await triggerFileOpen(item.uuid);
       } else {

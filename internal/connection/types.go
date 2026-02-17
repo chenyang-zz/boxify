@@ -14,6 +14,24 @@
 
 package connection
 
+// ConnectionType 数据库连接类型
+type ConnectionType string
+
+const (
+	ConnectionTypeMySQL      ConnectionType = "mysql"      // MySQL 数据库
+	ConnectionTypePostgreSQL ConnectionType = "postgresql" // PostgreSQL 数据库
+	ConnectionTypeKingbase   ConnectionType = "kingbase"   // Kingbase 数据库
+	ConnectionTypeHighGo     ConnectionType = "highgo"     // HighGo 数据库
+	ConnectionTypeVastBase   ConnectionType = "vastbase"   // VastBase 数据库
+	ConnectionTypeTDengine   ConnectionType = "tdengine"   // TDengine 数据库
+	ConnectionTypeMariaDB    ConnectionType = "mariadb"    // MariaDB 数据库
+	ConnectionTypeMongoDB    ConnectionType = "mongodb"    // MongoDB 数据库
+	ConnectionTypeDameng     ConnectionType = "dameng"     // 达梦数据库
+	ConnectionTypeSQLServer  ConnectionType = "sqlserver"  // SQL Server 数据库
+	ConnectionTypeSQLite     ConnectionType = "sqlite"     // SQLite 数据库
+	ConnectionTypeCustom     ConnectionType = "custom"     // 自定义连接
+)
+
 // SSHConfig 是SSH连接的配置结构体
 // 包含主机、端口、用户、密码和密钥路径等信息
 type SSHConfig struct {
@@ -27,17 +45,17 @@ type SSHConfig struct {
 // ConnectionConfig 是数据库连接的配置结构体
 // 包含连接类型、主机、端口、用户、密码、数据库名称以及SSH配置等信息
 type ConnectionConfig struct {
-	Type     string     `json:"type"`
-	Host     string     `json:"host"`
-	Port     int        `json:"port"`
-	User     string     `json:"user"`
-	Password string     `json:"password"`
-	Database string     `json:"database"`
-	UseSSH   bool       `json:"useSSH"`
-	SSH      *SSHConfig `json:"ssh"`
-	Driver   string     `json:"driver,omitempty"`  // 用于自定义连接
-	DSN      string     `json:"dsn,omitempty"`     // 用于自定义连接
-	Timeout  int        `json:"timeout,omitempty"` // 连接超时时间，单位秒
+	Type     ConnectionType `json:"type"`
+	Host     string         `json:"host"`
+	Port     int            `json:"port"`
+	User     string         `json:"user"`
+	Password string         `json:"password"`
+	Database string         `json:"database,omitempty"`
+	UseSSH   bool           `json:"useSSH"`
+	SSH      *SSHConfig     `json:"ssh"`
+	Driver   string         `json:"driver,omitempty"`  // 用于自定义连接
+	DSN      string         `json:"dsn,omitempty"`     // 用于自定义连接
+	Timeout  int            `json:"timeout,omitempty"` // 连接超时时间，单位秒
 }
 
 // QueryResult 是查询结果的结构体

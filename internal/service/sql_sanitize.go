@@ -16,12 +16,14 @@ package service
 import (
 	"strings"
 	"unicode"
+
+	"github.com/chenyang-zz/boxify/internal/connection"
 )
 
 // sanitizeSQLForPgLike 对于 PostgreSQL 类数据库，转义 LIKE 查询中的特殊字符
-func sanitizeSQLForPgLike(dbType string, query string) string {
-	switch strings.ToLower(strings.TrimSpace(dbType)) {
-	case "postgres", "kingbase", "highgo", "vastbase":
+func sanitizeSQLForPgLike(dbType connection.ConnectionType, query string) string {
+	switch dbType {
+	case connection.ConnectionTypePostgreSQL, connection.ConnectionTypeKingbase, connection.ConnectionTypeHighGo, connection.ConnectionTypeVastBase:
 		// 有些情况下会出现多层重复引用（例如 """"schema"""" 或 ""schema"""），单次修复不一定收敛。
 		// 这里做有限次数的迭代，直到输出不再变化。
 		out := query
