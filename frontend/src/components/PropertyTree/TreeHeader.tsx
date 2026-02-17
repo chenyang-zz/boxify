@@ -12,18 +12,159 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { CopyMinus, CopyPlus } from "lucide-react";
-import { FC, ReactNode, useState } from "react";
+import { CopyMinus, CopyPlus, PlusIcon } from "lucide-react";
+import { DOMAttributes, FC, ReactNode, useState } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
+import { useContextMenu } from "@/hooks/use-context-menu";
+import { MenuConfig } from "@/types/menu";
+import { MenuItemType } from "@wails/service";
 
 interface TreeHeaderAction {
   icon: ReactNode;
   label: string;
-  onClick: () => void;
+  onClick: DOMAttributes<HTMLElement>["onClick"];
 }
+
+const addPropertyMenu: MenuConfig = {
+  items: [
+    {
+      label: "目录",
+      type: MenuItemType.MenuItemTypeItem,
+      onClick: async (payload) => {
+        console.log(payload);
+      },
+    },
+    {
+      label: "本地终端",
+      type: MenuItemType.MenuItemTypeItem,
+      onClick: async (payload) => {
+        console.log(payload);
+      },
+    },
+    {
+      label: "Docker",
+      type: MenuItemType.MenuItemTypeItem,
+      onClick: async (payload) => {
+        console.log(payload);
+      },
+    },
+    {
+      label: "远程连接",
+      type: MenuItemType.MenuItemTypeSubmenu,
+      items: [
+        {
+          label: "SSH",
+          type: MenuItemType.MenuItemTypeItem,
+          onClick: async (payload) => {
+            console.log(payload);
+          },
+        },
+        {
+          label: "SSH隧道",
+          type: MenuItemType.MenuItemTypeItem,
+          onClick: async (payload) => {
+            console.log(payload);
+          },
+        },
+        {
+          label: "RDP",
+          type: MenuItemType.MenuItemTypeItem,
+          onClick: async (payload) => {
+            console.log(payload);
+          },
+        },
+        {
+          label: "Telnet",
+          type: MenuItemType.MenuItemTypeItem,
+          onClick: async (payload) => {
+            console.log(payload);
+          },
+        },
+        {
+          label: "串口",
+          type: MenuItemType.MenuItemTypeItem,
+          onClick: async (payload) => {
+            console.log(payload);
+          },
+        },
+      ],
+    },
+    {
+      label: "数据库",
+      type: MenuItemType.MenuItemTypeSubmenu,
+      items: [
+        {
+          label: "Redis",
+          type: MenuItemType.MenuItemTypeItem,
+          onClick: async (payload) => {
+            console.log(payload);
+          },
+        },
+        {
+          label: "MySql",
+          type: MenuItemType.MenuItemTypeItem,
+          onClick: async (payload) => {
+            console.log(payload);
+          },
+        },
+        {
+          label: "MariaDB",
+          type: MenuItemType.MenuItemTypeItem,
+          onClick: async (payload) => {
+            console.log(payload);
+          },
+        },
+        {
+          label: "PostgreSQL",
+          type: MenuItemType.MenuItemTypeItem,
+          onClick: async (payload) => {
+            console.log(payload);
+          },
+        },
+        {
+          label: "SqlServer",
+          type: MenuItemType.MenuItemTypeItem,
+          onClick: async (payload) => {
+            console.log(payload);
+          },
+        },
+        {
+          label: "ClickHouse",
+          type: MenuItemType.MenuItemTypeItem,
+          onClick: async (payload) => {
+            console.log(payload);
+          },
+        },
+        {
+          label: "SQLite",
+          type: MenuItemType.MenuItemTypeItem,
+          onClick: async (payload) => {
+            console.log(payload);
+          },
+        },
+        {
+          label: "Oracle",
+          type: MenuItemType.MenuItemTypeItem,
+          onClick: async (payload) => {
+            console.log(payload);
+          },
+        },
+        {
+          label: "达梦",
+          type: MenuItemType.MenuItemTypeItem,
+          onClick: async (payload) => {
+            console.log(payload);
+          },
+        },
+      ],
+    },
+  ],
+};
 
 const TreeHeader: FC = () => {
   const [isCollapsed, setIsCollapsed] = useState(true);
+
+  const addMenu = useContextMenu(addPropertyMenu);
 
   const actions: TreeHeaderAction[] = [
     {
@@ -33,8 +174,18 @@ const TreeHeader: FC = () => {
         <CopyPlus className="size-4" />
       ),
       label: isCollapsed ? "点击全部折叠" : "点击全部展开",
-      onClick: () => {
+      onClick: (e) => {
         setIsCollapsed((prev) => !prev);
+      },
+    },
+    {
+      icon: <PlusIcon className="size-4" />,
+      label: "创建资产",
+      onClick: (e) => {
+        addMenu.open({
+          x: e.clientX,
+          y: e.clientY,
+        });
       },
     },
   ];
@@ -42,7 +193,7 @@ const TreeHeader: FC = () => {
   return (
     <nav className="flex items-center p-2 justify-between text-foreground shrink-0">
       <span className="text-sm font-bold">资产列表</span>
-      <div className="flex gap-2">
+      <div className="flex gap-2" onClick={(e) => {}}>
         {actions.map((action, index) => (
           <Tooltip key={index}>
             <TooltipTrigger asChild>

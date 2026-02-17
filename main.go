@@ -19,6 +19,9 @@ func init() {
 
 	// 初始数据事件
 	application.RegisterEvent[service.InitialDataEntry]("initial-data:received")
+
+	// 菜单事件
+	application.RegisterEvent[service.MenuClickEvent]("menu:clicked")
 }
 
 //go:embed all:frontend/dist
@@ -44,6 +47,9 @@ func main() {
 		},
 		func(app *application.App) application.Service {
 			return application.NewService(service.NewInitialDataService(deps))
+		},
+		func(app *application.App) application.Service {
+			return application.NewService(service.NewMenuService(deps))
 		},
 	}
 

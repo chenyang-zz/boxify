@@ -15,14 +15,16 @@ function configure() {
         "data-sync:broadcast": $$createType0,
         "data-sync:targeted": $$createType0,
         "initial-data:received": $$createType1,
-        "window:closed": $$createType2,
-        "window:opened": $$createType2,
+        "menu:clicked": $$createType2,
+        "window:closed": $$createType3,
+        "window:opened": $$createType3,
     }));
 }
 
 // Private type creation functions
 const $$createType0 = service$0.DataSyncEvent.createFrom;
 const $$createType1 = service$0.InitialDataEntry.createFrom;
-const $$createType2 = $Create.Map($Create.Any, $Create.Any);
+const $$createType2 = service$0.MenuClickEvent.createFrom;
+const $$createType3 = $Create.Map($Create.Any, $Create.Any);
 
 configure();

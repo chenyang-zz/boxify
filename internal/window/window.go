@@ -38,10 +38,11 @@ type AppManager struct {
 }
 
 func InitApplication(assets fs.FS) *AppManager {
+
 	// 创建临时应用以获取环境信息
 	tempApp := application.New(application.Options{
 		Name:     "Boxify",
-		LogLevel: slog.LevelInfo,
+		LogLevel: slog.LevelDebug,
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
 		},
