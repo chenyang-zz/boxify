@@ -31,7 +31,7 @@ import type {
   ConnectionStandard,
 } from "@/types/initial-data";
 import { useInitialData } from "@/hooks/useInitialData";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DataSyncAPI } from "@/lib/data-sync";
 import { DataChannel } from "@/store/data-sync.store";
 import { useWindowListener } from "@/hooks/useWindowListener";
@@ -45,12 +45,14 @@ const defaultStandardFormData: ConnectionStandard = {
   host: "localhost",
   user: "root",
   port: 3306,
-  validationWay: AuthMethod.Password,
+  authMethod: AuthMethod.Password,
   password: "",
   remark: "",
 };
 
 function ConnectionEdit() {
+  const isEdit = useRef(false);
+
   // 接收初始数据
   const { initialData, isLoading, clearInitialData } =
     useInitialData<ConnectionEditInitialData>();
@@ -67,6 +69,9 @@ function ConnectionEdit() {
     if (initialData && !isLoading) {
       console.log("=== 接收到的初始数据 ===");
       console.log("数据:", initialData);
+      if (initialData.data.uuid) {
+        isEdit.current = true;
+      }
       console.log("====================");
     }
   }, [initialData, isLoading]);
@@ -81,8 +86,8 @@ function ConnectionEdit() {
     DataSyncAPI.sendToWindow(
       "main",
       DataChannel.Connection,
-      "connection:save",
-      { ...data },
+      isEdit.current ? "connection:update" : "connection:save",
+      { ...data, uuid: initialData?.data.uuid },
     );
 
     // 关闭当前窗口

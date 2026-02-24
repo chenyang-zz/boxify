@@ -28,11 +28,10 @@ import {
   propertyStoreMethods,
   usePropertyStore,
 } from "@/store/property.store";
-import { tabStoreMethods } from "@/store/tabs.store";
 import { Spinner } from "../ui/spinner";
 import { Badge } from "../ui/badge";
 import {
-  getPropertyItemByUUID,
+  deleteConnectionByUUID,
   triggerDirOpen,
   triggerFileOpen,
 } from "@/lib/property";
@@ -44,7 +43,11 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { X, Edit, Trash2, RefreshCw } from "lucide-react";
-import { closeConnectionByUUID } from "@/lib/connection";
+import { closeConnectionByUUID } from "@/lib/property";
+import { DeleteConfirmDialog } from "../DeleteConfirmDialog";
+import { ConnectionEditInitialData } from "@/types/initial-data";
+import { useOpenWindowWithData } from "@/hooks/useOpenWindowWithData";
+import { AuthMethod } from "@/pages/connectionEdit/components/StandardForm";
 
 interface FileTreeItemProps {
   item: PropertyItemType;
@@ -108,6 +111,9 @@ const FileIcon: FC<FileIconProps> = ({ isDir, type }) => {
 const FileTreeItem: FC<FileTreeItemProps> = ({ item }) => {
   const [loading, setLoading] = useState(false);
   const selectedUUID = usePropertyStore((state) => state.selectedUUID);
+  const [isOpen, setIsOpen] = useState(false); // 删除确认对话框的状态
+
+  const { openWindowWithData } = useOpenWindowWithData();
 
   const isConnection = isConnectionType(item.type);
 
@@ -118,23 +124,30 @@ const FileTreeItem: FC<FileTreeItemProps> = ({ item }) => {
   };
 
   const handleEdit = async () => {
-    // TODO: 实现编辑连接逻辑
+    // 打开连接弹窗
+    openWindowWithData("connection-edit", {
+      uuid: item.uuid,
+      standard: {
+        name: item.label,
+        host: item.connectionConfig?.host || "",
+        port: item.connectionConfig?.port || 3306,
+        user: item.connectionConfig?.user || "",
+        password: item.connectionConfig?.password || "",
+        remark: item.remark || "",
+        authMethod: item.authMethod || AuthMethod.Password,
+      },
+    } as ConnectionEditInitialData);
     console.log("编辑连接:", item.uuid);
   };
 
   const handleDelete = async () => {
-    // TODO: 实现删除连接逻辑
+    deleteConnectionByUUID(item.uuid);
     console.log("删除连接:", item.uuid);
   };
 
-  const handleRename = async () => {
-    // TODO: 实现重命名连接逻辑
-    console.log("重命名连接:", item.uuid);
-  };
-
   const handleRefresh = async () => {
-    // 刷新节点
-    await triggerDirOpen(item.uuid);
+    // TODO: 实现刷新连接逻辑
+    console.log("刷新连接:", item.uuid);
   };
 
   const handleClickItem = () => {
@@ -165,71 +178,76 @@ const FileTreeItem: FC<FileTreeItemProps> = ({ item }) => {
   );
 
   return (
-    <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <div
-          className={cn(
-            "px-2 py-0.5 flex items-center justify-between overflow-hidden hover:bg-accent hover:text-accent-foreground cursor-default select-none",
-            selectedUUID === item.uuid &&
-              "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground",
-          )}
-          style={{
-            paddingLeft: item.level * 8, // 根据层级增加左侧缩进
-          }}
-          onClick={handleClickItem}
-          onDoubleClick={handleTogglePropertyItem}
-        >
-          <div className="flex items-center">
-            <ChevronRight
-              className={cn(
-                "size-3 mr-0.5 shrink-0",
-                !item.isDir && "opacity-0",
-              )}
-              style={{
-                transition: "transform 0.2s",
-                transform: item.opened ? "rotate(90deg)" : "rotate(0deg)",
-              }}
-              onClick={handleTogglePropertyItem}
-            />
-            {fileIcon}
-            <span className=" truncate">{item.label}</span>
-          </div>
+    <>
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <div
+            className={cn(
+              "px-2 py-0.5 flex items-center justify-between overflow-hidden hover:bg-accent hover:text-accent-foreground cursor-default select-none",
+              selectedUUID === item.uuid &&
+                "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground",
+            )}
+            style={{
+              paddingLeft: item.level * 8, // 根据层级增加左侧缩进
+            }}
+            onClick={handleClickItem}
+            onDoubleClick={handleTogglePropertyItem}
+          >
+            <div className="flex items-center">
+              <ChevronRight
+                className={cn(
+                  "size-3 mr-0.5 shrink-0",
+                  !item.isDir && "opacity-0",
+                )}
+                style={{
+                  transition: "transform 0.2s",
+                  transform: item.opened ? "rotate(90deg)" : "rotate(0deg)",
+                }}
+                onClick={handleTogglePropertyItem}
+              />
+              {fileIcon}
+              <span className=" truncate">{item.label}</span>
+            </div>
 
-          {typeof item.extra?.["count"] === "number" && (
-            <Badge className="py-0" variant="secondary">
-              {item.extra["count"]}
-            </Badge>
+            {typeof item.extra?.["count"] === "number" && (
+              <Badge className="py-0" variant="secondary">
+                {item.extra["count"]}
+              </Badge>
+            )}
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent>
+          {isConnection && (
+            <ContextMenuItem onClick={handleClose} disabled={!item?.loaded}>
+              <X className="size-4" />
+              关闭
+            </ContextMenuItem>
           )}
-        </div>
-      </ContextMenuTrigger>
-      <ContextMenuContent>
-        {isConnection && (
-          <ContextMenuItem onClick={handleClose} disabled={!item?.loaded}>
-            <X className="size-4" />
-            关闭
+          {isConnection && <ContextMenuSeparator />}
+          <ContextMenuItem onClick={handleEdit}>
+            <Edit className="size-4" />
+            编辑
           </ContextMenuItem>
-        )}
-        {isConnection && <ContextMenuSeparator />}
-        <ContextMenuItem onClick={handleEdit}>
-          <Edit className="size-4" />
-          编辑
-        </ContextMenuItem>
-        <ContextMenuItem onClick={handleDelete}>
-          <Trash2 className="size-4" />
-          删除
-        </ContextMenuItem>
-        <ContextMenuItem onClick={handleRename}>
-          <Pencil className="size-4" />
-          重命名
-        </ContextMenuItem>
-        <ContextMenuSeparator />
-        <ContextMenuItem onClick={handleRefresh}>
-          <RefreshCw className="size-4" />
-          刷新
-        </ContextMenuItem>
-      </ContextMenuContent>
-      {item.opened && <FIleTreeList data={item.children || []} />}
-    </ContextMenu>
+          <ContextMenuItem onClick={() => setIsOpen(true)}>
+            <Trash2 className="size-4" />
+            删除
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem onClick={handleRefresh}>
+            <RefreshCw className="size-4" />
+            刷新
+          </ContextMenuItem>
+        </ContextMenuContent>
+        {item.opened && <FIleTreeList data={item.children || []} />}
+      </ContextMenu>
+      <DeleteConfirmDialog
+        open={isOpen}
+        onOpenChange={setIsOpen}
+        title={`确认删除连接 "${item.label}" 吗？`}
+        checkboxLabel="了解次操作是永久性的且无法撤销"
+        onConfirm={handleDelete}
+      />
+    </>
   );
 };
 

@@ -58,22 +58,3 @@ export function getDatabaseNameByUUID(uuid: string) {
 
   return null;
 }
-
-// 根据UUID关闭连接项
-export function closeConnectionByUUID(uuid: string) {
-  const item = getPropertyItemByUUID(uuid);
-  if (!item) {
-    return;
-  }
-
-  if (!isConnectionType(item.type)) return;
-
-  // 关闭连接项的操作，具体实现可以根据实际需求进行调整
-  item.loaded = false;
-  item.children = [];
-  item.opened = false;
-
-  propertyStoreMethods.setPropertyList([
-    ...usePropertyStore.getState().propertyList,
-  ]); // 触发状态更新，刷新UI
-}

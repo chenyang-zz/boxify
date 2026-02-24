@@ -79,7 +79,7 @@ const defaultFormData: ConnectionStandard = {
   host: "localhost",
   user: "root",
   port: 3306,
-  validationWay: AuthMethod.Password,
+  authMethod: AuthMethod.Password,
   password: "",
   remark: "",
 };
@@ -117,7 +117,7 @@ const StandardForm: FC<StandardFormProps> = ({ initialData, onSubmit }) => {
     if (!formData.port || formData.port <= 0) {
       newErrors.port = "端口必须大于0";
     }
-    if (formData.validationWay === "password" && !formData.password) {
+    if (formData.authMethod === "password" && !formData.password) {
       newErrors.password = "密码不能为空";
     }
 
@@ -255,10 +255,8 @@ const StandardForm: FC<StandardFormProps> = ({ initialData, onSubmit }) => {
                   验证方式
                 </FieldLabel>
                 <Select
-                  value={formData.validationWay}
-                  onValueChange={(value) =>
-                    handleChange("validationWay", value)
-                  }
+                  value={formData.authMethod}
+                  onValueChange={(value) => handleChange("authMethod", value)}
                 >
                   <SelectTrigger id="auth-method" className="w-full">
                     <SelectValue placeholder="选择验证方式" />
@@ -282,7 +280,7 @@ const StandardForm: FC<StandardFormProps> = ({ initialData, onSubmit }) => {
                 </FieldLabel>
                 <InputGroup
                   className={
-                    errors.password && formData.validationWay === "password"
+                    errors.password && formData.authMethod === "password"
                       ? "border-red-500"
                       : ""
                   }
@@ -292,11 +290,11 @@ const StandardForm: FC<StandardFormProps> = ({ initialData, onSubmit }) => {
                     type={showPassword ? "text" : "password"}
                     className={`text-xs`}
                     value={
-                      formData.validationWay === "password"
+                      formData.authMethod === "password"
                         ? formData.password
                         : ""
                     }
-                    disabled={formData.validationWay !== "password"}
+                    disabled={formData.authMethod !== "password"}
                     onChange={(e) => handleChange("password", e.target.value)}
                   />
                   <InputGroupAddon

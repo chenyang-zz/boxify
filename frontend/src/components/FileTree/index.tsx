@@ -17,7 +17,12 @@ import FileTreeItem from "./FileTreeItem";
 import { PropertyItemType, usePropertyStore } from "@/store/property.store";
 import { useDataSync } from "@/hooks/useDataSync";
 import { DataChannel } from "@/store/data-sync.store";
-import { addPropertyItemToParent, getClosestFolder } from "@/lib/property";
+import {
+  addPropertyItemToParent,
+  closeConnectionByUUID,
+  getClosestFolder,
+  getPropertyItemByUUID,
+} from "@/lib/property";
 import { ConnectionEnum } from "@/common/constrains";
 import { ConnectionConfig, ConnectionType } from "@wails/connection";
 import { v4 } from "uuid";
@@ -57,6 +62,8 @@ const FileTree: FC = () => {
         isDir: true,
         label: event.data.name,
         type: ConnectionEnum.MYSQL,
+        remark: event.data.remark,
+        authMethod: event.data.authMethod,
         connectionConfig: ConnectionConfig.createFrom({
           type: ConnectionType.ConnectionTypeMySQL,
           host: event.data.host,
@@ -67,6 +74,26 @@ const FileTree: FC = () => {
         }),
       };
       addPropertyItemToParent(pUuid, newPropertyItem);
+    } else if (event.dataType === "connection:update") {
+      console.log("[主窗口] 收到连接更新", event.data);
+      const uuid = event.data.uuid;
+      const item = getPropertyItemByUUID(uuid);
+      if (!item) return;
+
+      item.label = event.data.name;
+      item.remark = event.data.remark;
+      item.authMethod = event.data.authMethod;
+      item.connectionConfig = ConnectionConfig.createFrom({
+        type: ConnectionType.ConnectionTypeMySQL,
+        host: event.data.host,
+        port: event.data.port,
+        user: event.data.user,
+        password: event.data.password,
+        useSSH: false,
+      });
+
+      // 需要重新加载
+      closeConnectionByUUID(uuid);
     }
   });
   const propertyList = usePropertyStore((state) => state.propertyList);

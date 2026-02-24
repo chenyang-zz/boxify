@@ -19,6 +19,7 @@ import { persist } from "zustand/middleware";
 
 import { safeStorage, StoreMethods } from "./common";
 import { initTraverseTree } from "@/lib/property";
+import { AuthMethod } from "@/pages/connectionEdit/components/StandardForm";
 
 export const FileTreeMap = new Map<string, PropertyItemType>();
 
@@ -30,6 +31,9 @@ export interface PropertyItemType {
   label: string;
   type: FileType;
   loaded?: boolean; // 是否已加载
+
+  authMethod?: AuthMethod; // 认证方式
+  remark?: string; // 备注信息
 
   // dir 属性
   opened?: boolean;

@@ -17,6 +17,7 @@ import {
   DBFileType,
   FileSystemType,
   FileType,
+  isConnectionType,
   isDBType,
   TabType,
 } from "@/common/constrains";
@@ -349,4 +350,46 @@ export function getClosestFolder(uuid: string): PropertyItemType | null {
   }
 
   return item;
+}
+
+// 根据UUID关闭连接项
+export function closeConnectionByUUID(uuid: string) {
+  const item = getPropertyItemByUUID(uuid);
+  if (!item) {
+    return;
+  }
+
+  if (!isConnectionType(item.type)) return;
+
+  // 关闭连接项的操作，具体实现可以根据实际需求进行调整
+  item.loaded = false;
+  item.children = [];
+  item.opened = false;
+
+  propertyStoreMethods.setPropertyList([
+    ...usePropertyStore.getState().propertyList,
+  ]); // 触发状态更新，刷新UI
+}
+
+// 根据UUID删除连接项
+export function deleteConnectionByUUID(uuid: string) {
+  const item = getPropertyItemByUUID(uuid);
+  if (!item) {
+    return;
+  }
+
+  if (!isConnectionType(item.type)) return;
+
+  const parent = item.parent;
+  let rootList = usePropertyStore.getState().propertyList;
+
+  if (parent) {
+    // 从父级的children中移除该项
+    parent.children = parent.children?.filter((child) => child.uuid !== uuid);
+  } else {
+    // 如果没有父级，说明是根级项，直接从根列表中移除
+    rootList = rootList.filter((rootItem) => rootItem.uuid !== uuid);
+  }
+
+  propertyStoreMethods.setPropertyList([...rootList]); // 触发状态更新，刷新UI
 }

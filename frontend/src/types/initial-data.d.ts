@@ -41,7 +41,7 @@ export interface ConnectionStandard {
   host: string;
   user: string;
   port: number;
-  validationWay: string;
+  authMethod: string;
   password?: string;
   remark?: string;
 }
@@ -59,6 +59,7 @@ export interface ConnectionParameters {
 }
 
 export interface ConnectionEditInitialData {
+  uuid?: string;
   standard?: ConnectionStandard;
   advanced?: ConnectionAdvanced;
   parameters?: ConnectionParameters;
