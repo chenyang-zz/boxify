@@ -263,8 +263,6 @@ export function useContextMenu(menuConfig: MenuConfig): ContextMenuInstance {
 
   useEffect(() => {
     return () => {
-      console.log(123);
-
       // 组件卸载时清理全局监听器
       if (globalListenerUnbind) {
         globalListenerUnbind();

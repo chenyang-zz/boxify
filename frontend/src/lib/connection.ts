@@ -13,7 +13,11 @@
 // limitations under the License.
 
 import { DBFileType, isConnectionType } from "@/common/constrains";
-import { PropertyItemType } from "@/store/property.store";
+import {
+  PropertyItemType,
+  propertyStoreMethods,
+  usePropertyStore,
+} from "@/store/property.store";
 import { getPropertyItemByUUID } from "./property";
 
 // 根据UUID获取所属的数据库连接项的名称
@@ -53,4 +57,23 @@ export function getDatabaseNameByUUID(uuid: string) {
   }
 
   return null;
+}
+
+// 根据UUID关闭连接项
+export function closeConnectionByUUID(uuid: string) {
+  const item = getPropertyItemByUUID(uuid);
+  if (!item) {
+    return;
+  }
+
+  if (!isConnectionType(item.type)) return;
+
+  // 关闭连接项的操作，具体实现可以根据实际需求进行调整
+  item.loaded = false;
+  item.children = [];
+  item.opened = false;
+
+  propertyStoreMethods.setPropertyList([
+    ...usePropertyStore.getState().propertyList,
+  ]); // 触发状态更新，刷新UI
 }

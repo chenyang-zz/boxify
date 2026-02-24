@@ -12,16 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { FC, useRef, useEffect, ReactNode } from "react";
+import { FC, ReactNode } from "react";
 
-import { MenuService, MenuDefinition } from "@wails/service";
+import { MenuConfig } from "@/types/menu";
+import { useContextMenu } from "@/hooks/use-context-menu";
 
 /**
  * 菜单容器组件的 Props
  */
 export interface ContextMenuContainerProps {
   /** 菜单定义 */
-  menu: MenuDefinition;
+  menu: MenuConfig;
   /** 子元素 */
   children: ReactNode;
   /** 额外的 className */
@@ -48,71 +49,20 @@ const ContextMenuContainer: FC<ContextMenuContainerProps> = ({
   className = "",
   style,
 }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    // 调用后端创建菜单
-    MenuService.CreateContextMenu(menu)
-      .then((result) => {
-        if (result?.success) {
-          console.log("[ContextMenuContainer] 菜单创建成功:", menu.menuId);
-        } else {
-          console.error(
-            "[ContextMenuContainer] 菜单创建失败:",
-            result?.message,
-          );
-        }
-      })
-      .catch((error) => {
-        console.error("[ContextMenuContainer] 菜单创建异常:", error);
-      });
-
-    return () => {
-      // 清理菜单
-      MenuService.UnregisterContextMenu(menu.menuId)
-        .then((result) => {
-          if (result?.success) {
-            console.log("[ContextMenuContainer] 菜单已注销:", menu.menuId);
-          }
-        })
-        .catch((error) => {
-          console.error("[ContextMenuContainer] 菜单注销异常:", error);
-        });
-    };
-  }, [menu]);
-
-  // 处理右键菜单
-  const handleContextMenu = (e: React.MouseEvent) => {
-    e.preventDefault();
-
-    const element = containerRef.current;
-    if (!element) return;
-
-    // 设置上下文数据
-    const contextData = {
-      ...menu.contextData,
-      _x: e.clientX,
-      _y: e.clientY,
-      _trigger: "contextmenu",
-    };
-
-    // 更新 data-context-menu-data 属性
-    element.dataset.contextMenuData = JSON.stringify(contextData);
-
-    console.log("[ContextMenuContainer] 右键触发菜单:", {
-      menuId: menu.menuId,
-      x: e.clientX,
-      y: e.clientY,
-    });
-  };
-
+  const { open } = useContextMenu(menu);
   return (
     <div
-      ref={containerRef}
       className={className}
       style={style}
-      data-context-menu={menu.menuId}
-      onContextMenu={handleContextMenu}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        open({
+          x: e.clientX,
+          y: e.clientY,
+        });
+      }}
     >
       {children}
     </div>
