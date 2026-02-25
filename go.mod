@@ -3,6 +3,7 @@ module github.com/chenyang-zz/boxify
 go 1.25
 
 require (
+	github.com/creack/pty v1.1.24
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/joho/godotenv v1.5.1
 	github.com/lmittmann/tint v1.1.2

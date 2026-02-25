@@ -13,11 +13,20 @@
 // limitations under the License.
 
 import { FC, ReactNode, useState } from "react";
-import { Database, FolderOpen, List, SquareTerminal } from "lucide-react";
+import {
+  Database,
+  FolderOpen,
+  List,
+  SquareTerminal,
+  Terminal,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "../ui/separator";
 import { useAppStore } from "@/store/app.store";
+import { useTabsStore } from "@/store/tabs.store";
 import { useShallow } from "zustand/react/shallow";
+import { v4 } from "uuid";
+import { ConnectionEnum } from "@/common/constrains";
 
 enum UtilType {
   ALL = "all",
@@ -85,9 +94,24 @@ const UtilBar: FC = () => {
           key={index}
           icon={item.icon}
           isActive={activeTab === item.type}
-          onClick={() => setActiveTab(item.type)}
+          onClick={() => {
+            setActiveTab(item.type);
+          }}
         />
       ))}
+      <UtilItem
+        icon={<Terminal className="size-5" />}
+        isActive={false}
+        onClick={() => {
+          useTabsStore.getState().openTab({
+            uuid: v4(),
+            label: "测试终端",
+            type: ConnectionEnum.TERMINAL,
+            level: 0,
+            isDir: false,
+          });
+        }}
+      />
     </div>
   );
 };

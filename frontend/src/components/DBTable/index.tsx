@@ -31,10 +31,10 @@ import { getPropertyItemByUUID } from "@/lib/property";
 import { useHorizontalScroll } from "@/hooks/useHorizontalScroll";
 
 interface DBTableProps {
-  uuid: string;
+  sessionId: string;
 }
 
-const DBTable: FC<DBTableProps> = ({ uuid }) => {
+const DBTable: FC<DBTableProps> = ({ sessionId: uuid }) => {
   const { columns, values } = useDBTable(uuid);
   const headerRefs = useRef<Array<HTMLTableCellElement | null>>([]);
   const [stickyLefts, setStickyLefts] = useState<number[]>([0, 0, 0]);

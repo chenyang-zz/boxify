@@ -40,25 +40,6 @@ type AppManager struct {
 func InitApplication(assets fs.FS) *AppManager {
 
 	// 创建临时应用以获取环境信息
-	tempApp := application.New(application.Options{
-		Name:     "Boxify",
-		LogLevel: slog.LevelDebug,
-		Assets: application.AssetOptions{
-			Handler: application.AssetFileServerFS(assets),
-		},
-	})
-
-	// 设置应用上下文，包含 buildType
-	buildType := "prod"
-	if tempApp.Env.Info().Debug {
-		buildType = "dev"
-	}
-	ctx := context.WithValue(context.Background(), "buildType", buildType)
-
-	// 初始化全局 logger
-	logger.Init(slog.LevelInfo)
-
-	// 使用初始化后的 logger 创建应用
 	app := application.New(application.Options{
 		Name:     "Boxify",
 		LogLevel: slog.LevelInfo,
@@ -66,6 +47,16 @@ func InitApplication(assets fs.FS) *AppManager {
 			Handler: application.AssetFileServerFS(assets),
 		},
 	})
+
+	// 设置应用上下文，包含 buildType
+	buildType := "prod"
+	if app.Env.Info().Debug {
+		buildType = "dev"
+	}
+	ctx := context.WithValue(context.Background(), "buildType", buildType)
+
+	// 初始化全局 logger
+	logger.Init(slog.LevelInfo)
 
 	am := &AppManager{
 		app: app,

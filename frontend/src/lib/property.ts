@@ -285,6 +285,10 @@ export function propertyTypeToTabType(type: FileType): TabType {
   switch (type) {
     case DBFileType.TABLE:
       return TabType.TABLE;
+    case ConnectionEnum.TERMINAL:
+      return TabType.TERMINAL;
+    case ConnectionEnum.SSH:
+      return TabType.TERMINAL;
     default:
       throw new Error(`不支持的属性类型: ${type}`);
   }

@@ -22,6 +22,10 @@ func init() {
 
 	// 菜单事件
 	application.RegisterEvent[service.MenuClickEvent]("menu:clicked")
+
+	// 终端事件
+	application.RegisterEvent[map[string]interface{}]("terminal:output")
+	application.RegisterEvent[map[string]interface{}]("terminal:error")
 }
 
 //go:embed all:frontend/dist
@@ -50,6 +54,9 @@ func main() {
 		},
 		func(app *application.App) application.Service {
 			return application.NewService(service.NewMenuService(deps))
+		},
+		func(app *application.App) application.Service {
+			return application.NewService(service.NewTerminalService(deps))
 		},
 	}
 

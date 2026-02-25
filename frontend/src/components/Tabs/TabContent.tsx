@@ -14,7 +14,9 @@
 
 import { Activity, FC } from "react";
 import { TabContentProps } from "./types";
+import { TabType } from "@/common/constrains";
 import DBTable from "../DBTable";
+import Terminal from "../Terminal";
 
 const TabContent: FC<TabContentProps> = ({ tabs, activeTabId }) => {
   const activeTab = tabs.find((t) => t.id === activeTabId);
@@ -28,7 +30,11 @@ const TabContent: FC<TabContentProps> = ({ tabs, activeTabId }) => {
           key={tab.propertyUuid}
           mode={tab.id === activeTabId ? "visible" : "hidden"}
         >
-          <DBTable key={tab.propertyUuid} uuid={tab.propertyUuid} />
+          {tab.type === TabType.TABLE ? (
+            <DBTable key={tab.propertyUuid} sessionId={tab.propertyUuid} />
+          ) : tab.type === TabType.TERMINAL ? (
+            <Terminal key={tab.propertyUuid} sessionId={tab.propertyUuid} />
+          ) : null}
         </Activity>
       ))}
 

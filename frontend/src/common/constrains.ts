@@ -13,6 +13,7 @@
 // limitations under the License.
 
 export enum ConnectionEnum {
+  TERMINAL = "terminal",
   SSH = "ssh",
   MYSQL = "mysql",
   POSTGRESQL = "postgresql",
@@ -39,12 +40,14 @@ export type FileType = ConnectionEnum | FileSystemType | DBFileType;
 
 export enum TabType {
   TABLE = "table",
+  TERMINAL = "terminal",
 }
 
 export function isDirType(type: FileType): boolean {
   switch (type) {
     case FileSystemType.UNKNOWN:
     case ConnectionEnum.SSH:
+    case ConnectionEnum.TERMINAL:
       return false;
     case FileSystemType.FOLDER:
     case ConnectionEnum.MYSQL:

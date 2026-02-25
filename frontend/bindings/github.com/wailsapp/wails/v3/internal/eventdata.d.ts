@@ -16,6 +16,8 @@ declare module "@wailsio/runtime" {
             "data-sync:targeted": service$0.DataSyncEvent;
             "initial-data:received": service$0.InitialDataEntry;
             "menu:clicked": service$0.MenuClickEvent;
+            "terminal:error": { [_ in string]?: any };
+            "terminal:output": { [_ in string]?: any };
             "window:closed": { [_ in string]?: any };
             "window:opened": { [_ in string]?: any };
         }

@@ -18,6 +18,7 @@ import { v4 as uuid } from "uuid";
 import { TabType } from "@/common/constrains";
 import { propertyTypeToTabType } from "@/lib/property";
 import { StoreMethods } from "./common";
+import { terminalManager } from "@/lib/terminal-manager";
 
 // 标签页状态接口
 export interface TabState {
@@ -87,8 +88,14 @@ export const useTabsStore = create<TabsState>((set, get) => ({
   // 关闭标签
   closeTab: (tabId: string) => {
     set((state) => {
+      const closedTab = state.tabs.find((t) => t.id === tabId);
       const newTabs = state.tabs.filter((t) => t.id !== tabId);
       let newActiveTabId = state.activeTabId;
+
+      // 如果关闭的是终端标签，销毁对应的终端实例
+      if (closedTab?.type === TabType.TERMINAL) {
+        terminalManager.destroy(closedTab.propertyUuid);
+      }
 
       // 如果关闭的是当前激活标签，切换到最后一个标签
       if (state.activeTabId === tabId && newTabs.length > 0) {
@@ -109,17 +116,37 @@ export const useTabsStore = create<TabsState>((set, get) => ({
 
   // 关闭其他标签
   closeOtherTabs: (tabId: string) => {
-    set((state) => ({
-      tabs: state.tabs.filter((t) => t.id === tabId || t.isPinned),
-      activeTabId: tabId,
-    }));
+    set((state) => {
+      const closedTabs = state.tabs.filter((t) => t.id !== tabId && !t.isPinned);
+
+      // 销毁被关闭的终端实例
+      closedTabs.forEach((tab) => {
+        if (tab.type === TabType.TERMINAL) {
+          terminalManager.destroy(tab.propertyUuid);
+        }
+      });
+
+      return {
+        tabs: state.tabs.filter((t) => t.id === tabId || t.isPinned),
+        activeTabId: tabId,
+      };
+    });
   },
 
   // 关闭所有标签
   closeAllTabs: () => {
-    set({
-      tabs: [],
-      activeTabId: null,
+    set((state) => {
+      // 销毁所有终端实例
+      state.tabs.forEach((tab) => {
+        if (tab.type === TabType.TERMINAL) {
+          terminalManager.destroy(tab.propertyUuid);
+        }
+      });
+
+      return {
+        tabs: [],
+        activeTabId: null,
+      };
     });
   },
 
@@ -132,6 +159,17 @@ export const useTabsStore = create<TabsState>((set, get) => ({
       const activatedIndex = state.tabs.findIndex(
         (t) => t.id === state.activeTabId,
       );
+
+      const closedTabs = state.tabs
+        .slice(index + 1)
+        .filter((t) => !t.isPinned);
+
+      // 销毁被关闭的终端实例
+      closedTabs.forEach((tab) => {
+        if (tab.type === TabType.TERMINAL) {
+          terminalManager.destroy(tab.propertyUuid);
+        }
+      });
 
       return {
         tabs: [

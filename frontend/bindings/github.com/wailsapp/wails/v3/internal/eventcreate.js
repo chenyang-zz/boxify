@@ -16,6 +16,8 @@ function configure() {
         "data-sync:targeted": $$createType0,
         "initial-data:received": $$createType1,
         "menu:clicked": $$createType2,
+        "terminal:error": $$createType3,
+        "terminal:output": $$createType3,
         "window:closed": $$createType3,
         "window:opened": $$createType3,
     }));
