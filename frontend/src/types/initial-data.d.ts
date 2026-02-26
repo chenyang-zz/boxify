@@ -1,3 +1,4 @@
+import { ConnectionEnum } from "@/common/constrains";
 import type { TagColorValue } from "@/constants/color-constants";
 
 /**
@@ -34,7 +35,16 @@ export interface SettingsInitialData {
   title: string;
 }
 
-export interface ConnectionStandard {
+export interface TerminalStandard {
+  tagColor?: TagColorValue;
+  name: string;
+  shell?: string;
+  workpath?: string;
+  initialCommand?: string;
+  remark?: string;
+}
+
+export interface CommonStandard {
   tagColor: TagColorValue | "";
   environment: string;
   name: string;
@@ -58,8 +68,12 @@ export interface ConnectionParameters {
   parameters: Record<string, string>;
 }
 
+export type ConnectionStandard = TerminalStandard | CommonStandard;
+
 export interface ConnectionEditInitialData {
   uuid?: string;
+  type?: ConnectionEnum;
+  title?: string;
   standard?: ConnectionStandard;
   advanced?: ConnectionAdvanced;
   parameters?: ConnectionParameters;

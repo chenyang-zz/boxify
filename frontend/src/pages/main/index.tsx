@@ -9,7 +9,6 @@ import PropertyTree from "@/components/PropertyTree";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useShallow } from "zustand/react/shallow";
 import { useAppStore } from "@/store/app.store";
-import { Toaster } from "@/components/ui/sonner";
 import Tabs from "@/components/Tabs";
 
 function MainApp() {
@@ -40,7 +39,6 @@ function MainApp() {
             </ResizablePanelGroup>
           </main>
         </div>
-        <Toaster />
       </div>
     </TooltipProvider>
   );

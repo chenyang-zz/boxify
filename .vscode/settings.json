@@ -49,6 +49,7 @@
     "wailsapp",
     "wailsio",
     "wailsjs",
-    "Winsize"
+    "Winsize",
+    "workpath"
   ]
 }

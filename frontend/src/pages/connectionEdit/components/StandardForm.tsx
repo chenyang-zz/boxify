@@ -30,39 +30,11 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
-import type { ConnectionStandard } from "@/types/initial-data";
+import type { CommonStandard } from "@/types/initial-data";
 import { FC, useEffect, useState } from "react";
 import ColorTagSelector from "@/components/ColorTagSelector";
-import ColorTagBadge from "@/components/ColorTagBadge";
-
-export enum Environment {
-  None = "none",
-  Development = "development",
-  Testing = "testing",
-  Production = "production",
-}
-
-const environmentOptions = [
-  { label: "无", value: Environment.None },
-  { label: "开发", value: Environment.Development },
-  { label: "测试", value: Environment.Testing },
-  { label: "生产", value: Environment.Production },
-];
-
-export enum AuthMethod {
-  Password = "password",
-  InQuiry = "inquiry",
-}
-
-const authMethodOptions = [
-  { label: "密码", value: AuthMethod.Password },
-  { label: "每次询问", value: AuthMethod.InQuiry },
-];
-
-interface StandardFormProps {
-  initialData?: ConnectionStandard; // 初始数据（编辑场景）
-  onSubmit: (data: ConnectionStandard) => void; // 提交回调
-}
+import { AuthMethodOptions, EnvironmentOptions } from "@/common/constrains";
+import { CommonFormProps } from "../types";
 
 interface FormErrors {
   name?: string;
@@ -72,22 +44,13 @@ interface FormErrors {
   password?: string;
 }
 
-const defaultFormData: ConnectionStandard = {
-  tagColor: "",
-  environment: Environment.None,
-  name: "",
-  host: "localhost",
-  user: "root",
-  port: 3306,
-  authMethod: AuthMethod.Password,
-  password: "",
-  remark: "",
-};
-
-const StandardForm: FC<StandardFormProps> = ({ initialData, onSubmit }) => {
+const StandardForm: FC<CommonFormProps<CommonStandard>> = ({
+  initialData,
+  onSubmit,
+}) => {
   // 表单状态管理
-  const [formData, setFormData] = useState<ConnectionStandard>({
-    ...defaultFormData,
+  const [formData, setFormData] = useState<CommonStandard>({
+    ...initialData,
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
@@ -138,10 +101,10 @@ const StandardForm: FC<StandardFormProps> = ({ initialData, onSubmit }) => {
 
   // 通用字段变更处理
   const handleChange = (
-    field: keyof ConnectionStandard,
+    field: keyof CommonStandard,
     value: string | number,
   ) => {
-    setFormData((prev: ConnectionStandard) => ({ ...prev, [field]: value }));
+    setFormData((prev: CommonStandard) => ({ ...prev, [field]: value }));
     // 清除该字段的错误提示
     const errorKey = field as keyof FormErrors;
     if (errors[errorKey]) {
@@ -184,7 +147,7 @@ const StandardForm: FC<StandardFormProps> = ({ initialData, onSubmit }) => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      {environmentOptions.map((option) => (
+                      {EnvironmentOptions.map((option) => (
                         <SelectItem key={option.value} value={option.value}>
                           {option.label}
                         </SelectItem>
@@ -263,7 +226,7 @@ const StandardForm: FC<StandardFormProps> = ({ initialData, onSubmit }) => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      {authMethodOptions.map((option) => (
+                      {AuthMethodOptions.map((option) => (
                         <SelectItem key={option.value} value={option.value}>
                           {option.label}
                         </SelectItem>

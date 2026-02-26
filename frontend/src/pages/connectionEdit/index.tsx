@@ -13,45 +13,34 @@
 // limitations under the License.
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import WindowHeader from "@/components/WindowHeader";
-import StandardForm, {
-  AuthMethod,
-  Environment,
-} from "./components/StandardForm";
+import StandardForm from "./components/StandardForm";
 import type {
   ConnectionEditInitialData,
+  CommonStandard,
+  TerminalStandard,
   ConnectionStandard,
 } from "@/types/initial-data";
 import { useInitialData } from "@/hooks/useInitialData";
-import { useEffect, useRef, useState } from "react";
+import { FC, useEffect, useMemo, useRef, useState } from "react";
 import { DataSyncAPI } from "@/lib/data-sync";
 import { DataChannel } from "@/store/data-sync.store";
 import { useWindowListener } from "@/hooks/useWindowListener";
-import { currentPageId, currentWindowName } from "@/lib/utils";
-import { WindowService } from "@wails/service";
+import { callWails, currentPageId, currentWindowName } from "@/lib/utils";
+import { TerminalConfig, TerminalService, WindowService } from "@wails/service";
+import { generateDefaultFormData } from "./lib";
+import { ConnectionEnum } from "@/common/constrains";
+import TerminalForm from "./components/TerminalForm";
+import { toast } from "sonner";
+import { Spinner } from "@/components/ui/spinner";
 
-const defaultStandardFormData: ConnectionStandard = {
-  tagColor: "",
-  environment: Environment.None,
-  name: "",
-  host: "localhost",
-  user: "root",
-  port: 3306,
-  authMethod: AuthMethod.Password,
-  password: "",
-  remark: "",
-};
+let isTest = false;
 
 function ConnectionEdit() {
   const isEdit = useRef(false);
+  const [loading, setLoading] = useState(false);
 
   // 接收初始数据
   const { initialData, isLoading, clearInitialData } =
@@ -77,17 +66,46 @@ function ConnectionEdit() {
   }, [initialData, isLoading]);
 
   // 处理标准配置表单提交
-  const handleSaveStandard = (data: ConnectionStandard) => {
-    console.log("=== 保存连接配置 ===");
+  const handleSave = async (data: ConnectionStandard) => {
+    console.log("=== 配置 ===");
     console.log("标准配置:", data);
     console.log("==================");
+
+    if (isTest) {
+      try {
+        setLoading(true);
+        switch (initialData?.data.type) {
+          case ConnectionEnum.TERMINAL:
+            const terminalData = data as TerminalStandard;
+            await callWails(
+              TerminalService.TestConfig,
+              TerminalConfig.createFrom({
+                shell: terminalData.shell,
+                workPath: terminalData.workpath,
+                initialCommand: terminalData.initialCommand,
+              }),
+            );
+            break;
+        }
+        toast.success("Success", {
+          description: "连接成功",
+          style: {
+            textAlign: "left",
+          },
+        });
+      } catch {
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
 
     // 发送给主窗口
     DataSyncAPI.sendToWindow(
       "main",
       DataChannel.Connection,
       isEdit.current ? "connection:update" : "connection:save",
-      { ...data, uuid: initialData?.data.uuid },
+      { ...data, uuid: initialData?.data.uuid, type: initialData?.data.type },
     );
 
     // 关闭当前窗口
@@ -96,31 +114,46 @@ function ConnectionEdit() {
     });
   };
 
-  return (
-    <div className="flex flex-col h-screen bg-background w-screen">
-      <WindowHeader title="MYSQL 配置编辑" />
-      <div className="px-8 pt-2 pb-4 flex-1 flex flex-col">
-        <div className="flex-1 w-full">
-          <Tabs
-            defaultValue="overview"
-            className="w-full h-full flex flex-col items-center"
-          >
-            <TabsList className="shrink-0">
-              <TabsTrigger value="overview">标准</TabsTrigger>
-              <TabsTrigger value="analytics">高级</TabsTrigger>
+  const formItem = useMemo(() => {
+    if (initialData?.data.type === ConnectionEnum.TERMINAL) {
+      return (
+        <TerminalForm
+          initialData={{
+            ...(generateDefaultFormData(
+              initialData?.data.type,
+              "standard",
+            ) as TerminalStandard),
+            ...(initialData?.data.standard as TerminalStandard),
+          }}
+          onSubmit={handleSave}
+        />
+      );
+    }
+
+    return (
+      <Tabs
+        defaultValue="standard"
+        className="w-full h-full flex flex-col items-center"
+      >
+        <TabsList className="shrink-0">
+          <TabsTrigger value="overview">标准</TabsTrigger>
+          {/* <TabsTrigger value="analytics">高级</TabsTrigger>
               <TabsTrigger value="reports">参数</TabsTrigger>
-              <TabsTrigger value="settings">SSL</TabsTrigger>
-            </TabsList>
-            <TabsContent value="overview" className="w-full flex-1">
-              <StandardForm
-                initialData={{
-                  ...defaultStandardFormData,
-                  ...initialData?.data.standard,
-                }}
-                onSubmit={handleSaveStandard}
-              />
-            </TabsContent>
-            <TabsContent value="analytics" className="w-full">
+              <TabsTrigger value="settings">SSL</TabsTrigger> */}
+        </TabsList>
+        <TabsContent value="overview" className="w-full flex-1">
+          <StandardForm
+            initialData={{
+              ...(generateDefaultFormData(
+                initialData?.data.type,
+                "standard",
+              ) as CommonStandard),
+              ...(initialData?.data.standard as CommonStandard),
+            }}
+            onSubmit={handleSave}
+          />
+        </TabsContent>
+        {/* <TabsContent value="analytics" className="w-full">
               <Card>
                 <CardHeader>
                   <CardTitle>Analytics</CardTitle>
@@ -161,15 +194,27 @@ function ConnectionEdit() {
                   Configure notifications, security, and themes.
                 </CardContent>
               </Card>
-            </TabsContent>
-          </Tabs>
-        </div>
+            </TabsContent> */}
+      </Tabs>
+    );
+  }, [initialData]);
+
+  return (
+    <div className="flex flex-col h-screen bg-background w-screen">
+      <WindowHeader title={initialData?.data?.title || ""} />
+      <div className="px-8 pt-2 pb-4 flex-1 flex flex-col">
+        <div className="flex-1 w-full">{formItem}</div>
         <footer className=" mt-3 flex shrink-0 items-center justify-between">
           <Button
             variant="ghost"
             size="sm"
+            disabled={loading}
             className=" text-green-600 hover:text-green-600"
+            type="submit"
+            form="standard-form"
+            onClick={() => (isTest = true)}
           >
+            {loading && <Spinner data-icon="inline-start" />}
             测试连接
           </Button>
           <Button
@@ -178,6 +223,7 @@ function ConnectionEdit() {
             className=" text-blue-600 hover:text-blue-600"
             type="submit"
             form="standard-form"
+            onClick={() => (isTest = false)}
           >
             保存
           </Button>

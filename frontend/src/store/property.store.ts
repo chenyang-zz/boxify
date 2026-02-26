@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { FileType } from "@/common/constrains";
+import { PropertyType } from "@/common/constrains";
 import { ConnectionConfig } from "@/types";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import { safeStorage, StoreMethods } from "./common";
 import { initTraverseTree } from "@/lib/property";
-import { AuthMethod } from "@/pages/connectionEdit/components/StandardForm";
+import { AuthMethod } from "@/common/enums/connection";
 
 export const FileTreeMap = new Map<string, PropertyItemType>();
 
@@ -29,7 +29,7 @@ export interface PropertyItemType {
   loading?: boolean;
   isDir: boolean;
   label: string;
-  type: FileType;
+  type: PropertyType;
   loaded?: boolean; // 是否已加载
 
   authMethod?: AuthMethod; // 认证方式

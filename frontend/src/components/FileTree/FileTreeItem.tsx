@@ -20,7 +20,7 @@ import {
   ConnectionEnum,
   DBFileType,
   FileSystemType,
-  FileType,
+  PropertyType,
   isConnectionType,
 } from "@/common/constrains";
 import {
@@ -47,7 +47,7 @@ import { closeConnectionByUUID } from "@/lib/property";
 import { DeleteConfirmDialog } from "../DeleteConfirmDialog";
 import { ConnectionEditInitialData } from "@/types/initial-data";
 import { useOpenWindowWithData } from "@/hooks/useOpenWindowWithData";
-import { AuthMethod } from "@/pages/connectionEdit/components/StandardForm";
+import { AuthMethod } from "@/common/enums/connection";
 
 interface FileTreeItemProps {
   item: PropertyItemType;
@@ -55,7 +55,7 @@ interface FileTreeItemProps {
 
 interface FileIconProps {
   isDir: boolean;
-  type?: FileType;
+  type?: PropertyType;
 }
 const FileIcon: FC<FileIconProps> = ({ isDir, type }) => {
   if (isDir) {

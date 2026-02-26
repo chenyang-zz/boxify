@@ -15,6 +15,7 @@
 import { FC, JSX, lazy, useEffect } from "react";
 import { dataSyncStoreMethods } from "./store/data-sync.store";
 import { currentPageId, currentWindowName } from "./lib/utils";
+import { Toaster } from "./components/ui/sonner";
 
 // 获取当前页面 ID
 const pageId = currentPageId();
@@ -41,6 +42,7 @@ const App: FC = () => {
 
   return (
     <>
+      <Toaster />
       <PageComponent />
     </>
   );

@@ -16,7 +16,7 @@ import { Terminal as XTerminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Events } from "@wailsio/runtime";
-import { TerminalService } from "@wails/service";
+import { TerminalConfig, TerminalService } from "@wails/service";
 
 function normalizeTerminalOutput(data: string) {
   return data
@@ -24,6 +24,7 @@ function normalizeTerminalOutput(data: string) {
     .replace(/î°/g, "")
     .replace(/î /g, "") // git branch
     .replace(/Â/g, "")
+    .replace(/â±/g, "")
     .replace(/â/g, "x");
 }
 
@@ -53,7 +54,7 @@ class TerminalManager {
 monospace
   `,
         theme: {
-          background: "#0d1117",
+          background: "#1e1e1e",
           foreground: "#c9d1d9",
           cursor: "#58a6ff",
           selectionBackground: "#264f78",
@@ -113,6 +114,7 @@ monospace
         if (event.data.sessionId === sessionId) {
           try {
             const decoded = atob(event.data.data);
+            console.log(decoded);
             xterm.write(normalizeTerminalOutput(decoded));
           } catch (e) {
             console.error("解码终端输出失败:", e);
@@ -144,12 +146,14 @@ monospace
     if (!cached || cached.isInitialized) return;
 
     try {
-      const res = await TerminalService.Create({
-        id: sessionId,
-        shell,
-        rows: cached.xterm.rows,
-        cols: cached.xterm.cols,
-      });
+      const res = await TerminalService.Create(
+        TerminalConfig.createFrom({
+          id: sessionId,
+          shell,
+          rows: cached.xterm.rows,
+          cols: cached.xterm.cols,
+        }),
+      );
 
       if (res && res.success) {
         cached.isInitialized = true;

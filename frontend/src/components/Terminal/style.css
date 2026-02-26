@@ -19,8 +19,10 @@
   height: 100%;
   width: 100%;
   background: #1e1e1e;
-  border-radius: 12px;
-  overflow: hidden;
+  padding: 12px;
+  padding-right: 0;
+  /* border-radius: 12px; */
+  /* overflow: hidden; */
   box-shadow:
     0 4px 20px rgba(0, 0, 0, 0.4),
     inset 0 0 0 1px rgba(255, 255, 255, 0.05);
@@ -35,11 +37,11 @@
 
 .xterm {
   height: 100%;
-  padding: 12px;
-  padding-right: 0px;
+  padding-bottom: 12px;
   font-feature-settings: "liga" 1;
   letter-spacing: 0.3px;
   text-align: left;
+  /* overflow: hidden; */
 }
 
 .xterm-helpers {

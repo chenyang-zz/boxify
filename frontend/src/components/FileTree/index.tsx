@@ -55,42 +55,63 @@ const FileTree: FC = () => {
         pUuid = folder?.uuid ?? null;
       }
 
-      // mysql
-      const newPropertyItem: PropertyItemType = {
-        uuid: v4(),
-        level: folder ? folder.level + 1 : 1,
-        isDir: true,
-        label: event.data.name,
-        type: ConnectionEnum.MYSQL,
-        remark: event.data.remark,
-        authMethod: event.data.authMethod,
-        connectionConfig: ConnectionConfig.createFrom({
-          type: ConnectionType.ConnectionTypeMySQL,
-          host: event.data.host,
-          port: event.data.port,
-          user: event.data.user,
-          password: event.data.password,
-          useSSH: false,
-        }),
-      };
-      addPropertyItemToParent(pUuid, newPropertyItem);
+      let newPropertyItem: PropertyItemType | undefined;
+      switch (event.data.type) {
+        case ConnectionEnum.MYSQL:
+          newPropertyItem = {
+            uuid: v4(),
+            level: folder ? folder.level + 1 : 1,
+            isDir: true,
+            label: event.data.name,
+            type: ConnectionEnum.MYSQL,
+            remark: event.data.remark,
+            authMethod: event.data.authMethod,
+            connectionConfig: ConnectionConfig.createFrom({
+              type: ConnectionType.ConnectionTypeMySQL,
+              host: event.data.host,
+              port: event.data.port,
+              user: event.data.user,
+              password: event.data.password,
+              useSSH: false,
+            }),
+          };
+          break;
+        case ConnectionEnum.TERMINAL:
+          newPropertyItem = {
+            uuid: v4(),
+            level: folder ? folder.level + 1 : 1,
+            isDir: false,
+            label: event.data.name,
+            type: ConnectionEnum.TERMINAL,
+            remark: event.data.remark ?? "",
+          };
+          break;
+      }
+
+      if (newPropertyItem) {
+        addPropertyItemToParent(pUuid, newPropertyItem);
+      }
     } else if (event.dataType === "connection:update") {
       console.log("[主窗口] 收到连接更新", event.data);
       const uuid = event.data.uuid;
       const item = getPropertyItemByUUID(uuid);
       if (!item) return;
 
-      item.label = event.data.name;
-      item.remark = event.data.remark;
-      item.authMethod = event.data.authMethod;
-      item.connectionConfig = ConnectionConfig.createFrom({
-        type: ConnectionType.ConnectionTypeMySQL,
-        host: event.data.host,
-        port: event.data.port,
-        user: event.data.user,
-        password: event.data.password,
-        useSSH: false,
-      });
+      switch (event.data.type) {
+        case ConnectionEnum.MYSQL:
+          item.label = event.data.name;
+          item.remark = event.data.remark;
+          item.authMethod = event.data.authMethod;
+          item.connectionConfig = ConnectionConfig.createFrom({
+            type: ConnectionType.ConnectionTypeMySQL,
+            host: event.data.host,
+            port: event.data.port,
+            user: event.data.user,
+            password: event.data.password,
+            useSSH: false,
+          });
+          break;
+      }
 
       // 需要重新加载
       closeConnectionByUUID(uuid);

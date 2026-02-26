@@ -16,7 +16,7 @@ import {
   ConnectionEnum,
   DBFileType,
   FileSystemType,
-  FileType,
+  PropertyType,
   isConnectionType,
   isDBType,
   TabType,
@@ -163,7 +163,7 @@ export function createDatabaseQueryResult(): QueryResult {
 // 加载数据库下的子项：表、视图等
 async function loadDBChildrenByDBName(
   dbName: string,
-  type: FileType,
+  type: PropertyType,
   config: ConnectionConfig,
 ): Promise<QueryResult> {
   try {
@@ -281,7 +281,7 @@ export async function triggerFileOpen(uuid: string) {
 }
 
 // 将属性类型转换为标签页类型
-export function propertyTypeToTabType(type: FileType): TabType {
+export function propertyTypeToTabType(type: PropertyType): TabType {
   switch (type) {
     case DBFileType.TABLE:
       return TabType.TABLE;

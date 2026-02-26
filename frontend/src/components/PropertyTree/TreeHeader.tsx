@@ -20,6 +20,7 @@ import { MenuConfig } from "@/types/menu";
 import { MenuItemType } from "@wails/service";
 import { useOpenWindowWithData } from "@/hooks/useOpenWindowWithData";
 import { ConnectionEditInitialData } from "@/types/initial-data";
+import { ConnectionEnum } from "@/common/constrains";
 
 interface TreeHeaderAction {
   icon: ReactNode;
@@ -45,8 +46,12 @@ const TreeHeader: FC = () => {
         {
           label: "本地终端",
           type: MenuItemType.MenuItemTypeItem,
-          onClick: async (payload) => {
-            console.log(payload);
+          onClick: () => {
+            // 打开连接弹窗
+            openWindowWithData("connection-edit", {
+              type: ConnectionEnum.TERMINAL,
+              title: "终端配置编辑",
+            } as ConnectionEditInitialData);
           },
         },
         {
@@ -63,8 +68,12 @@ const TreeHeader: FC = () => {
             {
               label: "SSH",
               type: MenuItemType.MenuItemTypeItem,
-              onClick: async (payload) => {
-                console.log(payload);
+              onClick: () => {
+                // 打开连接弹窗
+                openWindowWithData("connection-edit", {
+                  type: ConnectionEnum.SSH,
+                  title: "SSH配置编辑",
+                } as ConnectionEditInitialData);
               },
             },
             {
@@ -113,10 +122,10 @@ const TreeHeader: FC = () => {
               type: MenuItemType.MenuItemTypeItem,
               onClick: () => {
                 // 打开连接弹窗
-                openWindowWithData(
-                  "connection-edit",
-                  {} as ConnectionEditInitialData,
-                );
+                openWindowWithData("connection-edit", {
+                  type: ConnectionEnum.MYSQL,
+                  title: "MySQL配置编辑",
+                } as ConnectionEditInitialData);
               },
             },
             {
