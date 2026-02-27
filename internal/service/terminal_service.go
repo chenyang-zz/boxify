@@ -113,6 +113,8 @@ type TerminalSession struct {
 	Pty       *os.File
 	Cmd       *exec.Cmd
 	CreatedAt time.Time
+	ctx       context.Context    // 用于控制读取循环退出
+	cancel    context.CancelFunc // 取消函数
 }
 
 // TerminalService 终端服务
@@ -158,10 +160,11 @@ func (ts *TerminalService) ServiceShutdown() error {
 // 返回: (是否有效, 错误信息, 检测到的 shell 路径)
 func (ts *TerminalService) validateBasicConfig(config TerminalConfig) (bool, string, string) {
 	// 验证终端尺寸（允许 0，表示使用默认值）
-	if config.Rows < 0 || config.Rows > 300 {
+	// 注意：Rows 和 Cols 是 uint16 类型，不会为负数
+	if config.Rows > 300 {
 		return false, "终端行数超出范围，支持 0-300 行（0 表示使用默认值）", ""
 	}
-	if config.Cols < 0 || config.Cols > 500 {
+	if config.Cols > 500 {
 		return false, "终端列数超出范围，支持 0-500 列（0 表示使用默认值）", ""
 	}
 
@@ -196,6 +199,30 @@ func (ts *TerminalService) validateBasicConfig(config TerminalConfig) (bool, str
 	return true, "", shellPath
 }
 
+// getWorkPath 获取工作路径，如果配置中未指定则使用用户主目录
+func (ts *TerminalService) getWorkPath(config TerminalConfig) string {
+	if config.WorkPath != "" {
+		return config.WorkPath
+	}
+	if homeDir, err := os.UserHomeDir(); err == nil {
+		return homeDir
+	}
+	return ""
+}
+
+// createShellCommand 创建 shell 命令并设置环境变量
+func (ts *TerminalService) createShellCommand(shellPath, workPath string) *exec.Cmd {
+	cmd := exec.Command(shellPath)
+	if workPath != "" {
+		cmd.Dir = workPath
+	}
+	cmd.Env = append(os.Environ(),
+		"TERM=xterm-256color",
+		"COLORTERM=truecolor",
+	)
+	return cmd
+}
+
 // validateInitialCommand 验证初始命令是否能执行
 // 返回: (是否有效, 错误信息, 输出内容)
 func (ts *TerminalService) validateInitialCommand(shellPath string, config TerminalConfig) (bool, string, string) {
@@ -210,23 +237,9 @@ func (ts *TerminalService) validateInitialCommand(shellPath string, config Termi
 		return false, "初始命令过长，最大支持 10000 字符", ""
 	}
 
-	// 设置工作目录（默认使用用户主目录）
-	testCmd := exec.Command(shellPath)
-	workPath := config.WorkPath
-	if workPath == "" {
-		if homeDir, err := os.UserHomeDir(); err == nil {
-			workPath = homeDir
-		}
-	}
-	if workPath != "" {
-		testCmd.Dir = workPath
-	}
-
-	// 设置环境变量
-	testCmd.Env = append(os.Environ(),
-		"TERM=xterm-256color",
-		"COLORTERM=truecolor",
-	)
+	// 使用辅助方法创建命令
+	workPath := ts.getWorkPath(config)
+	testCmd := ts.createShellCommand(shellPath, workPath)
 
 	// 创建 PTY 测试
 	ptyFile, err := pty.Start(testCmd)
@@ -239,44 +252,50 @@ func (ts *TerminalService) validateInitialCommand(shellPath string, config Termi
 	if !strings.HasSuffix(initialCmd, "\n") {
 		initialCmd += "\n"
 	}
-	_, _ = ptyFile.WriteString(initialCmd)
+	if _, err := ptyFile.WriteString(initialCmd); err != nil {
+		ts.Logger().Warn("写入初始命令失败", "error", err)
+	}
 
 	// 写入 exit 命令让 shell 在执行完初始命令后退出
-	_, _ = ptyFile.WriteString("exit\n")
+	if _, err := ptyFile.WriteString("exit\n"); err != nil {
+		ts.Logger().Warn("写入 exit 命令失败", "error", err)
+	}
 
-	// 使用 context 实现超时控制（简化版）
+	// 使用 context 实现超时控制
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// 单一 goroutine 处理进程等待和输出读取
+	// 使用 done channel 控制读取 goroutine 退出
+	readDone := make(chan struct{})
+
+	// 执行结果
 	type execResult struct {
 		output string
 		err    error
 	}
 	resultCh := make(chan execResult, 1)
 
+	// 输出读取 goroutine
+	outputBuf := make([]byte, 4096)
+	var outputBuilder strings.Builder
 	go func() {
-		outputBuf := make([]byte, 4096)
-		var outputBuilder strings.Builder
-
-		// 在后台读取输出
-		go func() {
-			for {
-				n, err := ptyFile.Read(outputBuf)
-				if n > 0 {
-					outputBuilder.Write(outputBuf[:n])
-				}
-				if err != nil {
-					break
-				}
+		defer close(readDone)
+		for {
+			n, err := ptyFile.Read(outputBuf)
+			if n > 0 {
+				outputBuilder.Write(outputBuf[:n])
 			}
-		}()
+			if err != nil {
+				break
+			}
+		}
+	}()
 
-		// 等待进程结束
+	// 进程等待 goroutine
+	go func() {
 		err := testCmd.Wait()
-
-		// 等待一小段时间让输出读取完成
-		time.Sleep(100 * time.Millisecond)
+		// 等待读取 goroutine 完成
+		<-readDone
 
 		resultCh <- execResult{
 			output: outputBuilder.String(),
@@ -305,6 +324,8 @@ func (ts *TerminalService) validateInitialCommand(shellPath string, config Termi
 		// 超时强制终止
 		testCmd.Process.Kill()
 		ptyFile.Close()
+		// 等待读取 goroutine 退出
+		<-readDone
 		return false, "初始命令执行超时（5秒）", ""
 	}
 }
@@ -347,25 +368,9 @@ func (ts *TerminalService) Create(config TerminalConfig) *connection.QueryResult
 		cols = 80
 	}
 
-	// 创建命令
-	cmd := exec.Command(shellPath)
-
-	// 设置工作目录（默认使用用户主目录）
-	workPath := config.WorkPath
-	if workPath == "" {
-		if homeDir, err := os.UserHomeDir(); err == nil {
-			workPath = homeDir
-		}
-	}
-	if workPath != "" {
-		cmd.Dir = workPath
-	}
-
-	// 设置环境变量以支持颜色输出
-	cmd.Env = append(os.Environ(),
-		"TERM=xterm-256color",
-		"COLORTERM=truecolor",
-	)
+	// 使用辅助方法创建命令
+	workPath := ts.getWorkPath(config)
+	cmd := ts.createShellCommand(shellPath, workPath)
 
 	// 启动 PTY
 	ptyFile, err := pty.Start(cmd)
@@ -388,14 +393,21 @@ func (ts *TerminalService) Create(config TerminalConfig) *connection.QueryResult
 		if !strings.HasSuffix(initialCmd, "\n") {
 			initialCmd += "\n"
 		}
-		_, _ = ptyFile.WriteString(initialCmd)
+		if _, err := ptyFile.WriteString(initialCmd); err != nil {
+			ts.Logger().Warn("写入初始命令失败", "sessionId", config.ID, "error", err)
+		}
 	}
+
+	// 创建 session context
+	sessionCtx, sessionCancel := context.WithCancel(context.Background())
 
 	session := &TerminalSession{
 		ID:        config.ID,
 		Pty:       ptyFile,
 		Cmd:       cmd,
 		CreatedAt: time.Now(),
+		ctx:       sessionCtx,
+		cancel:    sessionCancel,
 	}
 
 	ts.mu.Lock()
@@ -418,24 +430,31 @@ func (ts *TerminalService) readOutputLoop(session *TerminalSession) {
 	buf := make([]byte, 1024)
 
 	for {
-		n, err := session.Pty.Read(buf)
-		if err != nil {
-			if err != io.EOF {
-				ts.Logger().Error("读取 PTY 输出失败", "sessionId", session.ID, "error", err)
-				ts.App().Event.Emit("terminal:error", map[string]interface{}{
-					"sessionId": session.ID,
-					"message":   err.Error(),
-				})
+		select {
+		case <-session.ctx.Done():
+			// 收到退出信号
+			return
+		default:
+			n, err := session.Pty.Read(buf)
+			if err != nil {
+				if err != io.EOF && session.ctx.Err() == nil {
+					// 只有在 context 未取消时才报告错误
+					ts.Logger().Error("读取 PTY 输出失败", "sessionId", session.ID, "error", err)
+					ts.App().Event.Emit("terminal:error", map[string]interface{}{
+						"sessionId": session.ID,
+						"message":   err.Error(),
+					})
+				}
+				return
 			}
-			break
-		}
 
-		// Base64 编码避免传输问题
-		encoded := base64.StdEncoding.EncodeToString(buf[:n])
-		ts.App().Event.Emit("terminal:output", map[string]interface{}{
-			"sessionId": session.ID,
-			"data":      encoded,
-		})
+			// Base64 编码避免传输问题
+			encoded := base64.StdEncoding.EncodeToString(buf[:n])
+			ts.App().Event.Emit("terminal:output", map[string]interface{}{
+				"sessionId": session.ID,
+				"data":      encoded,
+			})
+		}
 	}
 }
 
@@ -448,9 +467,9 @@ func (ts *TerminalService) Write(sessionID, data string) error {
 	}
 
 	ts.mu.RLock()
-	session, ok := ts.sessions[sessionID]
-	ts.mu.RUnlock()
+	defer ts.mu.RUnlock()
 
+	session, ok := ts.sessions[sessionID]
 	if !ok {
 		return fmt.Errorf("会话不存在: %s", sessionID)
 	}
@@ -503,12 +522,19 @@ func (ts *TerminalService) Close(sessionID string) error {
 
 // closeSessionUnsafe 内部方法：关闭会话（不加锁）
 func (ts *TerminalService) closeSessionUnsafe(session *TerminalSession) {
+	// 先取消 context，通知读取循环退出
+	if session.cancel != nil {
+		session.cancel()
+	}
+
 	if session.Pty != nil {
 		session.Pty.Close()
 	}
 	if session.Cmd != nil && session.Cmd.Process != nil {
 		session.Cmd.Process.Kill()
-		session.Cmd.Wait()
+		if err := session.Cmd.Wait(); err != nil {
+			ts.Logger().Debug("进程等待结束", "sessionId", session.ID, "error", err)
+		}
 	}
 }
 

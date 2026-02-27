@@ -20,31 +20,9 @@ import { persist } from "zustand/middleware";
 import { safeStorage, StoreMethods } from "./common";
 import { initTraverseTree } from "@/lib/property";
 import { AuthMethod } from "@/common/enums/connection";
+import { PropertyItemType } from "@/types/property";
 
 export const FileTreeMap = new Map<string, PropertyItemType>();
-
-export interface PropertyItemType {
-  uuid: string;
-  level: number;
-  loading?: boolean;
-  isDir: boolean;
-  label: string;
-  type: PropertyType;
-  loaded?: boolean; // 是否已加载
-
-  authMethod?: AuthMethod; // 认证方式
-  remark?: string; // 备注信息
-
-  // dir 属性
-  opened?: boolean;
-  children?: PropertyItemType[];
-
-  // connection 属性
-  connectionConfig?: ConnectionConfig; // 连接配置，具体结构根据连接类型而定
-
-  extra?: Record<string, any>; // 其他额外属性，根据需要添加
-  parent?: PropertyItemType; // 可选的父级引用，方便向上访问
-}
 
 interface PropertyState {
   propertyList: PropertyItemType[];

@@ -12,21 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { terminalManager } from "@/lib/terminal-manager";
 import "./style.css";
+import { getPropertyItemByUUID } from "@/lib/property";
 
 interface TerminalComponentProps {
   sessionId: string;
-  shell?: string;
 }
 
-export default function Terminal({
-  sessionId,
-  shell = "auto",
-}: TerminalComponentProps) {
+export default function Terminal({ sessionId }: TerminalComponentProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const isOpenedRef = useRef(false);
+
+  const propertyItem = useMemo(
+    () => getPropertyItemByUUID(sessionId),
+    [sessionId],
+  );
+  if (!propertyItem) return;
 
   useEffect(() => {
     if (!containerRef.current || isOpenedRef.current) return;
@@ -36,7 +39,7 @@ export default function Terminal({
 
     // 如果还没初始化，初始化后端会话
     if (!cached.isInitialized) {
-      terminalManager.initialize(sessionId, shell);
+      terminalManager.initialize(sessionId, propertyItem.terminalConfig!);
     }
 
     // 打开终端到容器（只执行一次）
@@ -51,7 +54,7 @@ export default function Terminal({
     return () => {
       clearTimeout(resizeTimer);
     };
-  }, [sessionId, shell]);
+  }, [propertyItem]);
 
   // 监听窗口大小变化
   useEffect(() => {

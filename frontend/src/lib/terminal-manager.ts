@@ -16,7 +16,11 @@ import { Terminal as XTerminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Events } from "@wailsio/runtime";
-import { TerminalConfig, TerminalService } from "@wails/service";
+import {
+  TerminalConfig as GoTerminalConfig,
+  TerminalService,
+} from "@wails/service";
+import { TerminalConfig } from "@/types/property";
 
 function normalizeTerminalOutput(data: string) {
   return data
@@ -141,15 +145,20 @@ monospace
   }
 
   // 初始化终端会话（调用后端 Create）
-  async initialize(sessionId: string, shell: string): Promise<void> {
+  async initialize(
+    sessionId: string,
+    terminalConfig: TerminalConfig,
+  ): Promise<void> {
     const cached = this.cache.get(sessionId);
     if (!cached || cached.isInitialized) return;
 
     try {
       const res = await TerminalService.Create(
-        TerminalConfig.createFrom({
+        GoTerminalConfig.createFrom({
           id: sessionId,
-          shell,
+          shell: terminalConfig.shell,
+          workPath: terminalConfig.workpath,
+          initialCommand: terminalConfig.initialCommand,
           rows: cached.xterm.rows,
           cols: cached.xterm.cols,
         }),

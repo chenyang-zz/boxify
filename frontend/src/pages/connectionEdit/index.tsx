@@ -63,6 +63,9 @@ function ConnectionEdit() {
       }
       console.log("====================");
     }
+    return () => {
+      isEdit.current = false;
+    };
   }, [initialData, isLoading]);
 
   // 处理标准配置表单提交

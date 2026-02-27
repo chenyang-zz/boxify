@@ -23,7 +23,6 @@ import {
 } from "@/common/constrains";
 import {
   FileTreeMap,
-  PropertyItemType,
   propertyStoreMethods,
   usePropertyStore,
 } from "@/store/property.store";
@@ -33,6 +32,7 @@ import { v4 as uuid } from "uuid";
 import { ConnectionConfig, QueryResult } from "@wails/connection";
 import { getConnectionConfigByUUID } from "./connection";
 import { tabStoreMethods } from "@/store/tabs.store";
+import { PropertyItemType } from "@/types/property";
 
 // 根据UUID获取属性项的详细信息
 export function getPropertyItemByUUID(uuid: string): PropertyItemType | null {
@@ -275,6 +275,7 @@ export async function triggerFileOpen(uuid: string) {
 
   switch (item.type) {
     case DBFileType.TABLE:
+    case ConnectionEnum.TERMINAL:
       tabStoreMethods.openTab(item);
       break;
   }

@@ -13,12 +13,8 @@
 // limitations under the License.
 
 import { DBFileType, isConnectionType } from "@/common/constrains";
-import {
-  PropertyItemType,
-  propertyStoreMethods,
-  usePropertyStore,
-} from "@/store/property.store";
 import { getPropertyItemByUUID } from "./property";
+import { PropertyItemType } from "@/types/property";
 
 // 根据UUID获取所属的数据库连接项的名称
 export function getConnectionConfigByUUID(uuid: string) {

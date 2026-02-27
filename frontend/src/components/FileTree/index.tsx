@@ -14,7 +14,7 @@
 
 import { FC } from "react";
 import FileTreeItem from "./FileTreeItem";
-import { PropertyItemType, usePropertyStore } from "@/store/property.store";
+import { usePropertyStore } from "@/store/property.store";
 import { useDataSync } from "@/hooks/useDataSync";
 import { DataChannel } from "@/store/data-sync.store";
 import {
@@ -26,6 +26,7 @@ import {
 import { ConnectionEnum } from "@/common/constrains";
 import { ConnectionConfig, ConnectionType } from "@wails/connection";
 import { v4 } from "uuid";
+import { PropertyItemType } from "@/types/property";
 
 interface FileTreeProps {
   data: PropertyItemType[];
@@ -84,6 +85,11 @@ const FileTree: FC = () => {
             label: event.data.name,
             type: ConnectionEnum.TERMINAL,
             remark: event.data.remark ?? "",
+            terminalConfig: {
+              shell: event.data.shell,
+              workpath: event.data.workpath ?? "",
+              initialCommand: event.data.initialCommand ?? "",
+            },
           };
           break;
       }
@@ -110,6 +116,20 @@ const FileTree: FC = () => {
             password: event.data.password,
             useSSH: false,
           });
+          break;
+        case ConnectionEnum.TERMINAL:
+          item.label = event.data.name;
+          item.remark = event.data.remark ?? "";
+          if (item.terminalConfig) {
+            item.terminalConfig.shell = event.data.shell;
+            item.terminalConfig.workpath = event.data.workpath ?? "";
+          } else {
+            item.terminalConfig = {
+              shell: event.data.shell,
+              workpath: event.data.workpath ?? "",
+              initialCommand: event.data.initialCommand ?? "",
+            };
+          }
           break;
       }
 

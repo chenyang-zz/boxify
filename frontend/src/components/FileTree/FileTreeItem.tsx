@@ -23,11 +23,7 @@ import {
   PropertyType,
   isConnectionType,
 } from "@/common/constrains";
-import {
-  PropertyItemType,
-  propertyStoreMethods,
-  usePropertyStore,
-} from "@/store/property.store";
+import { propertyStoreMethods, usePropertyStore } from "@/store/property.store";
 import { Spinner } from "../ui/spinner";
 import { Badge } from "../ui/badge";
 import {
@@ -48,6 +44,7 @@ import { DeleteConfirmDialog } from "../DeleteConfirmDialog";
 import { ConnectionEditInitialData } from "@/types/initial-data";
 import { useOpenWindowWithData } from "@/hooks/useOpenWindowWithData";
 import { AuthMethod } from "@/common/enums/connection";
+import { PropertyItemType } from "@/types/property";
 
 interface FileTreeItemProps {
   item: PropertyItemType;
@@ -97,10 +94,12 @@ const FileIcon: FC<FileIconProps> = ({ isDir, type }) => {
     }
   }
   switch (type) {
-    case ConnectionEnum.SSH:
+    case ConnectionEnum.TERMINAL:
       return (
         <img className="size-4.5 mr-1 shrink-0" src="/icons/terminal.svg" />
       );
+    case ConnectionEnum.SSH:
+      return <img className="size-4.5 mr-1 shrink-0" src="/icons/ssh.svg" />;
     case DBFileType.TABLE:
       return <img className="size-4.5 mr-1 shrink-0" src="/icons/table.svg" />;
     default:
