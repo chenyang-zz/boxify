@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { ShellType } from "@wails/service";
+import { ShellType } from "@wails/terminal";
 import { AuthMethod, Environment } from "./enums/connection";
 
 export enum ConnectionEnum {
@@ -101,4 +101,5 @@ export const ShellOptions = [
   { label: "pwsh", value: ShellType.ShellTypePwsh },
   { label: "bash", value: ShellType.ShellTypeBash },
   { label: "zsh", value: ShellType.ShellTypeZsh },
+  { label: "sh", value: ShellType.ShellTypeSh },
 ];

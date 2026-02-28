@@ -15,7 +15,7 @@
 import { ConnectionEnum } from "@/common/constrains";
 import { AuthMethod, Environment } from "@/common/enums/connection";
 import { ConnectionStandard, TerminalStandard } from "@/types/initial-data";
-import { ShellType } from "@wails/service";
+import { ShellType } from "@wails/terminal";
 
 export function generateDefaultFormData(
   type?: ConnectionEnum,

@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useEffect, useMemo, useRef } from "react";
-import { terminalManager } from "@/lib/terminal-manager";
-import "./style.css";
+import { useMemo, useEffect, useRef } from "react";
+import { TerminalCore } from "./TerminalCore";
+import { terminalSessionManager } from "./lib/session-manager";
 import { getPropertyItemByUUID } from "@/lib/property";
 
 interface TerminalComponentProps {
@@ -22,56 +22,58 @@ interface TerminalComponentProps {
 }
 
 export default function Terminal({ sessionId }: TerminalComponentProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
   const isOpenedRef = useRef(false);
 
   const propertyItem = useMemo(
     () => getPropertyItemByUUID(sessionId),
     [sessionId],
   );
-  if (!propertyItem) return;
 
+  // 清理：当组件卸载时销毁终端会话
   useEffect(() => {
-    if (!containerRef.current || isOpenedRef.current) return;
-
-    // 获取或创建缓存的终端实例
-    const cached = terminalManager.getOrCreate(sessionId);
-
-    // 如果还没初始化，初始化后端会话
-    if (!cached.isInitialized) {
-      terminalManager.initialize(sessionId, propertyItem.terminalConfig!);
-    }
-
-    // 打开终端到容器（只执行一次）
-    terminalManager.open(sessionId, containerRef.current);
-    isOpenedRef.current = true;
-
-    // 调整大小以适应容器
-    const resizeTimer = setTimeout(() => {
-      terminalManager.resize(sessionId);
-    }, 0);
-
     return () => {
-      clearTimeout(resizeTimer);
+      // 注意：这里不销毁会话，由 tabs.store.ts 中的 closeTab 处理
+      // 这样可以避免在切换标签页时误销毁终端
     };
-  }, [propertyItem]);
-
-  // 监听窗口大小变化
-  useEffect(() => {
-    const handleResize = () => {
-      if (isOpenedRef.current) {
-        terminalManager.resize(sessionId);
-      }
-    };
-
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
   }, [sessionId]);
 
+  // 确保会话已创建
+  useEffect(() => {
+    if (!propertyItem?.terminalConfig) return;
+
+    // 预先创建会话缓存
+    terminalSessionManager.getOrCreate(sessionId);
+    isOpenedRef.current = true;
+  }, [sessionId, propertyItem]);
+
+  if (!propertyItem?.terminalConfig) {
+    return (
+      <div className="terminal-error h-full w-full flex items-center justify-center text-muted-foreground">
+        终端配置无效
+      </div>
+    );
+  }
+
   return (
-    <div
-      ref={containerRef}
-      className="terminal-wrapper h-full w-full bg-background"
-    />
+    <div className="terminal-wrapper h-full w-full" style={{ textAlign: "left" }}>
+      <TerminalCore
+        sessionId={sessionId}
+        config={propertyItem.terminalConfig}
+      />
+    </div>
   );
 }
+
+// 导出子组件和 hooks
+export { TerminalCore } from "./TerminalCore";
+export { TerminalBlock } from "./components/TerminalBlock";
+export { InputEditor } from "./components/InputEditor";
+export { OutputRenderer } from "./components/OutputRenderer";
+export { useTerminalTheme } from "./hooks/useTerminalTheme";
+export {
+  useTerminalStore,
+  useSessionBlocks,
+  useCurrentBlockId,
+  useSessionTheme,
+} from "./store/terminal.store";
+export { terminalSessionManager } from "./lib/session-manager";

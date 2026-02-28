@@ -49,41 +49,49 @@ func DefaultLogger(level slog.Leveler) *slog.Logger {
 }
 
 func GetDefaultLogger() *slog.Logger {
-	if logger == nil {
-		Init(slog.LevelInfo)
+	mu.RLock()
+	if logger != nil {
+		mu.RUnlock()
+		return logger
 	}
-	return logger
+	mu.RUnlock()
 
+	// 需要初始化
+	Init(slog.LevelInfo)
+
+	mu.RLock()
+	defer mu.RUnlock()
+	return logger
 }
 
 func Debug(msg string, args ...any) {
-	logger.Debug(msg, args...)
+	GetDefaultLogger().Debug(msg, args...)
 }
 
 func DebugContext(ctx context.Context, msg string, args ...any) {
-	logger.DebugContext(ctx, msg, args...)
+	GetDefaultLogger().DebugContext(ctx, msg, args...)
 }
 
 func Info(msg string, args ...any) {
-	logger.Info(msg, args...)
+	GetDefaultLogger().Info(msg, args...)
 }
 
 func InfoContext(ctx context.Context, msg string, args ...any) {
-	logger.InfoContext(ctx, msg, args...)
+	GetDefaultLogger().InfoContext(ctx, msg, args...)
 }
 
 func Warn(msg string, args ...any) {
-	logger.Warn(msg, args...)
+	GetDefaultLogger().Warn(msg, args...)
 }
 
 func WarnContext(ctx context.Context, msg string, args ...any) {
-	logger.WarnContext(ctx, msg, args...)
+	GetDefaultLogger().WarnContext(ctx, msg, args...)
 }
 
 func Error(msg string, args ...any) {
-	logger.Error(msg, args...)
+	GetDefaultLogger().Error(msg, args...)
 }
 
 func ErrorContext(ctx context.Context, msg string, args ...any) {
-	logger.ErrorContext(ctx, msg, args...)
+	GetDefaultLogger().ErrorContext(ctx, msg, args...)
 }

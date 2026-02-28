@@ -25,16 +25,23 @@
     "isatty",
     "kingbase",
     "kysely",
+    "LASTEXITCODE",
     "maximised",
     "Menlo",
     "MODIWL",
+    "noprofile",
+    "norc",
     "partialize",
     "PEIDIWCH",
+    "precmd",
+    "preexec",
     "Quan",
+    "rcfile",
     "Registations",
     "seps",
     "Setsize",
     "SQLDB",
+    "stty",
     "Taskfile",
     "tdengine",
     "testcache",
@@ -50,6 +57,7 @@
     "wailsio",
     "wailsjs",
     "Winsize",
-    "workpath"
+    "workpath",
+    "ZDOTDIR"
   ]
 }

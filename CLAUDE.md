@@ -17,7 +17,7 @@ Boxify 是一个基于 Wails 框架的跨平台数据库管理桌面应用，支
 
 ### 后端
 - **Go** - 主要后端语言
-- **Wails v2** - 桌面应用框架
+- **Wails v3** - 桌面应用框架
 - **数据库驱动**:
   - MySQL: `go-sql-driver/mysql`
   - PostgreSQL: `lib/pq`
@@ -141,8 +141,8 @@ pnpm run build        # 构建生产版本
 
 ### 应用开发
 ```bash
-wails dev             # 启动热重载开发模式（包括前后端）
-wails build           # 构建生产版本
+wails3 dev             # 启动热重载开发模式（包括前后端）
+wails3 build           # 构建生产版本
 ```
 
 ### Go 代码
@@ -223,7 +223,7 @@ feat: 添加 PostgreSQL 数据库支持
 
 ## 资源链接
 
-- [Wails 文档](https://wails.io/docs/introduction)
+- [Wails 文档](https://v3alpha.wails.io/)
 - [React 文档](https://react.dev/)
 - [shadcn/ui 组件](https://ui.shadcn.com/)
 - [Tailwind CSS](https://tailwindcss.com/)

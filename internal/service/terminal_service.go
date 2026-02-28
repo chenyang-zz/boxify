@@ -21,115 +21,33 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/chenyang-zz/boxify/internal/connection"
+	"github.com/chenyang-zz/boxify/internal/terminal"
 	"github.com/creack/pty"
+	"github.com/google/uuid"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
-
-// 错误模式常量（预编译小写版本，避免重复分配）
-var (
-	// Unix/Linux/macOS 错误模式
-	unixErrorPatterns = []string{
-		"command not found",
-		"no such file or directory",
-		"permission denied",
-		"cannot execute",
-		"is not recognized",
-		"invalid option",
-		"illegal option",
-		"error:",
-		"failed",
-		"unable to",
-	}
-
-	// Windows cmd.exe 错误模式
-	windowsCmdErrorPatterns = []string{
-		"'\"' is not recognized",
-		"is not recognized as an internal or external command",
-		"cannot find the path specified",
-		"the system cannot find the file specified",
-		"access is denied",
-		"the syntax of the command is incorrect",
-	}
-
-	// PowerShell 错误模式
-	powerShellErrorPatterns = []string{
-		"term '",
-		"' is not recognized",
-		"cannot be found",
-		"does not exist",
-		"access to the path",
-		"is denied",
-		"error:",
-		"exception",
-	}
-
-	// 根据平台合并的错误模式（初始化时计算一次）
-	platformErrorPatterns = func() []string {
-		switch runtime.GOOS {
-		case "windows":
-			// Windows: 合并所有模式
-			patterns := make([]string, 0, len(windowsCmdErrorPatterns)+len(powerShellErrorPatterns)+len(unixErrorPatterns))
-			patterns = append(patterns, windowsCmdErrorPatterns...)
-			patterns = append(patterns, powerShellErrorPatterns...)
-			patterns = append(patterns, unixErrorPatterns...) // 也包含 Unix 模式（WSL/Git Bash）
-			return patterns
-		default:
-			// Unix/Linux/macOS
-			return unixErrorPatterns
-		}
-	}()
-)
-
-type ShellType string
-
-const (
-	ShellTypeCmd        ShellType = "cmd"
-	ShellTypePowershell ShellType = "powershell"
-	ShellTypePwsh       ShellType = "pwsh"
-	ShellTypeBash       ShellType = "bash"
-	ShellTypeZsh        ShellType = "zsh"
-	ShellTypeAuto       ShellType = "auto"
-)
-
-// TerminalConfig 终端配置
-type TerminalConfig struct {
-	ID             string    `json:"id"`                       // 会话 ID
-	Shell          ShellType `json:"shell"`                    // shell 路径，"auto" 表示自动检测
-	Rows           uint16    `json:"rows,omitempty"`           // 终端行数
-	Cols           uint16    `json:"cols,omitempty"`           // 终端列数
-	WorkPath       string    `json:"workPath,omitempty"`       // 工作路径
-	InitialCommand string    `json:"initialCommand,omitempty"` // 初始命令
-}
-
-// TerminalSession 终端会话
-type TerminalSession struct {
-	ID        string
-	Pty       *os.File
-	Cmd       *exec.Cmd
-	CreatedAt time.Time
-	ctx       context.Context    // 用于控制读取循环退出
-	cancel    context.CancelFunc // 取消函数
-}
 
 // TerminalService 终端服务
 type TerminalService struct {
 	BaseService
-	sessions   map[string]*TerminalSession
-	mu         sync.RWMutex
-	shellCache sync.Map // 缓存 shell 路径: cacheKey -> shellPath
+	sessions        map[string]*terminal.Session
+	mu              sync.RWMutex
+	shellDetector   *terminal.ShellDetector
+	configGenerator *terminal.ShellConfigGenerator
 }
 
 // NewTerminalService 创建终端服务
 func NewTerminalService(deps *ServiceDeps) *TerminalService {
 	return &TerminalService{
-		BaseService: NewBaseService(deps),
-		sessions:    make(map[string]*TerminalSession),
+		BaseService:     NewBaseService(deps),
+		sessions:        make(map[string]*terminal.Session),
+		shellDetector:   terminal.NewShellDetector(),
+		configGenerator: terminal.NewShellConfigGenerator(),
 	}
 }
 
@@ -158,7 +76,7 @@ func (ts *TerminalService) ServiceShutdown() error {
 
 // validateBasicConfig 验证基本配置（不包含初始命令）
 // 返回: (是否有效, 错误信息, 检测到的 shell 路径)
-func (ts *TerminalService) validateBasicConfig(config TerminalConfig) (bool, string, string) {
+func (ts *TerminalService) validateBasicConfig(config terminal.TerminalConfig) (bool, string, string) {
 	// 验证终端尺寸（允许 0，表示使用默认值）
 	// 注意：Rows 和 Cols 是 uint16 类型，不会为负数
 	if config.Rows > 300 {
@@ -180,27 +98,18 @@ func (ts *TerminalService) validateBasicConfig(config TerminalConfig) (bool, str
 	}
 
 	// 检测并验证 shell
-	shell := ts.detectShell(config.Shell)
+	shellPath := ts.shellDetector.DetectShell(config.Shell)
 
-	// 检查 shell 是否存在（使用缓存优化）
-	cacheKey := "shell:" + shell
-	var shellPath string
-	if cached, ok := ts.shellCache.Load(cacheKey); ok {
-		shellPath = cached.(string)
-	} else {
-		var err error
-		shellPath, err = exec.LookPath(shell)
-		if err != nil {
-			return false, fmt.Sprintf("找不到 shell: %s (%v)", shell, err), ""
-		}
-		ts.shellCache.Store(cacheKey, shellPath)
+	// 检查 shell 是否存在
+	if _, err := exec.LookPath(shellPath); err != nil {
+		return false, fmt.Sprintf("找不到 shell: %s (%v)", shellPath, err), ""
 	}
 
 	return true, "", shellPath
 }
 
 // getWorkPath 获取工作路径，如果配置中未指定则使用用户主目录
-func (ts *TerminalService) getWorkPath(config TerminalConfig) string {
+func (ts *TerminalService) getWorkPath(config terminal.TerminalConfig) string {
 	if config.WorkPath != "" {
 		return config.WorkPath
 	}
@@ -211,21 +120,53 @@ func (ts *TerminalService) getWorkPath(config TerminalConfig) string {
 }
 
 // createShellCommand 创建 shell 命令并设置环境变量
-func (ts *TerminalService) createShellCommand(shellPath, workPath string) *exec.Cmd {
-	cmd := exec.Command(shellPath)
+func (ts *TerminalService) createShellCommand(shellPath, workPath string, shellType terminal.ShellType, sessionID string) (*exec.Cmd, string, bool) {
+	var cmd *exec.Cmd
+	var configPath string
+	var useHooks bool
+
+	// 尝试为支持 hooks 的 shell 注入配置
+	if shellType.SupportsHooks() {
+		var err error
+		configPath, err = ts.configGenerator.GenerateConfig(shellType, sessionID)
+		if err != nil {
+			ts.Logger().Warn("生成 shell 配置失败，使用命令包装模式", "error", err)
+		} else {
+			useHooks = true
+		}
+	}
+
+	if useHooks && configPath != "" {
+		// 使用 hooks 模式
+		args, _ := ts.configGenerator.GetShellArgs(shellType, configPath)
+		cmd = exec.Command(shellPath, args...)
+		ts.Logger().Info("终端使用hooks模式")
+	} else {
+		// 使用命令包装模式或默认模式
+		cmd = exec.Command(shellPath)
+		ts.Logger().Info("终端使用包装模式")
+	}
+
 	if workPath != "" {
 		cmd.Dir = workPath
 	}
 	cmd.Env = append(os.Environ(),
 		"TERM=xterm-256color",
 		"COLORTERM=truecolor",
+		"BOXIFY_SESSION_ID="+sessionID,
 	)
-	return cmd
+
+	// 对于 zsh，设置 ZDOTDIR 环境变量让 shell 从临时目录加载配置
+	if useHooks && shellType == terminal.ShellTypeZsh && configPath != "" {
+		cmd.Env = append(cmd.Env, "ZDOTDIR="+configPath)
+	}
+
+	return cmd, configPath, useHooks
 }
 
 // validateInitialCommand 验证初始命令是否能执行
 // 返回: (是否有效, 错误信息, 输出内容)
-func (ts *TerminalService) validateInitialCommand(shellPath string, config TerminalConfig) (bool, string, string) {
+func (ts *TerminalService) validateInitialCommand(shellPath string, config terminal.TerminalConfig) (bool, string, string) {
 	// 检查命令是否为空或仅包含空白字符
 	trimmed := strings.TrimSpace(config.InitialCommand)
 	if trimmed == "" {
@@ -237,9 +178,16 @@ func (ts *TerminalService) validateInitialCommand(shellPath string, config Termi
 		return false, "初始命令过长，最大支持 10000 字符", ""
 	}
 
-	// 使用辅助方法创建命令
+	// 使用辅助方法创建命令（验证时不需要 hooks，使用简单模式）
 	workPath := ts.getWorkPath(config)
-	testCmd := ts.createShellCommand(shellPath, workPath)
+	testCmd := exec.Command(shellPath)
+	if workPath != "" {
+		testCmd.Dir = workPath
+	}
+	testCmd.Env = append(os.Environ(),
+		"TERM=xterm-256color",
+		"COLORTERM=truecolor",
+	)
 
 	// 创建 PTY 测试
 	ptyFile, err := pty.Start(testCmd)
@@ -314,7 +262,7 @@ func (ts *TerminalService) validateInitialCommand(shellPath string, config Termi
 		}
 
 		// 检查输出中的错误标志
-		if ts.hasCommandError(res.output) {
+		if terminal.HasCommandError(res.output) {
 			return false, "初始命令执行出现错误，请检查命令是否正确", res.output
 		}
 
@@ -331,7 +279,7 @@ func (ts *TerminalService) validateInitialCommand(shellPath string, config Termi
 }
 
 // Create 创建新的终端会话
-func (ts *TerminalService) Create(config TerminalConfig) *connection.QueryResult {
+func (ts *TerminalService) Create(config terminal.TerminalConfig) *connection.QueryResult {
 	// 验证基本配置
 	valid, errMsg, shellPath := ts.validateBasicConfig(config)
 	if !valid {
@@ -368,14 +316,24 @@ func (ts *TerminalService) Create(config TerminalConfig) *connection.QueryResult
 		cols = 80
 	}
 
-	// 使用辅助方法创建命令
+	// 检测 shell 类型
+	shellType := config.Shell
+	if shellType == terminal.ShellTypeAuto {
+		shellType = ts.shellDetector.DetectShellTypeFromPath(shellPath)
+	}
+
+	// 使用辅助方法创建命令（可能注入 hooks 配置）
 	workPath := ts.getWorkPath(config)
-	cmd := ts.createShellCommand(shellPath, workPath)
+	cmd, configPath, useHooks := ts.createShellCommand(shellPath, workPath, shellType, config.ID)
 
 	// 启动 PTY
 	ptyFile, err := pty.Start(cmd)
 	if err != nil {
 		ts.Logger().Error("创建 PTY 失败", "shell", shellPath, "error", err)
+		// 清理可能生成的配置文件
+		if configPath != "" {
+			ts.configGenerator.Cleanup(configPath)
+		}
 		return &connection.QueryResult{
 			Success: false,
 			Message: fmt.Sprintf("创建终端失败: %v", err),
@@ -398,17 +356,9 @@ func (ts *TerminalService) Create(config TerminalConfig) *connection.QueryResult
 		}
 	}
 
-	// 创建 session context
-	sessionCtx, sessionCancel := context.WithCancel(context.Background())
-
-	session := &TerminalSession{
-		ID:        config.ID,
-		Pty:       ptyFile,
-		Cmd:       cmd,
-		CreatedAt: time.Now(),
-		ctx:       sessionCtx,
-		cancel:    sessionCancel,
-	}
+	// 创建会话
+	session := terminal.NewSession(context.Background(), config.ID, ptyFile, cmd, shellType, useHooks)
+	session.SetConfigPath(configPath)
 
 	ts.mu.Lock()
 	ts.sessions[config.ID] = session
@@ -417,7 +367,7 @@ func (ts *TerminalService) Create(config TerminalConfig) *connection.QueryResult
 	// 启动输出读取 goroutine
 	go ts.readOutputLoop(session)
 
-	ts.Logger().Info("终端会话创建", "sessionId", config.ID, "shell", shellPath, "workPath", config.WorkPath, "initialCommand", config.InitialCommand)
+	ts.Logger().Info("终端会话创建", "sessionId", config.ID, "shell", shellPath, "shellType", shellType, "useHooks", useHooks, "workPath", config.WorkPath, "initialCommand", config.InitialCommand)
 
 	return &connection.QueryResult{
 		Success: true,
@@ -426,18 +376,18 @@ func (ts *TerminalService) Create(config TerminalConfig) *connection.QueryResult
 }
 
 // readOutputLoop 读取 PTY 输出并发送到前端
-func (ts *TerminalService) readOutputLoop(session *TerminalSession) {
+func (ts *TerminalService) readOutputLoop(session *terminal.Session) {
 	buf := make([]byte, 1024)
 
 	for {
 		select {
-		case <-session.ctx.Done():
+		case <-session.Context().Done():
 			// 收到退出信号
 			return
 		default:
 			n, err := session.Pty.Read(buf)
 			if err != nil {
-				if err != io.EOF && session.ctx.Err() == nil {
+				if err != io.EOF && session.Context().Err() == nil {
 					// 只有在 context 未取消时才报告错误
 					ts.Logger().Error("读取 PTY 输出失败", "sessionId", session.ID, "error", err)
 					ts.App().Event.Emit("terminal:error", map[string]interface{}{
@@ -448,12 +398,31 @@ func (ts *TerminalService) readOutputLoop(session *TerminalSession) {
 				return
 			}
 
-			// Base64 编码避免传输问题
-			encoded := base64.StdEncoding.EncodeToString(buf[:n])
-			ts.App().Event.Emit("terminal:output", map[string]interface{}{
-				"sessionId": session.ID,
-				"data":      encoded,
-			})
+			// 使用过滤器处理输出
+			result := session.Filter().Process(buf[:n])
+
+			// 获取当前 block ID
+			blockID := session.CurrentBlock()
+
+			// 只有有过滤后输出时才发送
+			if len(result.Output) > 0 {
+				ts.Logger().Info("提取过滤后终端输出", "text", string(result.Output))
+				encoded := base64.StdEncoding.EncodeToString(result.Output)
+				ts.App().Event.Emit("terminal:output", map[string]interface{}{
+					"sessionId": session.ID,
+					"blockId":   blockID,
+					"data":      encoded,
+				})
+			}
+
+			// 命令结束时发送事件
+			if result.CommandEnded {
+				ts.App().Event.Emit("terminal:command_end", map[string]interface{}{
+					"sessionId": session.ID,
+					"blockId":   blockID,
+					"exitCode":  result.ExitCode,
+				})
+			}
 		}
 	}
 }
@@ -481,6 +450,46 @@ func (ts *TerminalService) Write(sessionID, data string) error {
 	}
 
 	return nil
+}
+
+// WriteCommand 写入命令并返回 block ID
+// 用于追踪命令输出，实现 block 关联
+func (ts *TerminalService) WriteCommand(sessionID, command string) (string, error) {
+	ts.mu.RLock()
+	session, ok := ts.sessions[sessionID]
+	ts.mu.RUnlock()
+
+	if !ok {
+		return "", fmt.Errorf("会话不存在: %s", sessionID)
+	}
+
+	// 生成新的 block ID
+	blockID := uuid.New().String()
+
+	// 设置当前 block
+	session.SetCurrentBlock(blockID)
+
+	// 根据模式决定是否包装命令
+	cmd := command
+	if !session.UseHooks() {
+		// 非 hooks 模式：使用命令包装器添加标记
+		cmd = session.Wrapper().Wrap(command)
+	}
+
+	// 确保命令以换行符结尾
+	if !strings.HasSuffix(cmd, "\n") && !strings.HasSuffix(cmd, "\r") {
+		cmd += "\r"
+	}
+
+	_, err := session.Pty.WriteString(cmd)
+	if err != nil {
+		ts.Logger().Error("写入命令失败", "sessionId", sessionID, "command", command, "error", err)
+		return "", fmt.Errorf("写入命令失败: %w", err)
+	}
+
+	ts.Logger().Debug("命令已写入", "sessionId", sessionID, "blockId", blockID, "command", command, "useHooks", session.UseHooks())
+
+	return blockID, nil
 }
 
 // Resize 调整终端大小
@@ -521,25 +530,28 @@ func (ts *TerminalService) Close(sessionID string) error {
 }
 
 // closeSessionUnsafe 内部方法：关闭会话（不加锁）
-func (ts *TerminalService) closeSessionUnsafe(session *TerminalSession) {
-	// 先取消 context，通知读取循环退出
-	if session.cancel != nil {
-		session.cancel()
+func (ts *TerminalService) closeSessionUnsafe(session *terminal.Session) {
+	// 关闭会话资源
+	session.Close()
+
+	// 终止进程并等待
+	if err := session.KillProcess(); err != nil {
+		ts.Logger().Debug("终止进程失败", "sessionId", session.ID, "error", err)
+	}
+	if err := session.WaitProcess(); err != nil {
+		ts.Logger().Debug("进程等待结束", "sessionId", session.ID, "error", err)
 	}
 
-	if session.Pty != nil {
-		session.Pty.Close()
-	}
-	if session.Cmd != nil && session.Cmd.Process != nil {
-		session.Cmd.Process.Kill()
-		if err := session.Cmd.Wait(); err != nil {
-			ts.Logger().Debug("进程等待结束", "sessionId", session.ID, "error", err)
+	// 清理临时配置文件
+	if session.ConfigPath() != "" {
+		if err := ts.configGenerator.Cleanup(session.ConfigPath()); err != nil {
+			ts.Logger().Warn("清理临时配置文件失败", "sessionId", session.ID, "error", err)
 		}
 	}
 }
 
 // TestConfig 测试终端配置参数是否有效
-func (ts *TerminalService) TestConfig(config TerminalConfig) *connection.QueryResult {
+func (ts *TerminalService) TestConfig(config terminal.TerminalConfig) *connection.QueryResult {
 	result := &connection.QueryResult{
 		Success: false,
 		Message: "",
@@ -563,7 +575,7 @@ func (ts *TerminalService) TestConfig(config TerminalConfig) *connection.QueryRe
 		data["workPathValid"] = true
 	}
 
-	shell := ts.detectShell(config.Shell)
+	shell := ts.shellDetector.DetectShell(config.Shell)
 	data["requestedShell"] = string(config.Shell)
 	data["detectedShell"] = shell
 	data["shellPath"] = shellPath
@@ -598,63 +610,14 @@ func (ts *TerminalService) TestConfig(config TerminalConfig) *connection.QueryRe
 	return result
 }
 
-// detectShell 检测系统默认 shell（带缓存优化）
-func (ts *TerminalService) detectShell(preferred ShellType) string {
-	if preferred != ShellTypeAuto {
-		if preferred == ShellTypeCmd || preferred == ShellTypePowershell || preferred == ShellTypePwsh {
-			return string(preferred) + ".exe"
-		}
-		return string(preferred)
-	}
-
-	// 检查缓存
-	cacheKey := "default:" + runtime.GOOS
-	if cached, ok := ts.shellCache.Load(cacheKey); ok {
-		return cached.(string)
-	}
-
-	// 根据平台检测默认 shell
-	var shell string
-	switch runtime.GOOS {
-	case "windows":
-		// Windows: 优先 PowerShell，其次 cmd
-		if path, err := exec.LookPath("pwsh"); err == nil {
-			shell = path
-		} else if path, err := exec.LookPath("powershell"); err == nil {
-			shell = path
-		} else {
-			shell = "cmd.exe"
-		}
-
-	case "darwin", "linux":
-		// Unix: 优先 zsh，其次 bash
-		if path, err := exec.LookPath("zsh"); err == nil {
-			shell = path
-		} else if path, err := exec.LookPath("bash"); err == nil {
-			shell = path
-		} else {
-			shell = "/bin/sh"
-		}
-
-	default:
-		shell = "/bin/sh"
-	}
-
-	// 缓存结果
-	ts.shellCache.Store(cacheKey, shell)
-	return shell
-}
-
-// hasCommandError 检查命令输出中是否包含错误标志（优化版：使用预编译模式）
-func (ts *TerminalService) hasCommandError(output string) bool {
-	lowerOutput := strings.ToLower(output)
-
-	// 使用预编译的平台特定错误模式
-	for _, pattern := range platformErrorPatterns {
-		if strings.Contains(lowerOutput, pattern) {
-			return true
-		}
-	}
-
-	return false
+// Test
+func (ts *TerminalService) TestExample() {
+	ts.Create(terminal.TerminalConfig{
+		ID:             "123",
+		Shell:          terminal.ShellTypeZsh,
+		Rows:           0,
+		Cols:           0,
+		WorkPath:       "",
+		InitialCommand: "ls",
+	})
 }

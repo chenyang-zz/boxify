@@ -29,12 +29,13 @@ import { DataSyncAPI } from "@/lib/data-sync";
 import { DataChannel } from "@/store/data-sync.store";
 import { useWindowListener } from "@/hooks/useWindowListener";
 import { callWails, currentPageId, currentWindowName } from "@/lib/utils";
-import { TerminalConfig, TerminalService, WindowService } from "@wails/service";
+import { TerminalService, WindowService } from "@wails/service";
 import { generateDefaultFormData } from "./lib";
 import { ConnectionEnum } from "@/common/constrains";
 import TerminalForm from "./components/TerminalForm";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
+import { TerminalConfig } from "@wails/terminal";
 
 let isTest = false;
 
