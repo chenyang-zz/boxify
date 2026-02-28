@@ -32,7 +32,9 @@ export function TerminalCore({ sessionId, config }: TerminalCoreProps) {
   // 直接从 store 获取数据
   const sessionBlocks = useTerminalStore((state) => state.sessionBlocks);
   const theme = useTerminalStore((state) => state.currentTheme);
-  const toggleBlockCollapse = useTerminalStore((state) => state.toggleBlockCollapse);
+  const toggleBlockCollapse = useTerminalStore(
+    (state) => state.toggleBlockCollapse,
+  );
   const addToHistory = useTerminalStore((state) => state.addToHistory);
   const createBlock = useTerminalStore((state) => state.createBlock);
 
@@ -75,7 +77,10 @@ export function TerminalCore({ sessionId, config }: TerminalCoreProps) {
       }
 
       // 后端生成并返回 blockId
-      const blockId = await terminalSessionManager.writeCommand(sessionId, trimmed);
+      const blockId = await terminalSessionManager.writeCommand(
+        sessionId,
+        trimmed,
+      );
 
       // 使用后端返回的 blockId 创建 block
       if (blockId) {
@@ -116,20 +121,12 @@ export function TerminalCore({ sessionId, config }: TerminalCoreProps) {
   return (
     <div
       ref={containerRef}
-      className="terminal-core h-full w-full flex flex-col"
-      style={{
-        backgroundColor: theme.background,
-        color: theme.foreground,
-        fontFamily: theme.fontFamily,
-        fontSize: theme.fontSize,
-        lineHeight: theme.lineHeight,
-        textAlign: "left",
-      }}
+      className="terminal-core h-full w-full flex flex-col text-left bg-background"
     >
       {/* 输出区域 */}
       <div
         ref={scrollRef}
-        className="output-area flex-1 overflow-auto p-2"
+        className="output-area flex-1 overflow-auto"
         style={{
           scrollbarWidth: "thin",
           scrollbarColor: `${theme.brightBlack} transparent`,
@@ -154,10 +151,7 @@ export function TerminalCore({ sessionId, config }: TerminalCoreProps) {
       </div>
 
       {/* 输入区域 */}
-      <div
-        className="input-area border-t"
-        style={{ borderColor: theme.blockStyle.borderColor }}
-      >
+      <div className="input-area border-t">
         <InputEditor
           sessionId={sessionId}
           theme={theme}

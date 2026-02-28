@@ -47,7 +47,6 @@ export interface TerminalBlock {
   startTime: number;
   endTime?: number;
   exitCode?: number;
-  isCollapsed: boolean;
 }
 
 // 用于创建新 block 的参数

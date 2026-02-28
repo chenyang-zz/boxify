@@ -16,6 +16,7 @@ import { FC, JSX, lazy, useEffect } from "react";
 import { dataSyncStoreMethods } from "./store/data-sync.store";
 import { currentPageId, currentWindowName } from "./lib/utils";
 import { Toaster } from "./components/ui/sonner";
+import { ThemeProvider } from "./providers/ThemeProvider";
 
 // 获取当前页面 ID
 const pageId = currentPageId();
@@ -41,10 +42,10 @@ const App: FC = () => {
   }, []);
 
   return (
-    <>
+    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
       <Toaster />
       <PageComponent />
-    </>
+    </ThemeProvider>
   );
 };
 

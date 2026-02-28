@@ -16,6 +16,15 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { terminalSessionManager } from "../lib/session-manager";
 import { useTerminalStore } from "../store/terminal.store";
 import type { TerminalTheme } from "../types/theme";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import {
+  DotIcon,
+  FileIcon,
+  FolderIcon,
+  GitBranchIcon,
+  TerminalIcon,
+} from "lucide-react";
 
 interface InputEditorProps {
   sessionId: string;
@@ -158,64 +167,82 @@ export function InputEditor({
   }, []);
 
   return (
-    <div
-      className="input-editor-wrapper flex items-start px-3 py-2"
-      onClick={handleContainerClick}
-      style={{
-        background: theme.inputStyle.background,
-      }}
-    >
-      {/* Prompt 符号 */}
-      <span
-        className="prompt-symbol mr-2 shrink-0"
-        style={{
-          color: theme.green,
-          fontWeight: "bold",
-        }}
-      >
-        $
-      </span>
-
-      {/* 输入区域 */}
-      <div className="input-field-wrapper relative flex-1">
-        {/* 高亮层 */}
-        <div
-          className="highlight-layer absolute inset-0 pointer-events-none whitespace-pre-wrap break-all overflow-hidden"
-          style={{
-            fontFamily: theme.fontFamily,
-            fontSize: theme.fontSize,
-            lineHeight: theme.lineHeight,
-            color: theme.foreground,
-          }}
-          aria-hidden="true"
+    <div className="input-editor-wrapper flex flex-col items-start px-3 py-2 ">
+      <div className="flex items-center gap-1.5 shrink-0">
+        <Badge variant="secondary" className="border text-yellow-200 ">
+          <TerminalIcon />
+          base
+        </Badge>
+        <Badge
+          variant="secondary"
+          className="border text-cyan-200 hover:bg-accent cursor-pointer"
         >
-          {value || "\u200B"}
-        </div>
+          <FolderIcon /> ~/Workspace/Boxify
+        </Badge>
+        <Badge
+          variant="secondary"
+          className="border p-0 gap-0 flex items-center "
+        >
+          <Badge
+            variant="ghost"
+            className="text-green-200 hover:bg-accent cursor-pointer"
+          >
+            <GitBranchIcon className="text-xs" /> main
+          </Badge>
+          <span className="w-1 h-2 border-l" />
+          <Badge variant="ghost" className="hover:bg-accent cursor-pointer">
+            <FileIcon />
+            10
+            <span className="text-green-500 font-bold ml-1">+255</span>
+            <span className="text-red-500 font-bold">-266</span>
+          </Badge>
+        </Badge>
+      </div>
+      <div
+        className="flex items-start flex-1 pt-1 w-full"
+        onClick={handleContainerClick}
+      >
+        {/* 输入区域 */}
+        <div className="input-field-wrapper relative flex-1">
+          {/* 高亮层 */}
+          <div
+            className="highlight-layer absolute inset-0 pointer-events-none whitespace-pre-wrap break-all overflow-hidden"
+            style={{
+              fontFamily: theme.fontFamily,
+              fontSize: theme.fontSize,
+              lineHeight: theme.lineHeight,
+              color: theme.foreground,
+            }}
+            aria-hidden="true"
+          >
+            {value || "\u200B"}
+          </div>
 
-        {/* 实际输入框 */}
-        <textarea
-          ref={inputRef}
-          value={value}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          className="actual-input w-full bg-transparent outline-none resize-none"
-          style={{
-            fontFamily: theme.fontFamily,
-            fontSize: theme.fontSize,
-            lineHeight: theme.lineHeight,
-            color: "transparent",
-            caretColor: theme.cursor,
-            position: "relative",
-            zIndex: 1,
-            minHeight: "1.5em",
-            maxHeight: "10em",
-          }}
-          spellCheck={false}
-          autoComplete="off"
-          autoCorrect="off"
-          autoCapitalize="off"
-          rows={1}
-        />
+          {/* 实际输入框 */}
+          <textarea
+            ref={inputRef}
+            value={value}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            className="actual-input w-full bg-transparent outline-none resize-none"
+            style={{
+              fontFamily: theme.fontFamily,
+              fontSize: theme.fontSize,
+              lineHeight: theme.lineHeight,
+              color: "transparent",
+              caretColor: theme.cursor,
+              position: "relative",
+              zIndex: 1,
+              minHeight: "1.5em",
+              maxHeight: "10em",
+            }}
+            spellCheck={false}
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            rows={1}
+          />
+        </div>
       </div>
     </div>
   );

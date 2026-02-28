@@ -34,7 +34,7 @@ export const OutputRenderer = memo(function OutputRenderer({
       return (
         <div
           key={line.id || index}
-          className="output-line whitespace-pre-wrap break-all px-3 py-0.5"
+          className="output-line whitespace-pre-wrap break-all py-0.5"
           style={{
             fontFamily: theme.fontFamily,
             fontSize: theme.fontSize,
@@ -77,7 +77,7 @@ export const OutputRenderer = memo(function OutputRenderer({
         </div>
       );
     },
-    [theme]
+    [theme],
   );
 
   // 处理文本选择和复制
@@ -98,9 +98,6 @@ export const OutputRenderer = memo(function OutputRenderer({
       ref={containerRef}
       className="output-renderer py-1 select-text"
       onCopy={handleCopy}
-      style={{
-        background: theme.background,
-      }}
     >
       {output.map((line, index) => renderLine(line, index))}
     </div>

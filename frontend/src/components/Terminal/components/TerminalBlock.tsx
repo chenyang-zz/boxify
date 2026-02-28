@@ -13,7 +13,13 @@
 // limitations under the License.
 
 import { memo, useCallback } from "react";
-import { Copy, ChevronRight, Loader2, CheckCircle, XCircle } from "lucide-react";
+import {
+  Copy,
+  ChevronRight,
+  Loader2,
+  CheckCircle,
+  XCircle,
+} from "lucide-react";
 import type { TerminalBlock as TerminalBlockType } from "../types/block";
 import type { TerminalTheme } from "../types/theme";
 import { OutputRenderer } from "./OutputRenderer";
@@ -47,49 +53,35 @@ export const TerminalBlock = memo(function TerminalBlock({
 
   // 状态图标
   const StatusIcon = {
-    running: <Loader2 className="w-4 h-4 animate-spin" style={{ color: theme.blue }} />,
+    running: (
+      <Loader2 className="w-4 h-4 animate-spin" style={{ color: theme.blue }} />
+    ),
     success: <CheckCircle className="w-4 h-4" style={{ color: theme.green }} />,
     error: <XCircle className="w-4 h-4" style={{ color: theme.red }} />,
-    pending: <div className="w-4 h-4 rounded-full border-2" style={{ borderColor: theme.brightBlack }} />,
+    pending: (
+      <div
+        className="w-4 h-4 rounded-full border-2"
+        style={{ borderColor: theme.brightBlack }}
+      />
+    ),
   }[block.status];
 
   return (
-    <div
-      className="terminal-block group mb-2"
-      style={{
-        background: theme.blockStyle.background,
-        border: `1px solid ${theme.blockStyle.borderColor}`,
-        borderRadius: theme.blockStyle.borderRadius,
-      }}
-    >
+    <div className="terminal-block border-t first:border-0 p-3">
       {/* Block 头部 */}
       <div
-        className="block-header flex items-center gap-2 px-3 py-2 cursor-pointer select-none"
+        className="block-header flex items-center gap-2"
         onClick={onToggleCollapse}
       >
-        {/* 折叠按钮 */}
-        <button
-          className="collapse-btn p-0.5 rounded hover:bg-white/10 transition-colors"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleCollapse();
-          }}
-        >
-          <ChevronRight
-            className="w-4 h-4 transition-transform duration-200"
-            style={{
-              transform: block.isCollapsed ? "rotate(0deg)" : "rotate(90deg)",
-              color: theme.brightBlack,
-            }}
-          />
-        </button>
+        <div className=" select-none text-xs text-secondary-foreground flex gap-2">
+          <span>base</span>
+          <span>~/Workspace/Boxify</span>
+          <span>git:(main)</span>
+        </div>
 
         {/* 命令 */}
-        <span
-          className="command-text flex-1 font-mono text-sm truncate"
-          style={{ color: theme.foreground }}
-        >
-          <span style={{ color: theme.green, fontWeight: "bold" }}>$ </span>
+        <span className="command-text flex-1 font-mono text-sm truncate">
+          <span className=" text-green-500 font-bold select-none">$ </span>
           {block.command || "(空命令)"}
         </span>
 
@@ -108,7 +100,7 @@ export const TerminalBlock = memo(function TerminalBlock({
 
         {/* 复制按钮 */}
         <button
-          className="copy-btn p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-white/10 transition-all"
+          className="copy-btn p-1 rounded "
           onClick={(e) => {
             e.stopPropagation();
             handleCopy();
@@ -120,18 +112,13 @@ export const TerminalBlock = memo(function TerminalBlock({
       </div>
 
       {/* Block 输出 */}
-      {!block.isCollapsed && block.output.length > 0 && (
-        <div
-          className="block-output border-t"
-          style={{ borderColor: theme.blockStyle.borderColor }}
-        >
-          <OutputRenderer
-            output={block.output}
-            theme={theme}
-            blockId={block.id}
-          />
-        </div>
-      )}
+      <div className="block-output ">
+        <OutputRenderer
+          output={block.output}
+          theme={theme}
+          blockId={block.id}
+        />
+      </div>
     </div>
   );
 });
