@@ -20,6 +20,8 @@ import (
 	"os/exec"
 	"strings"
 
+	"log/slog"
+
 	"github.com/creack/pty"
 )
 
@@ -44,18 +46,11 @@ type Process struct {
 // ProcessManager PTY 进程管理器
 type ProcessManager struct {
 	configGenerator *ShellConfigGenerator
-	logger          Logger
-}
-
-// Logger 日志接口（解耦具体日志实现）
-type Logger interface {
-	Info(msg string, args ...any)
-	Warn(msg string, args ...any)
-	Error(msg string, args ...any)
+	logger          *slog.Logger
 }
 
 // NewProcessManager 创建进程管理器
-func NewProcessManager(generator *ShellConfigGenerator, logger Logger) *ProcessManager {
+func NewProcessManager(generator *ShellConfigGenerator, logger *slog.Logger) *ProcessManager {
 	return &ProcessManager{
 		configGenerator: generator,
 		logger:          logger,
@@ -73,9 +68,7 @@ func (pm *ProcessManager) CreateProcess(opts *ProcessOptions) (*Process, error) 
 		var err error
 		configPath, err = pm.configGenerator.GenerateConfig(opts.ShellType, opts.SessionID)
 		if err != nil {
-			if pm.logger != nil {
-				pm.logger.Warn("生成 shell 配置失败，使用命令包装模式", "error", err)
-			}
+			pm.logger.Warn("生成 shell 配置失败，使用命令包装模式", "error", err)
 		} else {
 			useHooks = true
 		}
@@ -85,15 +78,11 @@ func (pm *ProcessManager) CreateProcess(opts *ProcessOptions) (*Process, error) 
 		// 使用 hooks 模式
 		args, _ := pm.configGenerator.GetShellArgs(opts.ShellType, configPath)
 		cmd = exec.Command(opts.ShellPath, args...)
-		if pm.logger != nil {
-			pm.logger.Info("终端使用hooks模式")
-		}
+		pm.logger.Info("终端使用hooks模式")
 	} else {
 		// 使用命令包装模式或默认模式
 		cmd = exec.Command(opts.ShellPath)
-		if pm.logger != nil {
-			pm.logger.Info("终端使用包装模式")
-		}
+		pm.logger.Info("终端使用包装模式")
 	}
 
 	if opts.WorkPath != "" {
@@ -122,9 +111,7 @@ func (pm *ProcessManager) CreateProcess(opts *ProcessOptions) (*Process, error) 
 
 	// 设置终端大小
 	if err := pty.Setsize(ptyFile, &pty.Winsize{Rows: opts.Rows, Cols: opts.Cols}); err != nil {
-		if pm.logger != nil {
-			pm.logger.Warn("设置终端大小失败", "error", err)
-		}
+		pm.logger.Warn("设置终端大小失败", "error", err)
 	}
 
 	return &Process{

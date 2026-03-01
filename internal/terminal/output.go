@@ -17,6 +17,8 @@ package terminal
 import (
 	"encoding/base64"
 	"io"
+
+	"log/slog"
 )
 
 // EventEmitter 事件发射接口（解耦 Wails 依赖）
@@ -27,11 +29,11 @@ type EventEmitter interface {
 // OutputHandler 输出处理器
 type OutputHandler struct {
 	emitter EventEmitter
-	logger  Logger
+	logger  *slog.Logger
 }
 
 // NewOutputHandler 创建输出处理器
-func NewOutputHandler(emitter EventEmitter, logger Logger) *OutputHandler {
+func NewOutputHandler(emitter EventEmitter, logger *slog.Logger) *OutputHandler {
 	return &OutputHandler{
 		emitter: emitter,
 		logger:  logger,
@@ -72,6 +74,11 @@ func (h *OutputHandler) StartOutputLoop(session *Session) {
 					h.logger.Info("提取过滤后终端输出", "text", string(result.Output))
 				}
 				h.emitOutput(session.ID, blockID, result.Output)
+			}
+
+			// 工作路径变化时发送事件
+			if result.PwdChanged {
+				h.emitPwdUpdate(session.ID, result.Pwd)
 			}
 
 			// 命令结束时发送事件
@@ -118,5 +125,17 @@ func (h *OutputHandler) emitCommandEnd(sessionID, blockID string, exitCode int) 
 		"sessionId": sessionID,
 		"blockId":   blockID,
 		"exitCode":  exitCode,
+	})
+}
+
+// emitPwdUpdate 发送工作路径更新事件
+func (h *OutputHandler) emitPwdUpdate(sessionID, pwd string) {
+	if h.emitter == nil {
+		return
+	}
+
+	h.emitter.Emit("terminal:pwd_update", map[string]interface{}{
+		"sessionId": sessionID,
+		"pwd":       pwd,
 	})
 }

@@ -17,34 +17,13 @@ package terminal
 import (
 	"os"
 	"os/exec"
-	"strings"
 	"testing"
 )
 
-// mockLogger 用于测试的模拟日志器
-type mockLogger struct {
-	infoMessages []string
-	warnMessages []string
-	errorMessages []string
-}
-
-func (m *mockLogger) Info(msg string, args ...any) {
-	m.infoMessages = append(m.infoMessages, msg)
-}
-
-func (m *mockLogger) Warn(msg string, args ...any) {
-	m.warnMessages = append(m.warnMessages, msg)
-}
-
-func (m *mockLogger) Error(msg string, args ...any) {
-	m.errorMessages = append(m.errorMessages, msg)
-}
-
 func TestNewProcessManager(t *testing.T) {
-	generator := NewShellConfigGenerator()
-	logger := &mockLogger{}
+	generator := NewShellConfigGenerator(testLogger)
 
-	pm := NewProcessManager(generator, logger)
+	pm := NewProcessManager(generator, testLogger)
 
 	if pm == nil {
 		t.Fatal("NewProcessManager returned nil")
@@ -56,7 +35,7 @@ func TestNewProcessManager(t *testing.T) {
 }
 
 func TestNewProcessManager_NilLogger(t *testing.T) {
-	generator := NewShellConfigGenerator()
+	generator := NewShellConfigGenerator(testLogger)
 
 	// nil logger 应该是允许的
 	pm := NewProcessManager(generator, nil)
@@ -71,9 +50,8 @@ func TestProcessManager_CreateProcess(t *testing.T) {
 	detector := NewShellDetector()
 	shellPath := detector.DetectShell(ShellTypeAuto)
 
-	generator := NewShellConfigGenerator()
-	logger := &mockLogger{}
-	pm := NewProcessManager(generator, logger)
+	generator := NewShellConfigGenerator(testLogger)
+	pm := NewProcessManager(generator, testLogger)
 
 	tests := []struct {
 		name    string
@@ -156,9 +134,8 @@ func TestProcessManager_CreateProcess_HooksMode(t *testing.T) {
 		t.Skip("zsh not available")
 	}
 
-	generator := NewShellConfigGenerator()
-	logger := &mockLogger{}
-	pm := NewProcessManager(generator, logger)
+	generator := NewShellConfigGenerator(testLogger)
+	pm := NewProcessManager(generator, testLogger)
 
 	opts := &ProcessOptions{
 		ShellPath: shellPath,
@@ -183,21 +160,21 @@ func TestProcessManager_CreateProcess_HooksMode(t *testing.T) {
 	}
 
 	// 检查日志
-	foundHooksLog := false
-	for _, msg := range logger.infoMessages {
-		if strings.Contains(msg, "hooks") {
-			foundHooksLog = true
-			break
-		}
-	}
-	if !foundHooksLog {
-		t.Log("Warning: expected hooks mode log message")
-	}
+	// foundHooksLog := false
+	// for _, msg := range testLogger.() {
+	// 	if strings.Contains(msg, "hooks") {
+	// 		foundHooksLog = true
+	// 		break
+	// 	}
+	// }
+	// if !foundHooksLog {
+	// 	t.Log("Warning: expected hooks mode log message")
+	// }
 }
 
 func TestProcessManager_Resize(t *testing.T) {
-	generator := NewShellConfigGenerator()
-	pm := NewProcessManager(generator, &mockLogger{})
+	generator := NewShellConfigGenerator(testLogger)
+	pm := NewProcessManager(generator, testLogger)
 
 	// 创建一个进程用于测试
 	detector := NewShellDetector()
@@ -234,8 +211,8 @@ func TestProcessManager_Resize(t *testing.T) {
 }
 
 func TestProcessManager_WriteInitialCommand(t *testing.T) {
-	generator := NewShellConfigGenerator()
-	pm := NewProcessManager(generator, &mockLogger{})
+	generator := NewShellConfigGenerator(testLogger)
+	pm := NewProcessManager(generator, testLogger)
 
 	// 创建一个进程
 	detector := NewShellDetector()
@@ -287,8 +264,8 @@ func TestProcessManager_WriteInitialCommand(t *testing.T) {
 }
 
 func TestProcessManager_Cleanup(t *testing.T) {
-	generator := NewShellConfigGenerator()
-	pm := NewProcessManager(generator, &mockLogger{})
+	generator := NewShellConfigGenerator(testLogger)
+	pm := NewProcessManager(generator, testLogger)
 
 	t.Run("nil process", func(t *testing.T) {
 		err := pm.Cleanup(nil)

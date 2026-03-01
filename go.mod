@@ -4,6 +4,7 @@ go 1.25
 
 require (
 	github.com/creack/pty v1.1.24
+	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1

@@ -38,9 +38,8 @@ func (m *mockEventEmitter) Emit(event string, data map[string]interface{}) {
 
 func TestNewOutputHandler(t *testing.T) {
 	emitter := &mockEventEmitter{}
-	logger := &mockLogger{}
 
-	handler := NewOutputHandler(emitter, logger)
+	handler := NewOutputHandler(emitter, testLogger)
 
 	if handler == nil {
 		t.Fatal("NewOutputHandler returned nil")
@@ -53,7 +52,7 @@ func TestNewOutputHandler(t *testing.T) {
 
 func TestNewOutputHandler_NilDependencies(t *testing.T) {
 	// nil emitter 应该是允许的
-	handler := NewOutputHandler(nil, &mockLogger{})
+	handler := NewOutputHandler(nil, testLogger)
 	if handler == nil {
 		t.Fatal("NewOutputHandler returned nil")
 	}
@@ -67,7 +66,7 @@ func TestNewOutputHandler_NilDependencies(t *testing.T) {
 
 func TestOutputHandler_emitOutput(t *testing.T) {
 	emitter := &mockEventEmitter{}
-	handler := NewOutputHandler(emitter, &mockLogger{})
+	handler := NewOutputHandler(emitter, testLogger)
 
 	// 测试发送输出
 	output := []byte("hello world")
@@ -107,7 +106,7 @@ func TestOutputHandler_emitOutput(t *testing.T) {
 }
 
 func TestOutputHandler_emitOutput_NilEmitter(t *testing.T) {
-	handler := NewOutputHandler(nil, &mockLogger{})
+	handler := NewOutputHandler(nil, testLogger)
 
 	// 不应该 panic
 	handler.emitOutput("session-1", "block-1", []byte("test"))
@@ -115,7 +114,7 @@ func TestOutputHandler_emitOutput_NilEmitter(t *testing.T) {
 
 func TestOutputHandler_emitError(t *testing.T) {
 	emitter := &mockEventEmitter{}
-	handler := NewOutputHandler(emitter, &mockLogger{})
+	handler := NewOutputHandler(emitter, testLogger)
 
 	handler.emitError("session-1", "test error message")
 
@@ -137,7 +136,7 @@ func TestOutputHandler_emitError(t *testing.T) {
 }
 
 func TestOutputHandler_emitError_NilEmitter(t *testing.T) {
-	handler := NewOutputHandler(nil, &mockLogger{})
+	handler := NewOutputHandler(nil, testLogger)
 
 	// 不应该 panic
 	handler.emitError("session-1", "test error")
@@ -145,7 +144,7 @@ func TestOutputHandler_emitError_NilEmitter(t *testing.T) {
 
 func TestOutputHandler_emitCommandEnd(t *testing.T) {
 	emitter := &mockEventEmitter{}
-	handler := NewOutputHandler(emitter, &mockLogger{})
+	handler := NewOutputHandler(emitter, testLogger)
 
 	handler.emitCommandEnd("session-1", "block-1", 0)
 
@@ -178,7 +177,7 @@ func TestOutputHandler_emitCommandEnd(t *testing.T) {
 }
 
 func TestOutputHandler_emitCommandEnd_NilEmitter(t *testing.T) {
-	handler := NewOutputHandler(nil, &mockLogger{})
+	handler := NewOutputHandler(nil, testLogger)
 
 	// 不应该 panic
 	handler.emitCommandEnd("session-1", "block-1", 0)
@@ -186,7 +185,7 @@ func TestOutputHandler_emitCommandEnd_NilEmitter(t *testing.T) {
 
 func TestOutputHandler_StartOutputLoop_ContextCancellation(t *testing.T) {
 	emitter := &mockEventEmitter{}
-	handler := NewOutputHandler(emitter, &mockLogger{})
+	handler := NewOutputHandler(emitter, testLogger)
 
 	// 创建一个会话，使用 pipe 来模拟 PTY
 	r, w, err := os.Pipe()
@@ -194,7 +193,7 @@ func TestOutputHandler_StartOutputLoop_ContextCancellation(t *testing.T) {
 		t.Fatalf("failed to create pipe: %v", err)
 	}
 
-	session := NewSession(context.Background(), "test-session", r, nil, ShellTypeBash, false)
+	session := NewSession(context.Background(), "test-session", r, nil, ShellTypeBash, false, testLogger)
 
 	// 启动输出循环
 	done := make(chan struct{})
@@ -224,8 +223,7 @@ func TestOutputHandler_StartOutputLoop_ContextCancellation(t *testing.T) {
 
 func TestOutputHandler_StartOutputLoop_DataProcessing(t *testing.T) {
 	emitter := &mockEventEmitter{}
-	logger := &mockLogger{}
-	handler := NewOutputHandler(emitter, logger)
+	handler := NewOutputHandler(emitter, testLogger)
 
 	// 创建一个会话，使用 pipe 来模拟 PTY
 	r, w, err := os.Pipe()
@@ -233,7 +231,7 @@ func TestOutputHandler_StartOutputLoop_DataProcessing(t *testing.T) {
 		t.Fatalf("failed to create pipe: %v", err)
 	}
 
-	session := NewSession(context.Background(), "test-session", r, nil, ShellTypeBash, false)
+	session := NewSession(context.Background(), "test-session", r, nil, ShellTypeBash, false, testLogger)
 	session.SetCurrentBlock("test-block")
 
 	// 启动输出循环
@@ -275,7 +273,7 @@ func TestOutputHandler_StartOutputLoop_DataProcessing(t *testing.T) {
 
 func TestOutputHandler_StartOutputLoop_EmptyOutput(t *testing.T) {
 	emitter := &mockEventEmitter{}
-	handler := NewOutputHandler(emitter, &mockLogger{})
+	handler := NewOutputHandler(emitter, testLogger)
 
 	// 创建一个会话
 	r, w, err := os.Pipe()
@@ -283,7 +281,7 @@ func TestOutputHandler_StartOutputLoop_EmptyOutput(t *testing.T) {
 		t.Fatalf("failed to create pipe: %v", err)
 	}
 
-	session := NewSession(context.Background(), "test-session", r, nil, ShellTypeBash, false)
+	session := NewSession(context.Background(), "test-session", r, nil, ShellTypeBash, false, testLogger)
 
 	// 启动输出循环
 	done := make(chan struct{})
@@ -325,7 +323,7 @@ func TestEventEmitter_Interface(t *testing.T) {
 
 func TestOutputHandler_MultipleEvents(t *testing.T) {
 	emitter := &mockEventEmitter{}
-	handler := NewOutputHandler(emitter, &mockLogger{})
+	handler := NewOutputHandler(emitter, testLogger)
 
 	// 发送多个事件
 	handler.emitOutput("session-1", "block-1", []byte("output 1"))

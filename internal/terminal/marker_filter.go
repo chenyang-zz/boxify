@@ -16,6 +16,8 @@ package terminal
 
 import (
 	"bytes"
+	"encoding/base64"
+	"log/slog"
 	"regexp"
 	"sync"
 	"time"
@@ -24,30 +26,38 @@ import (
 // MarkerFilter 基于 OSC 133 标记的输出过滤器
 // 使用 Shell Hooks 或命令包装注入的标记来识别命令边界
 type MarkerFilter struct {
-	mu                sync.Mutex
-	buffer            bytes.Buffer
-	inCommandOutput   bool          // 是否在命令输出区域内
-	startMarkerRegex  *regexp.Regexp
-	endMarkerRegex    *regexp.Regexp
-	oscFilterRegex    *regexp.Regexp // 通用 OSC 序列过滤（排除 OSC 133）
-	createdAt         time.Time     // 过滤器创建时间
-	markerDetected    bool          // 是否已检测到标记
-	fallbackDelay     time.Duration // 降级延迟时间
-	inFallbackMode    bool          // 是否处于降级模式（透传所有输出）
+	mu               sync.Mutex
+	buffer           bytes.Buffer
+	inCommandOutput  bool // 是否在命令输出区域内
+	startMarkerRegex *regexp.Regexp
+	endMarkerRegex   *regexp.Regexp
+	pwdMarkerRegex   *regexp.Regexp // OSC 1337;Pwd 序列
+	oscGenericFilter *regexp.Regexp // 通用 OSC 序列过滤 (0, 1, 2, 7)
+	osc1337Filter    *regexp.Regexp // OSC 1337 序列过滤（在代码中排除 Pwd）
+	createdAt        time.Time      // 过滤器创建时间
+	markerDetected   bool           // 是否已检测到标记
+	fallbackDelay    time.Duration  // 降级延迟时间
+	inFallbackMode   bool           // 是否处于降级模式（透传所有输出）
+	logger           *slog.Logger
 }
 
 // NewMarkerFilter 创建标记过滤器
-func NewMarkerFilter() *MarkerFilter {
+func NewMarkerFilter(logger *slog.Logger) *MarkerFilter {
 	return &MarkerFilter{
+		logger: logger,
 		// 匹配 \x1b]133;A\x1b\ 或 \x1b]133;A\x07 (OSC 133;A - 命令开始)
 		startMarkerRegex: regexp.MustCompile(`\x1b\]133;A(?:\x1b\\|\x07)`),
 		// 匹配 \x1b]133;D;{exit_code}\x1b\ 或 \x1b]133;D;{exit_code}\x07 (OSC 133;D - 命令结束)
 		endMarkerRegex: regexp.MustCompile(`\x1b\]133;D;(\d+)(?:\x1b\\|\x07)`),
-		// 匹配需要过滤的 OSC 序列：OSC 0, 1, 2, 7, 1337 等
-		// OSC 133 用于命令边界标记，不需要过滤
-		oscFilterRegex: regexp.MustCompile(`\x1b\](?:0|1|2|7|1337);[^\x07\x1b]*(?:\x1b\\|\x07)`),
-		createdAt:      time.Now(),
-		fallbackDelay:  3 * time.Second, // 3秒后如果没检测到标记，进入降级模式
+		// 匹配 \x1b]1337;Pwd;{base64}\x1b\ 或 \x1b]1337;Pwd;{base64}\x07 (OSC 1337;Pwd - 工作路径更新)
+		pwdMarkerRegex: regexp.MustCompile(`\x1b\]1337;Pwd;([A-Za-z0-9+/=]+)(?:\x1b\\|\x07)`),
+		// 匹配需要过滤的通用 OSC 序列：OSC 0, 1, 2, 7（窗口标题等）
+		// 使用 ; 确保只匹配以数字开头后跟 ; 的序列，避免误匹配 OSC 133, 1337 等
+		oscGenericFilter: regexp.MustCompile(`\x1b\](?:0|1|2|7);[^\x07\x1b]*(?:\x1b\\|\x07)`),
+		// 匹配 OSC 1337 序列（在代码中排除 Pwd）
+		osc1337Filter: regexp.MustCompile(`\x1b\]1337;[^\x07\x1b]*(?:\x1b\\|\x07)`),
+		createdAt:     time.Now(),
+		fallbackDelay: 3 * time.Second, // 3秒后如果没检测到标记，进入降级模式
 	}
 }
 
@@ -56,6 +66,8 @@ type ProcessResult struct {
 	Output       []byte // 过滤后的输出
 	CommandEnded bool   // 命令是否结束
 	ExitCode     int    // 命令退出码（仅在 CommandEnded 为 true 时有效）
+	PwdChanged   bool   // 工作路径是否变化
+	Pwd          string // 新的工作路径（仅在 PwdChanged 为 true 时有效）
 }
 
 // Process 处理输出数据
@@ -91,31 +103,45 @@ func (f *MarkerFilter) Process(data []byte) ProcessResult {
 	f.buffer.Write(data)
 	content := f.buffer.String()
 
-	// 先移除非 OSC 133 的 OSC 序列（如 OSC 0, 1, 2, 7, 1337 等）
-	content = string(f.oscFilterRegex.ReplaceAll([]byte(content), []byte("")))
+	// 先移除通用 OSC 序列（OSC 0, 1, 2, 7 - 窗口标题等）
+	content = string(f.oscGenericFilter.ReplaceAll([]byte(content), []byte("")))
+
+	// 移除 OSC 1337 序列（排除 Pwd，Pwd 由 pwdMarkerRegex 处理）
+	// 由于 Go RE2 不支持负向先行断言，需要手动检查
+	content = f.filterOSC1337(content)
 
 	var result bytes.Buffer
 	var commandEnded bool
 	var exitCode int
+	var pwdChanged bool
+	var pwd string
 
 	// 循环处理所有标记
 	for {
 		startMatch := f.startMarkerRegex.FindStringIndex(content)
 		endMatch := f.endMarkerRegex.FindStringSubmatchIndex(content)
+		pwdMatch := f.pwdMarkerRegex.FindStringSubmatchIndex(content)
 
 		// 确定最先匹配的标记
 		nextMarkerIdx := -1
 		nextMarkerLen := 0
-		isEndMarker := false
+		markerType := 0 // 0: none, 1: start, 2: end, 3: pwd
 
-		if startMatch != nil && (endMatch == nil || startMatch[0] < endMatch[0]) {
+		// 找出最先出现的标记
+		if startMatch != nil {
 			nextMarkerIdx = startMatch[0]
 			nextMarkerLen = startMatch[1] - startMatch[0]
-			isEndMarker = false
-		} else if endMatch != nil {
+			markerType = 1
+		}
+		if endMatch != nil && (nextMarkerIdx == -1 || endMatch[0] < nextMarkerIdx) {
 			nextMarkerIdx = endMatch[0]
 			nextMarkerLen = endMatch[1] - endMatch[0]
-			isEndMarker = true
+			markerType = 2
+		}
+		if pwdMatch != nil && (nextMarkerIdx == -1 || pwdMatch[0] < nextMarkerIdx) {
+			nextMarkerIdx = pwdMatch[0]
+			nextMarkerLen = pwdMatch[1] - pwdMatch[0]
+			markerType = 3
 		}
 
 		// 没有找到更多标记
@@ -135,7 +161,8 @@ func (f *MarkerFilter) Process(data []byte) ProcessResult {
 			// 不在命令输出区域时，丢弃内容（命令回显、提示符等）
 		}
 
-		if isEndMarker {
+		switch markerType {
+		case 2:
 			// 结束标记
 			// 提取退出码
 			if endMatch[2] != -1 && endMatch[3] != -1 {
@@ -144,7 +171,17 @@ func (f *MarkerFilter) Process(data []byte) ProcessResult {
 			}
 			f.inCommandOutput = false
 			commandEnded = true
-		} else {
+		case 3:
+			// Pwd 标记
+			// 提取并解码 Base64 编码的路径
+			if pwdMatch[2] != -1 && pwdMatch[3] != -1 {
+				encoded := content[pwdMatch[2]:pwdMatch[3]]
+				if decoded, err := base64.StdEncoding.DecodeString(encoded); err == nil {
+					pwd = string(decoded)
+					pwdChanged = true
+				}
+			}
+		case 1:
 			// 开始标记
 			f.inCommandOutput = true
 		}
@@ -179,6 +216,8 @@ func (f *MarkerFilter) Process(data []byte) ProcessResult {
 		Output:       result.Bytes(),
 		CommandEnded: commandEnded,
 		ExitCode:     exitCode,
+		PwdChanged:   pwdChanged,
+		Pwd:          pwd,
 	}
 }
 
@@ -212,8 +251,21 @@ func parseInt(s string) int {
 	var result int
 	for _, c := range s {
 		if c >= '0' && c <= '9' {
-			result = result*10 + int(c - '0')
+			result = result*10 + int(c-'0')
 		}
 	}
 	return result
+}
+
+// filterOSC1337 过滤 OSC 1337 序列，但保留 Pwd 序列
+func (f *MarkerFilter) filterOSC1337(content string) string {
+	// 使用 ReplaceAllFunc 来检查每个匹配是否是 Pwd 序列
+	return string(f.osc1337Filter.ReplaceAllFunc([]byte(content), func(match []byte) []byte {
+		// 如果是 OSC 1337;Pwd 序列，保留它
+		if bytes.HasPrefix(match, []byte("\x1b]1337;Pwd")) {
+			return match
+		}
+		// 其他 OSC 1337 序列，移除
+		return []byte("")
+	}))
 }

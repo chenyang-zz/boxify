@@ -22,7 +22,7 @@ import (
 )
 
 func TestNewShellConfigGenerator(t *testing.T) {
-	gen := NewShellConfigGenerator()
+	gen := NewShellConfigGenerator(testLogger)
 	if gen == nil {
 		t.Fatal("NewShellConfigGenerator returned nil")
 	}
@@ -32,7 +32,7 @@ func TestNewShellConfigGenerator(t *testing.T) {
 }
 
 func TestShellConfigGenerator_GenerateConfig_Zsh(t *testing.T) {
-	gen := NewShellConfigGenerator()
+	gen := NewShellConfigGenerator(testLogger)
 	sessionID := "test123"
 
 	configPath, err := gen.GenerateConfig(ShellTypeZsh, sessionID)
@@ -85,7 +85,7 @@ func TestShellConfigGenerator_GenerateConfig_Zsh(t *testing.T) {
 }
 
 func TestShellConfigGenerator_GenerateConfig_Bash(t *testing.T) {
-	gen := NewShellConfigGenerator()
+	gen := NewShellConfigGenerator(testLogger)
 	sessionID := "bash456"
 
 	configPath, err := gen.GenerateConfig(ShellTypeBash, sessionID)
@@ -118,7 +118,7 @@ func TestShellConfigGenerator_GenerateConfig_Bash(t *testing.T) {
 }
 
 func TestShellConfigGenerator_GenerateConfig_PowerShell(t *testing.T) {
-	gen := NewShellConfigGenerator()
+	gen := NewShellConfigGenerator(testLogger)
 	sessionID := "ps789"
 
 	configPath, err := gen.GenerateConfig(ShellTypePowershell, sessionID)
@@ -151,7 +151,7 @@ func TestShellConfigGenerator_GenerateConfig_PowerShell(t *testing.T) {
 }
 
 func TestShellConfigGenerator_GenerateConfig_Pwsh(t *testing.T) {
-	gen := NewShellConfigGenerator()
+	gen := NewShellConfigGenerator(testLogger)
 	sessionID := "pwsh123"
 
 	configPath, err := gen.GenerateConfig(ShellTypePwsh, sessionID)
@@ -167,7 +167,7 @@ func TestShellConfigGenerator_GenerateConfig_Pwsh(t *testing.T) {
 }
 
 func TestShellConfigGenerator_GenerateConfig_UnsupportedShell(t *testing.T) {
-	gen := NewShellConfigGenerator()
+	gen := NewShellConfigGenerator(testLogger)
 
 	unsupportedShells := []ShellType{ShellTypeCmd, ShellTypeSh, ShellTypeAuto}
 
@@ -185,7 +185,7 @@ func TestShellConfigGenerator_GenerateConfig_UnsupportedShell(t *testing.T) {
 }
 
 func TestShellConfigGenerator_Cleanup(t *testing.T) {
-	gen := NewShellConfigGenerator()
+	gen := NewShellConfigGenerator(testLogger)
 
 	// 创建临时文件
 	configPath, err := gen.GenerateConfig(ShellTypeBash, "cleanup_test")
@@ -210,7 +210,7 @@ func TestShellConfigGenerator_Cleanup(t *testing.T) {
 }
 
 func TestShellConfigGenerator_Cleanup_EmptyPath(t *testing.T) {
-	gen := NewShellConfigGenerator()
+	gen := NewShellConfigGenerator(testLogger)
 
 	// 空路径应该不报错
 	err := gen.Cleanup("")
@@ -220,7 +220,7 @@ func TestShellConfigGenerator_Cleanup_EmptyPath(t *testing.T) {
 }
 
 func TestShellConfigGenerator_Cleanup_NonExistentFile(t *testing.T) {
-	gen := NewShellConfigGenerator()
+	gen := NewShellConfigGenerator(testLogger)
 
 	// 不存在的文件应该返回错误
 	err := gen.Cleanup("/non/existent/file.bash")
@@ -230,7 +230,7 @@ func TestShellConfigGenerator_Cleanup_NonExistentFile(t *testing.T) {
 }
 
 func TestShellConfigGenerator_GetShellArgs_Zsh(t *testing.T) {
-	gen := NewShellConfigGenerator()
+	gen := NewShellConfigGenerator(testLogger)
 	configPath := "/tmp/test_zdotdir"
 
 	args, needsSource := gen.GetShellArgs(ShellTypeZsh, configPath)
@@ -248,7 +248,7 @@ func TestShellConfigGenerator_GetShellArgs_Zsh(t *testing.T) {
 }
 
 func TestShellConfigGenerator_GetShellArgs_Bash(t *testing.T) {
-	gen := NewShellConfigGenerator()
+	gen := NewShellConfigGenerator(testLogger)
 	configPath := "/tmp/test.bash"
 
 	args, needsSource := gen.GetShellArgs(ShellTypeBash, configPath)
@@ -271,7 +271,7 @@ func TestShellConfigGenerator_GetShellArgs_Bash(t *testing.T) {
 }
 
 func TestShellConfigGenerator_GetShellArgs_PowerShell(t *testing.T) {
-	gen := NewShellConfigGenerator()
+	gen := NewShellConfigGenerator(testLogger)
 	configPath := "/tmp/test.ps1"
 
 	args, needsSource := gen.GetShellArgs(ShellTypePowershell, configPath)
@@ -294,7 +294,7 @@ func TestShellConfigGenerator_GetShellArgs_PowerShell(t *testing.T) {
 }
 
 func TestShellConfigGenerator_GetShellArgs_Pwsh(t *testing.T) {
-	gen := NewShellConfigGenerator()
+	gen := NewShellConfigGenerator(testLogger)
 	configPath := "/tmp/test.ps1"
 
 	args, _ := gen.GetShellArgs(ShellTypePwsh, configPath)
@@ -306,7 +306,7 @@ func TestShellConfigGenerator_GetShellArgs_Pwsh(t *testing.T) {
 }
 
 func TestShellConfigGenerator_GetShellArgs_UnsupportedShell(t *testing.T) {
-	gen := NewShellConfigGenerator()
+	gen := NewShellConfigGenerator(testLogger)
 
 	unsupportedShells := []ShellType{ShellTypeCmd, ShellTypeSh, ShellTypeAuto}
 
@@ -324,7 +324,7 @@ func TestShellConfigGenerator_GetShellArgs_UnsupportedShell(t *testing.T) {
 }
 
 func TestShellConfigGenerator_FilePermissions(t *testing.T) {
-	gen := NewShellConfigGenerator()
+	gen := NewShellConfigGenerator(testLogger)
 
 	configPath, err := gen.GenerateConfig(ShellTypeBash, "perm_test")
 	if err != nil {
@@ -345,7 +345,7 @@ func TestShellConfigGenerator_FilePermissions(t *testing.T) {
 }
 
 func TestShellConfigGenerator_UniqueFilenames(t *testing.T) {
-	gen := NewShellConfigGenerator()
+	gen := NewShellConfigGenerator(testLogger)
 
 	// 生成多个配置文件
 	paths := make([]string, 5)
@@ -370,7 +370,7 @@ func TestShellConfigGenerator_UniqueFilenames(t *testing.T) {
 }
 
 func TestShellConfigGenerator_ZshConfigContent(t *testing.T) {
-	gen := NewShellConfigGenerator()
+	gen := NewShellConfigGenerator(testLogger)
 	content := gen.getZshRcContent()
 
 	// 详细检查 zsh 配置内容
@@ -391,7 +391,7 @@ func TestShellConfigGenerator_ZshConfigContent(t *testing.T) {
 }
 
 func TestShellConfigGenerator_BashConfigContent(t *testing.T) {
-	gen := NewShellConfigGenerator()
+	gen := NewShellConfigGenerator(testLogger)
 	content := gen.getBashConfig()
 
 	requiredElements := []string{
@@ -410,7 +410,7 @@ func TestShellConfigGenerator_BashConfigContent(t *testing.T) {
 }
 
 func TestShellConfigGenerator_PowerShellConfigContent(t *testing.T) {
-	gen := NewShellConfigGenerator()
+	gen := NewShellConfigGenerator(testLogger)
 	content := gen.getPowerShellConfig()
 
 	requiredElements := []string{
@@ -430,7 +430,7 @@ func TestShellConfigGenerator_PowerShellConfigContent(t *testing.T) {
 }
 
 func TestShellConfigGenerator_FileLocation(t *testing.T) {
-	gen := NewShellConfigGenerator()
+	gen := NewShellConfigGenerator(testLogger)
 	sessionID := "location_test"
 
 	configPath, err := gen.GenerateConfig(ShellTypeBash, sessionID)

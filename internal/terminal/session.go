@@ -16,10 +16,15 @@ package terminal
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
+
+	"github.com/chenyang-zz/boxify/internal/types"
 )
 
 // TerminalConfig 终端配置
@@ -49,10 +54,16 @@ type Session struct {
 	shellType  ShellType       // shell 类型
 	useHooks   bool            // 是否使用 hooks 模式
 	configPath string          // 临时配置文件路径
+	workPath   string          // 当前工作路径
+
+	// Git 监听器（Session 自管理）
+	gitWatcher *GitWatcher
+	emitter    EventEmitter // 事件发射器（用于 Git 状态更新）
+	logger     *slog.Logger
 }
 
 // NewSession 创建新的终端会话
-func NewSession(ctx context.Context, id string, pty *os.File, cmd *exec.Cmd, shellType ShellType, useHooks bool) *Session {
+func NewSession(ctx context.Context, id string, pty *os.File, cmd *exec.Cmd, shellType ShellType, useHooks bool, logger *slog.Logger) *Session {
 	sessionCtx, sessionCancel := context.WithCancel(ctx)
 
 	return &Session{
@@ -62,11 +73,80 @@ func NewSession(ctx context.Context, id string, pty *os.File, cmd *exec.Cmd, she
 		CreatedAt: time.Now(),
 		ctx:       sessionCtx,
 		cancel:    sessionCancel,
-		filter:    NewMarkerFilter(),
-		wrapper:   NewCommandWrapper(shellType),
+		filter:    NewMarkerFilter(logger),
+		wrapper:   NewCommandWrapper(shellType, testLogger),
 		shellType: shellType,
 		useHooks:  useHooks,
+		logger:    logger,
 	}
+}
+
+// SetEmitter 设置事件发射器
+func (s *Session) SetEmitter(emitter EventEmitter) {
+	s.emitter = emitter
+}
+
+// SetLogger 设置日志器
+func (s *Session) SetLogger(logger *slog.Logger) {
+	s.logger = logger
+}
+
+// StartGitWatcher 启动 Git 监听器
+// 返回初始 Git 状态
+func (s *Session) StartGitWatcher() *types.GitInfo {
+	if s.gitWatcher != nil {
+		s.gitWatcher.Stop()
+	}
+
+	s.gitWatcher = NewGitWatcher(s.emitter, s.logger)
+	status, err := s.gitWatcher.Start(s.ID, s.workPath)
+	if err != nil {
+		if s.logger != nil {
+			s.logger.Warn("启动 Git 监听失败", "sessionId", s.ID, "error", err)
+		}
+		return nil
+	}
+
+	return status
+}
+
+// StopGitWatcher 停止 Git 监听器
+func (s *Session) StopGitWatcher() {
+	if s.gitWatcher != nil {
+		s.gitWatcher.Stop()
+		s.gitWatcher = nil
+	}
+}
+
+// UpdateGitWorkPath 更新 Git 监听器的工作目录
+func (s *Session) UpdateGitWorkPath(newPwd string) *types.GitInfo {
+	// 转换 ~ 为用户目录
+	workPath := newPwd
+	if strings.HasPrefix(newPwd, "~") {
+		homeDir, err := os.UserHomeDir()
+		if err == nil {
+			workPath = filepath.Join(homeDir, newPwd[1:])
+		}
+	}
+
+	// 更新 session 的工作路径
+	s.SetWorkPath(workPath)
+
+	// 更新 Git 监听器
+	if s.gitWatcher != nil {
+		status, err := s.gitWatcher.UpdateWorkPath(workPath)
+		if err != nil && s.logger != nil {
+			s.logger.Warn("更新 Git 监听路径失败", "sessionId", s.ID, "error", err)
+		}
+		return status
+	}
+
+	return nil
+}
+
+// GitWatcher 返回 Git 监听器
+func (s *Session) GitWatcher() *GitWatcher {
+	return s.gitWatcher
 }
 
 // Context 返回会话的 context
@@ -125,10 +205,23 @@ func (s *Session) SetCurrentBlock(blockID string) {
 	s.currentBlock = blockID
 }
 
+// WorkPath 返回当前工作路径
+func (s *Session) WorkPath() string {
+	return s.workPath
+}
+
+// SetWorkPath 设置当前工作路径
+func (s *Session) SetWorkPath(path string) {
+	s.workPath = path
+}
+
 // Close 关闭会话资源（不含 Process.Wait）
 func (s *Session) Close() {
 	// 先取消 context，通知读取循环退出
 	s.Cancel()
+
+	// 停止 Git 监听器
+	s.StopGitWatcher()
 
 	if s.Pty != nil {
 		s.Pty.Close()

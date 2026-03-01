@@ -19,19 +19,21 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/chenyang-zz/boxify/internal/logger"
+	"log/slog"
 )
 
 // ShellConfigGenerator 生成 shell 临时配置文件
 // 用于注入 Shell Hooks 以输出 OSC 133 标记
 type ShellConfigGenerator struct {
 	tempDir string
+	logger  *slog.Logger
 }
 
 // NewShellConfigGenerator 创建配置生成器
-func NewShellConfigGenerator() *ShellConfigGenerator {
+func NewShellConfigGenerator(logger *slog.Logger) *ShellConfigGenerator {
 	return &ShellConfigGenerator{
 		tempDir: os.TempDir(),
+		logger:  logger,
 	}
 }
 
@@ -69,7 +71,7 @@ func (g *ShellConfigGenerator) generateZshConfig(sessionID string) (string, erro
 		return "", fmt.Errorf("写入 .zshrc 失败: %w", err)
 	}
 
-	logger.Info("shell配置信息加载成功", "shellType", ShellTypeZsh, "configPath", tempDir)
+	g.logger.Info("shell配置信息加载成功", "shellType", ShellTypeZsh, "configPath", tempDir)
 
 	return tempDir, nil
 }
@@ -84,7 +86,7 @@ func (g *ShellConfigGenerator) generateBashConfig(sessionID string) (string, err
 		return "", fmt.Errorf("写入配置文件失败: %w", err)
 	}
 
-	logger.Info("shell配置信息加载成功", "shellType", ShellTypeBash, "configPath", configPath)
+	g.logger.Info("shell配置信息加载成功", "shellType", ShellTypeBash, "configPath", configPath)
 
 	return configPath, nil
 }
@@ -99,7 +101,7 @@ func (g *ShellConfigGenerator) generatePowerShellConfig(sessionID string) (strin
 		return "", fmt.Errorf("写入配置文件失败: %w", err)
 	}
 
-	logger.Info("shell配置信息加载成功", "shellType", ShellTypePowershell, "configPath", configPath)
+	g.logger.Info("shell配置信息加载成功", "shellType", ShellTypePowershell, "configPath", configPath)
 
 	return configPath, nil
 }
@@ -156,6 +158,12 @@ __boxify_preexec() {
 
 # 命令执行后、下一个提示符前调用
 __boxify_precmd() {
+    # 输出当前工作路径（OSC 1337;Pwd 序列）
+    local pwd="${PWD/#$HOME/~}"
+    local encoded=$(printf '%s' "$pwd" | base64)
+    printf '\e]1337;Pwd;%s\e\\' "$encoded"
+
+    # 命令结束标记
     printf '\e]133;D;%s\e\\' "$?"
 }
 
@@ -181,6 +189,13 @@ __boxify_preexec() {
 # 命令执行后调用
 __boxify_prompt_command() {
     __boxify_in_command=""
+
+    # 输出当前工作路径（OSC 1337;Pwd 序列）
+    local pwd="${PWD/#$HOME/~}"
+    local encoded=$(printf '%s' "$pwd" | base64)
+    printf '\e]1337;Pwd;%s\e\\' "$encoded"
+
+    # 命令结束标记
     printf '\e]133;D;%s\e\\' "$?"
 }
 

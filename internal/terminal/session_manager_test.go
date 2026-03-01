@@ -262,10 +262,10 @@ func TestSessionManager_Concurrent(t *testing.T) {
 
 func TestSessionManager_CloseAllWithConfigGenerator(t *testing.T) {
 	sm := NewSessionManager()
-	configGenerator := NewShellConfigGenerator()
+	configGenerator := NewShellConfigGenerator(testLogger)
 
 	// 创建一个带有配置路径的会话
-	session := NewSession(context.Background(), "test-1", os.Stdout, nil, ShellTypeBash, false)
+	session := NewSession(context.Background(), "test-1", os.Stdout, nil, ShellTypeBash, false, testLogger)
 	session.SetConfigPath("/tmp/test-config") // 设置一个假的配置路径
 	sm.Add(session)
 
@@ -282,5 +282,5 @@ func TestSessionManager_CloseAllWithConfigGenerator(t *testing.T) {
 func createTestSession(t *testing.T, id string) *Session {
 	t.Helper()
 	cmd := exec.Command("echo", "test")
-	return NewSession(context.Background(), id, os.Stdout, cmd, ShellTypeBash, false)
+	return NewSession(context.Background(), id, os.Stdout, cmd, ShellTypeBash, false, testLogger)
 }

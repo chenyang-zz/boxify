@@ -18,9 +18,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/chenyang-zz/boxify/internal/terminal"
@@ -43,7 +40,7 @@ type TerminalService struct {
 // NewTerminalService 创建终端服务
 func NewTerminalService(deps *ServiceDeps) *TerminalService {
 	shellDetector := terminal.NewShellDetector()
-	configGenerator := terminal.NewShellConfigGenerator()
+	configGenerator := terminal.NewShellConfigGenerator(deps.app.Logger)
 
 	return &TerminalService{
 		BaseService:     NewBaseService(deps),
@@ -137,13 +134,19 @@ func (ts *TerminalService) Create(config terminal.TerminalConfig) *types.Termina
 	}
 
 	// 创建会话
-	session := terminal.NewSession(context.Background(), config.ID, process.Pty, process.Cmd, validationResult.ShellType, process.UseHooks)
+	session := terminal.NewSession(context.Background(), config.ID, process.Pty, process.Cmd, validationResult.ShellType, process.UseHooks, ts.Logger())
 	session.SetConfigPath(process.ConfigPath)
+	session.SetWorkPath(validationResult.WorkPath)
+	session.SetEmitter(ts) // 设置事件发射器
+	session.SetLogger(ts.Logger())
 
 	ts.sessionManager.Add(session)
 
 	// 启动输出读取 goroutine
 	go ts.outputHandler.StartOutputLoop(session)
+
+	// 启动 Git 监听（Session 自管理）
+	gitStatus := session.StartGitWatcher()
 
 	ts.Logger().Info("终端会话创建",
 		"sessionId", config.ID,
@@ -154,7 +157,12 @@ func (ts *TerminalService) Create(config terminal.TerminalConfig) *types.Termina
 		"initialCommand", config.InitialCommand)
 
 	// 获取环境信息
-	envInfo := ts.getEnvironmentInfo(validationResult.WorkPath)
+	envInfo := terminal.GetEnvironmentInfo(validationResult.WorkPath)
+
+	// 使用 Git 监听器获取的 Git 信息（更准确）
+	if gitStatus != nil {
+		envInfo.GitInfo = gitStatus
+	}
 
 	return &types.TerminalCreateResult{
 		BaseResult: types.BaseResult{
@@ -324,184 +332,13 @@ func (ts *TerminalService) TestExample() {
 	})
 }
 
-// getEnvironmentInfo 获取终端环境信息
-func (ts *TerminalService) getEnvironmentInfo(workPath string) *types.TerminalEnvironmentInfo {
-	info := &types.TerminalEnvironmentInfo{
-		WorkPath: ts.shortenPath(workPath),
+// UpdateWorkPath 更新工作路径（由 shell hook 触发）
+func (ts *TerminalService) UpdateWorkPath(sessionID, newPwd string) {
+	session, ok := ts.sessionManager.Get(sessionID)
+	if !ok {
+		return
 	}
 
-	// 获取 Python 环境信息
-	info.PythonEnv = ts.getPythonEnv(workPath)
-
-	// 获取 Git 信息
-	info.GitInfo = ts.getGitInfo(workPath)
-
-	return info
-}
-
-// shortenPath 缩短路径，将用户目录替换为 ~
-func (ts *TerminalService) shortenPath(path string) string {
-	if path == "" {
-		return path
-	}
-
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return path
-	}
-
-	// 如果路径是用户目录或其子目录，替换为 ~
-	if path == homeDir {
-		return "~"
-	}
-
-	// 确保路径以分隔符结尾，避免部分匹配
-	homeDirWithSlash := homeDir + string(filepath.Separator)
-	if strings.HasPrefix(path, homeDirWithSlash) {
-		return "~" + path[len(homeDir):]
-	}
-
-	return path
-}
-
-// getPythonEnv 获取 Python 环境信息
-func (ts *TerminalService) getPythonEnv(workPath string) *types.PythonEnv {
-	env := &types.PythonEnv{}
-
-	// 检查 Python 是否安装
-	cmd := exec.Command("python3", "--version")
-	cmd.Dir = workPath
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		// 尝试 python 命令
-		cmd = exec.Command("python", "--version")
-		cmd.Dir = workPath
-		output, err = cmd.CombinedOutput()
-		if err != nil {
-			return env
-		}
-	}
-
-	env.HasPython = true
-	env.Version = strings.TrimSpace(string(output))
-
-	// 检测虚拟环境（按优先级检测）
-	// 1. 检测 Conda 环境
-	if condaEnv := os.Getenv("CONDA_DEFAULT_ENV"); condaEnv != "" {
-		env.EnvActive = true
-		env.EnvType = "conda"
-		env.EnvName = condaEnv
-		env.EnvPath = os.Getenv("CONDA_PREFIX")
-		return env
-	}
-
-	// 2. 检测 Pipenv 环境
-	if os.Getenv("PIPENV_ACTIVE") != "" {
-		env.EnvActive = true
-		env.EnvType = "pipenv"
-		env.EnvName = filepath.Base(workPath)
-		env.EnvPath = os.Getenv("VIRTUAL_ENV")
-		return env
-	}
-
-	// 3. 检测 Poetry 环境
-	if os.Getenv("POETRY_ACTIVE") != "" {
-		env.EnvActive = true
-		env.EnvType = "poetry"
-		env.EnvName = filepath.Base(workPath)
-		env.EnvPath = os.Getenv("VIRTUAL_ENV")
-		return env
-	}
-
-	// 4. 检测 venv/virtualenv 环境
-	if venvPath := os.Getenv("VIRTUAL_ENV"); venvPath != "" {
-		env.EnvActive = true
-		env.EnvType = "venv"
-		env.EnvPath = venvPath
-		env.EnvName = filepath.Base(venvPath)
-		return env
-	}
-
-	return env
-}
-
-// getGitInfo 获取 Git 信息
-func (ts *TerminalService) getGitInfo(workPath string) *types.GitInfo {
-	info := &types.GitInfo{}
-
-	// 检查是否是 Git 仓库
-	cmd := exec.Command("git", "rev-parse", "--is-inside-work-tree")
-	cmd.Dir = workPath
-	output, err := cmd.CombinedOutput()
-	if err != nil || strings.TrimSpace(string(output)) != "true" {
-		return info
-	}
-
-	info.IsRepo = true
-
-	// 获取当前分支
-	cmd = exec.Command("git", "branch", "--show-current")
-	cmd.Dir = workPath
-	output, err = cmd.Output()
-	if err == nil {
-		info.Branch = strings.TrimSpace(string(output))
-	}
-
-	// 获取修改统计
-	cmd = exec.Command("git", "diff", "--numstat")
-	cmd.Dir = workPath
-	output, err = cmd.Output()
-	if err == nil {
-		lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-		for _, line := range lines {
-			if line == "" {
-				continue
-			}
-			info.ModifiedFiles++
-			parts := strings.Split(line, "\t")
-			if len(parts) >= 2 {
-				// 新增行数（第一列）
-				if parts[0] != "-" {
-					var added int
-					fmt.Sscanf(parts[0], "%d", &added)
-					info.AddedLines += added
-				}
-				// 删除行数（第二列）
-				if parts[1] != "-" {
-					var deleted int
-					fmt.Sscanf(parts[1], "%d", &deleted)
-					info.DeletedLines += deleted
-				}
-			}
-		}
-	}
-
-	// 获取暂存区修改统计
-	cmd = exec.Command("git", "diff", "--cached", "--numstat")
-	cmd.Dir = workPath
-	output, err = cmd.Output()
-	if err == nil {
-		lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-		for _, line := range lines {
-			if line == "" {
-				continue
-			}
-			info.ModifiedFiles++
-			parts := strings.Split(line, "\t")
-			if len(parts) >= 2 {
-				if parts[0] != "-" {
-					var added int
-					fmt.Sscanf(parts[0], "%d", &added)
-					info.AddedLines += added
-				}
-				if parts[1] != "-" {
-					var deleted int
-					fmt.Sscanf(parts[1], "%d", &deleted)
-					info.DeletedLines += deleted
-				}
-			}
-		}
-	}
-
-	return info
+	// 使用 Session 的方法更新工作路径和 Git 监听器
+	session.UpdateGitWorkPath(newPwd)
 }

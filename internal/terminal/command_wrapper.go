@@ -16,6 +16,7 @@ package terminal
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 )
 
@@ -54,12 +55,14 @@ func (s ShellType) SupportsHooks() bool {
 // 为命令添加 OSC 133 标记，用于在不支持 hooks 的 shell 中识别命令边界
 type CommandWrapper struct {
 	shellType ShellType
+	logger    *slog.Logger
 }
 
 // NewCommandWrapper 创建命令包装器
-func NewCommandWrapper(shellType ShellType) *CommandWrapper {
+func NewCommandWrapper(shellType ShellType, logger *slog.Logger) *CommandWrapper {
 	return &CommandWrapper{
 		shellType: shellType,
+		logger:    logger,
 	}
 }
 
