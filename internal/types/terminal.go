@@ -17,6 +17,33 @@ package types
 // TerminalCreateResult 终端创建结果
 type TerminalCreateResult struct {
 	BaseResult
+	Data *TerminalEnvironmentInfo `json:"data,omitempty"` // 环境信息
+}
+
+// TerminalEnvironmentInfo 终端环境信息
+type TerminalEnvironmentInfo struct {
+	WorkPath       string     `json:"workPath,omitempty"`       // 当前工作路径
+	PythonEnv      *PythonEnv `json:"pythonEnv,omitempty"`      // Python 环境信息
+	GitInfo        *GitInfo   `json:"gitInfo,omitempty"`        // Git 信息
+}
+
+// PythonEnv Python 环境信息
+type PythonEnv struct {
+	HasPython bool   `json:"hasPython"`          // 是否安装了 Python
+	Version   string `json:"version,omitempty"`  // Python 版本
+	EnvActive bool   `json:"envActive"`          // 是否激活了虚拟环境
+	EnvType   string `json:"envType,omitempty"`  // 环境类型: venv, virtualenv, conda, pipenv, poetry
+	EnvName   string `json:"envName,omitempty"`  // 虚拟环境名称
+	EnvPath   string `json:"envPath,omitempty"`  // 虚拟环境路径
+}
+
+// GitInfo Git 信息
+type GitInfo struct {
+	IsRepo         bool   `json:"isRepo"`                 // 是否是 Git 仓库
+	Branch         string `json:"branch,omitempty"`       // 当前分支
+	ModifiedFiles  int    `json:"modifiedFiles"`          // 修改的文件数
+	AddedLines     int    `json:"addedLines"`             // 新增代码行数
+	DeletedLines   int    `json:"deletedLines"`           // 删除代码行数
 }
 
 // TerminalTestConfigResult 终端配置测试结果

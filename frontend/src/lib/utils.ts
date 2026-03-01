@@ -13,15 +13,16 @@ interface BaseResult {
 }
 
 // 封装一个函数用于调用Wails后端函数，并统一处理错误
-export async function callWails<
-  T extends (...args: any[]) => Promise<BaseResult | null>,
->(fn: T, ...args: Parameters<T>) {
+export async function callWails<T extends BaseResult | null>(
+  fn: (...args: any[]) => Promise<T>,
+  ...args: Parameters<typeof fn>
+) {
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   try {
     const res = await Promise.race([
       fn(...args),
-      new Promise<QueryResult>((_, reject) => {
+      new Promise<T>((_, reject) => {
         timer = setTimeout(() => reject(new Error("请求超时")), 10000);
       }),
     ]);

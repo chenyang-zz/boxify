@@ -19,11 +19,14 @@ import type { TerminalConfig } from "@/types/property";
 import { AnsiParser } from "./ansi-parser";
 import { useTerminalStore } from "../store/terminal.store";
 import { defaultTheme } from "../types/theme";
+import { callWails } from "@/lib/utils";
+import { TerminalEnvironmentInfo } from "@wails/types/models";
 
 interface CachedSession {
   isInitialized: boolean;
   parser: AnsiParser;
   unbindCallbacks: (() => void)[];
+  environmentInfo?: TerminalEnvironmentInfo;
 }
 
 class TerminalSessionManager {
@@ -168,12 +171,13 @@ class TerminalSessionManager {
   async initialize(
     sessionId: string,
     terminalConfig: TerminalConfig,
-  ): Promise<void> {
+  ): Promise<TerminalEnvironmentInfo | undefined> {
     const session = this.sessions.get(sessionId);
     if (!session || session.isInitialized) return;
 
     try {
-      const res = await TerminalService.Create(
+      const res = await callWails(
+        TerminalService.Create,
         GoTerminalConfig.createFrom({
           id: sessionId,
           shell: terminalConfig.shell,
@@ -184,12 +188,10 @@ class TerminalSessionManager {
         }),
       );
 
-      if (res && res.success) {
-        session.isInitialized = true;
-        console.log("终端会话创建成功:", sessionId);
-      } else {
-        console.error("创建终端失败:", res?.message || "未知错误");
-      }
+      session.isInitialized = true;
+      session.environmentInfo = res.data ?? undefined;
+      console.log("终端会话创建成功:", sessionId);
+      return session.environmentInfo;
     } catch (err) {
       console.error("创建终端失败:", err);
     }

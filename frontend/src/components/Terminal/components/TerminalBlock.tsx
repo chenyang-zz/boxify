@@ -27,13 +27,11 @@ import { OutputRenderer } from "./OutputRenderer";
 interface TerminalBlockProps {
   block: TerminalBlockType;
   theme: TerminalTheme;
-  onToggleCollapse: () => void;
 }
 
 export const TerminalBlock = memo(function TerminalBlock({
   block,
   theme,
-  onToggleCollapse,
 }: TerminalBlockProps) {
   // 复制命令和输出
   const handleCopy = useCallback(async () => {
@@ -69,10 +67,7 @@ export const TerminalBlock = memo(function TerminalBlock({
   return (
     <div className="terminal-block border-t first:border-0 p-3">
       {/* Block 头部 */}
-      <div
-        className="block-header flex items-center gap-2"
-        onClick={onToggleCollapse}
-      >
+      <div className="block-header flex items-center gap-2">
         <div className=" select-none text-xs text-secondary-foreground flex gap-2">
           <span>base</span>
           <span>~/Workspace/Boxify</span>

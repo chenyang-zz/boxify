@@ -14,11 +14,7 @@
 
 import { create } from "zustand";
 import { v4 as uuid } from "uuid";
-import type {
-  TerminalBlock,
-  OutputLine,
-  BlockStatus,
-} from "../types/block";
+import type { TerminalBlock, OutputLine, BlockStatus } from "../types/block";
 import type { TerminalTheme } from "../types/theme";
 import { defaultTheme } from "../types/theme";
 
@@ -43,21 +39,27 @@ interface TerminalState {
     sessionId: string,
     blockId: string,
     content: string,
-    formattedContent: OutputLine["formattedContent"]
+    formattedContent: OutputLine["formattedContent"],
   ) => void;
   appendToLastLine: (
     sessionId: string,
     blockId: string,
     content: string,
-    formattedContent: OutputLine["formattedContent"]
+    formattedContent: OutputLine["formattedContent"],
   ) => void;
   finalizeBlock: (sessionId: string, blockId: string, exitCode: number) => void;
-  updateBlockStatus: (sessionId: string, blockId: string, status: BlockStatus) => void;
-  toggleBlockCollapse: (sessionId: string, blockId: string) => void;
+  updateBlockStatus: (
+    sessionId: string,
+    blockId: string,
+    status: BlockStatus,
+  ) => void;
 
   // === 历史操作 ===
   addToHistory: (sessionId: string, command: string) => void;
-  navigateHistory: (sessionId: string, direction: "up" | "down") => string | null;
+  navigateHistory: (
+    sessionId: string,
+    direction: "up" | "down",
+  ) => string | null;
   resetHistoryIndex: (sessionId: string) => void;
 
   // === 会话管理 ===
@@ -82,7 +84,6 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       output: [],
       status: "running",
       startTime: Date.now(),
-      isCollapsed: false,
     };
 
     set((state) => ({
@@ -103,7 +104,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     sessionId: string,
     blockId: string,
     content: string,
-    formattedContent: OutputLine["formattedContent"]
+    formattedContent: OutputLine["formattedContent"],
   ) => {
     const newLine: OutputLine = {
       id: uuid(),
@@ -122,7 +123,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
           [sessionId]: blocks.map((block) =>
             block.id === blockId
               ? { ...block, output: [...block.output, newLine] }
-              : block
+              : block,
           ),
         },
       };
@@ -133,7 +134,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     sessionId: string,
     blockId: string,
     content: string,
-    formattedContent: OutputLine["formattedContent"]
+    formattedContent: OutputLine["formattedContent"],
   ) => {
     set((state) => {
       const blocks = state.sessionBlocks[sessionId];
@@ -153,7 +154,10 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
           {
             ...lastLine,
             content: lastLine.content + content,
-            formattedContent: [...lastLine.formattedContent, ...formattedContent],
+            formattedContent: [
+              ...lastLine.formattedContent,
+              ...formattedContent,
+            ],
           },
         ];
       } else {
@@ -170,7 +174,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
         sessionBlocks: {
           ...state.sessionBlocks,
           [sessionId]: blocks.map((b, i) =>
-            i === blockIndex ? { ...b, output: newOutput } : b
+            i === blockIndex ? { ...b, output: newOutput } : b,
           ),
         },
       };
@@ -193,7 +197,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
                   endTime: Date.now(),
                   exitCode,
                 }
-              : block
+              : block,
           ),
         },
         currentBlockIds: {
@@ -204,7 +208,11 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     });
   },
 
-  updateBlockStatus: (sessionId: string, blockId: string, status: BlockStatus) => {
+  updateBlockStatus: (
+    sessionId: string,
+    blockId: string,
+    status: BlockStatus,
+  ) => {
     set((state) => {
       const blocks = state.sessionBlocks[sessionId];
       if (!blocks) return state;
@@ -213,25 +221,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
         sessionBlocks: {
           ...state.sessionBlocks,
           [sessionId]: blocks.map((block) =>
-            block.id === blockId ? { ...block, status } : block
-          ),
-        },
-      };
-    });
-  },
-
-  toggleBlockCollapse: (sessionId: string, blockId: string) => {
-    set((state) => {
-      const blocks = state.sessionBlocks[sessionId];
-      if (!blocks) return state;
-
-      return {
-        sessionBlocks: {
-          ...state.sessionBlocks,
-          [sessionId]: blocks.map((block) =>
-            block.id === blockId
-              ? { ...block, isCollapsed: !block.isCollapsed }
-              : block
+            block.id === blockId ? { ...block, status } : block,
           ),
         },
       };

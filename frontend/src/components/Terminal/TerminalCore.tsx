@@ -18,6 +18,7 @@ import { useTerminalStore } from "./store/terminal.store";
 import { TerminalBlock } from "./components/TerminalBlock";
 import { InputEditor } from "./components/InputEditor";
 import type { TerminalConfig } from "@/types/property";
+import { TerminalEnvironmentInfo } from "@wails/types/models";
 
 interface TerminalCoreProps {
   sessionId: string;
@@ -28,13 +29,14 @@ export function TerminalCore({ sessionId, config }: TerminalCoreProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [envInfo, setEnvInfo] = useState<TerminalEnvironmentInfo | undefined>(
+    undefined,
+  );
 
   // 直接从 store 获取数据
   const sessionBlocks = useTerminalStore((state) => state.sessionBlocks);
   const theme = useTerminalStore((state) => state.currentTheme);
-  const toggleBlockCollapse = useTerminalStore(
-    (state) => state.toggleBlockCollapse,
-  );
+
   const addToHistory = useTerminalStore((state) => state.addToHistory);
   const createBlock = useTerminalStore((state) => state.createBlock);
 
@@ -50,10 +52,12 @@ export function TerminalCore({ sessionId, config }: TerminalCoreProps) {
     const session = terminalSessionManager.getOrCreate(sessionId);
 
     if (!session.isInitialized) {
-      terminalSessionManager.initialize(sessionId, config).then(() => {
+      terminalSessionManager.initialize(sessionId, config).then((env) => {
+        setEnvInfo(env);
         setIsInitialized(true);
       });
     } else {
+      setEnvInfo(session.environmentInfo);
       setIsInitialized(true);
     }
   }, [sessionId, config, isInitialized]);
@@ -110,14 +114,6 @@ export function TerminalCore({ sessionId, config }: TerminalCoreProps) {
     return () => window.removeEventListener("resize", handleResize);
   }, [sessionId]);
 
-  // 处理折叠
-  const handleToggleCollapse = useCallback(
-    (blockId: string) => {
-      toggleBlockCollapse(sessionId, blockId);
-    },
-    [sessionId, toggleBlockCollapse],
-  );
-
   return (
     <div
       ref={containerRef}
@@ -133,12 +129,7 @@ export function TerminalCore({ sessionId, config }: TerminalCoreProps) {
         }}
       >
         {blocks.map((block) => (
-          <TerminalBlock
-            key={block.id}
-            block={block}
-            theme={theme}
-            onToggleCollapse={() => handleToggleCollapse(block.id)}
-          />
+          <TerminalBlock key={block.id} block={block} theme={theme} />
         ))}
 
         {/* 空状态提示 */}
@@ -151,14 +142,17 @@ export function TerminalCore({ sessionId, config }: TerminalCoreProps) {
       </div>
 
       {/* 输入区域 */}
-      <div className="input-area border-t">
-        <InputEditor
-          sessionId={sessionId}
-          theme={theme}
-          onSubmit={handleCommandSubmit}
-          onResize={scrollToBottom}
-        />
-      </div>
+      {envInfo && (
+        <div className="input-area border-t">
+          <InputEditor
+            sessionId={sessionId}
+            theme={theme}
+            onSubmit={handleCommandSubmit}
+            onResize={scrollToBottom}
+            envInfo={envInfo}
+          />
+        </div>
+      )}
     </div>
   );
 }

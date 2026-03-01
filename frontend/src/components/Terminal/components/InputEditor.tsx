@@ -12,23 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, use, useMemo } from "react";
 import { terminalSessionManager } from "../lib/session-manager";
 import { useTerminalStore } from "../store/terminal.store";
 import type { TerminalTheme } from "../types/theme";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import {
-  DotIcon,
   FileIcon,
   FolderIcon,
   GitBranchIcon,
   TerminalIcon,
 } from "lucide-react";
+import { TerminalEnvironmentInfo } from "@wails/types/models";
 
 interface InputEditorProps {
   sessionId: string;
   theme: TerminalTheme;
+  envInfo: TerminalEnvironmentInfo;
   onSubmit: (command: string) => void;
   onResize?: () => void;
 }
@@ -36,6 +36,7 @@ interface InputEditorProps {
 export function InputEditor({
   sessionId,
   theme,
+  envInfo,
   onSubmit,
   onResize,
 }: InputEditorProps) {
@@ -166,37 +167,55 @@ export function InputEditor({
     inputRef.current?.focus();
   }, []);
 
+  // 是否有 Python 环境
+  const hasPythonEnv = useMemo(() => {
+    return envInfo?.pythonEnv?.hasPython && envInfo?.pythonEnv?.envActive;
+  }, [envInfo?.pythonEnv]);
+
+  // 是否在 Git 仓库中
+  const hasGitRepo = useMemo(() => {
+    return envInfo?.gitInfo?.isRepo;
+  }, [envInfo?.gitInfo]);
+
   return (
     <div className="input-editor-wrapper flex flex-col items-start px-3 py-2 ">
       <div className="flex items-center gap-1.5 shrink-0">
-        <Badge variant="secondary" className="border text-yellow-200 ">
-          <TerminalIcon />
-          base
-        </Badge>
+        {hasPythonEnv && (
+          <Badge variant="secondary" className="border text-yellow-200 ">
+            <TerminalIcon />
+            {envInfo?.pythonEnv?.envName}
+          </Badge>
+        )}
         <Badge
           variant="secondary"
           className="border text-cyan-200 hover:bg-accent cursor-pointer"
         >
-          <FolderIcon /> ~/Workspace/Boxify
+          <FolderIcon /> {envInfo?.workPath}
         </Badge>
-        <Badge
-          variant="secondary"
-          className="border p-0 gap-0 flex items-center "
-        >
+        {hasGitRepo && (
           <Badge
-            variant="ghost"
-            className="text-green-200 hover:bg-accent cursor-pointer"
+            variant="secondary"
+            className="border p-0 gap-0 flex items-center "
           >
-            <GitBranchIcon className="text-xs" /> main
+            <Badge
+              variant="ghost"
+              className="text-green-200 hover:bg-accent cursor-pointer"
+            >
+              <GitBranchIcon className="text-xs" /> {envInfo?.gitInfo?.branch}
+            </Badge>
+            <span className="w-1 h-2 border-l" />
+            <Badge variant="ghost" className="hover:bg-accent cursor-pointer">
+              <FileIcon />
+              {envInfo?.gitInfo?.modifiedFiles}
+              <span className="text-green-500 font-bold ml-1">
+                +{envInfo?.gitInfo?.addedLines}
+              </span>
+              <span className="text-red-500 font-bold">
+                -{envInfo?.gitInfo?.deletedLines}
+              </span>
+            </Badge>
           </Badge>
-          <span className="w-1 h-2 border-l" />
-          <Badge variant="ghost" className="hover:bg-accent cursor-pointer">
-            <FileIcon />
-            10
-            <span className="text-green-500 font-bold ml-1">+255</span>
-            <span className="text-red-500 font-bold">-266</span>
-          </Badge>
-        </Badge>
+        )}
       </div>
       <div
         className="flex items-start flex-1 pt-1 w-full"
