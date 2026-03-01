@@ -45,11 +45,19 @@ export function TerminalCore({ sessionId, config }: TerminalCoreProps) {
     return sessionBlocks[sessionId] || [];
   }, [sessionBlocks, sessionId]);
 
+  // 使用 useCallback 缓存环境变化回调
+  const handleEnvChange = useCallback((env: TerminalEnvironmentInfo) => {
+    setEnvInfo(env);
+  }, []);
+
   // 初始化后端会话
   useEffect(() => {
     if (isInitialized) return;
 
     const session = terminalSessionManager.getOrCreate(sessionId);
+
+    // 设置环境变化回调
+    terminalSessionManager.setEnvChangeCallback(sessionId, handleEnvChange);
 
     if (!session.isInitialized) {
       terminalSessionManager.initialize(sessionId, config).then((env) => {
@@ -60,7 +68,12 @@ export function TerminalCore({ sessionId, config }: TerminalCoreProps) {
       setEnvInfo(session.environmentInfo);
       setIsInitialized(true);
     }
-  }, [sessionId, config, isInitialized]);
+
+    // 清理回调
+    return () => {
+      terminalSessionManager.setEnvChangeCallback(sessionId, () => {});
+    };
+  }, [sessionId, config, isInitialized, handleEnvChange]);
 
   // 自动滚动到底部
   const scrollToBottom = useCallback(() => {

@@ -15,12 +15,13 @@
 package terminal
 
 import (
+	"encoding/base64"
 	"testing"
 	"time"
 )
 
 func TestNewMarkerFilter(t *testing.T) {
-	filter := NewMarkerFilter()
+	filter := NewMarkerFilter(testLogger)
 	if filter == nil {
 		t.Fatal("NewMarkerFilter returned nil")
 	}
@@ -36,7 +37,7 @@ func TestNewMarkerFilter(t *testing.T) {
 }
 
 func TestMarkerFilter_Process_StartEndMarker(t *testing.T) {
-	filter := NewMarkerFilter()
+	filter := NewMarkerFilter(testLogger)
 
 	// 模拟命令开始标记
 	startMarker := "\x1b]133;A\x1b\\"
@@ -54,7 +55,7 @@ func TestMarkerFilter_Process_StartEndMarker(t *testing.T) {
 }
 
 func TestMarkerFilter_Process_CommandOutput(t *testing.T) {
-	filter := NewMarkerFilter()
+	filter := NewMarkerFilter(testLogger)
 
 	// 发送开始标记
 	startMarker := "\x1b]133;A\x1b\\"
@@ -73,7 +74,7 @@ func TestMarkerFilter_Process_CommandOutput(t *testing.T) {
 }
 
 func TestMarkerFilter_Process_EndMarker(t *testing.T) {
-	filter := NewMarkerFilter()
+	filter := NewMarkerFilter(testLogger)
 
 	// 完整流程：开始标记 -> 输出 -> 结束标记
 	startMarker := "\x1b]133;A\x1b\\"
@@ -99,9 +100,9 @@ func TestMarkerFilter_Process_EndMarker(t *testing.T) {
 
 func TestMarkerFilter_Process_EndMarkerWithExitCode(t *testing.T) {
 	tests := []struct {
-		name           string
-		endMarker      string
-		expectedExit   int
+		name         string
+		endMarker    string
+		expectedExit int
 	}{
 		{"exit code 0", "\x1b]133;D;0\x1b\\", 0},
 		{"exit code 1", "\x1b]133;D;1\x1b\\", 1},
@@ -111,7 +112,7 @@ func TestMarkerFilter_Process_EndMarkerWithExitCode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			filter := NewMarkerFilter()
+			filter := NewMarkerFilter(testLogger)
 
 			// 处理开始和结束标记
 			filter.Process([]byte("\x1b]133;A\x1b\\"))
@@ -128,7 +129,7 @@ func TestMarkerFilter_Process_EndMarkerWithExitCode(t *testing.T) {
 }
 
 func TestMarkerFilter_Process_AlternativeEndMarker(t *testing.T) {
-	filter := NewMarkerFilter()
+	filter := NewMarkerFilter(testLogger)
 
 	// 使用 BEL (\x07) 作为终止符的标记
 	startMarker := "\x1b]133;A\x07"
@@ -143,7 +144,7 @@ func TestMarkerFilter_Process_AlternativeEndMarker(t *testing.T) {
 }
 
 func TestMarkerFilter_Process_OutputBeforeStartMarker(t *testing.T) {
-	filter := NewMarkerFilter()
+	filter := NewMarkerFilter(testLogger)
 
 	// 在开始标记之前的输出应该被丢弃（命令回显、提示符等）
 	beforeOutput := "prompt$ "
@@ -170,7 +171,7 @@ func TestMarkerFilter_Process_OutputBeforeStartMarker(t *testing.T) {
 }
 
 func TestMarkerFilter_Process_MultipleCommands(t *testing.T) {
-	filter := NewMarkerFilter()
+	filter := NewMarkerFilter(testLogger)
 
 	// 模拟多个命令的执行
 	commands := []struct {
@@ -207,7 +208,7 @@ func TestMarkerFilter_Process_MultipleCommands(t *testing.T) {
 }
 
 func TestMarkerFilter_Reset(t *testing.T) {
-	filter := NewMarkerFilter()
+	filter := NewMarkerFilter(testLogger)
 
 	// 进入命令输出状态
 	filter.Process([]byte("\x1b]133;A\x1b\\"))
@@ -223,7 +224,7 @@ func TestMarkerFilter_Reset(t *testing.T) {
 }
 
 func TestMarkerFilter_Process_SplitMarker(t *testing.T) {
-	filter := NewMarkerFilter()
+	filter := NewMarkerFilter(testLogger)
 
 	// 模拟标记被分割成多个数据块
 	part1 := "\x1b]133"
@@ -242,7 +243,7 @@ func TestMarkerFilter_Process_SplitMarker(t *testing.T) {
 }
 
 func TestMarkerFilter_Process_FallbackMode(t *testing.T) {
-	filter := NewMarkerFilter()
+	filter := NewMarkerFilter(testLogger)
 	// 修改 fallbackDelay 以便测试
 	filter.fallbackDelay = 10 * time.Millisecond
 
@@ -262,7 +263,7 @@ func TestMarkerFilter_Process_FallbackMode(t *testing.T) {
 }
 
 func TestMarkerFilter_Process_CompleteFlow(t *testing.T) {
-	filter := NewMarkerFilter()
+	filter := NewMarkerFilter(testLogger)
 
 	// 模拟完整的终端输出流
 	prompt := "user@host:~$ "
@@ -316,7 +317,7 @@ func TestParseInt(t *testing.T) {
 		{"10", 10},
 		{"127", 127},
 		{"255", 255},
-		{"abc", 0},   // 无效字符
+		{"abc", 0},    // 无效字符
 		{"12a3", 123}, // 部分有效
 		{"", 0},       // 空字符串
 	}
@@ -332,7 +333,7 @@ func TestParseInt(t *testing.T) {
 }
 
 func TestMarkerFilter_Process_EmptyData(t *testing.T) {
-	filter := NewMarkerFilter()
+	filter := NewMarkerFilter(testLogger)
 
 	result := filter.Process([]byte{})
 	if len(result.Output) != 0 {
@@ -344,7 +345,7 @@ func TestMarkerFilter_Process_EmptyData(t *testing.T) {
 }
 
 func TestMarkerFilter_Process_ConcurrentSafety(t *testing.T) {
-	filter := NewMarkerFilter()
+	filter := NewMarkerFilter(testLogger)
 	done := make(chan bool)
 
 	// 启动多个 goroutine 并发处理
@@ -425,7 +426,7 @@ func TestMarkerFilter_Process_OSC1337(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			filter := NewMarkerFilter()
+			filter := NewMarkerFilter(testLogger)
 			// 先发送开始标记进入命令输出模式
 			filter.Process([]byte("\x1b]133;A\x1b\\"))
 
@@ -438,7 +439,7 @@ func TestMarkerFilter_Process_OSC1337(t *testing.T) {
 }
 
 func TestMarkerFilter_Process_OSC1337WithOSC133(t *testing.T) {
-	filter := NewMarkerFilter()
+	filter := NewMarkerFilter(testLogger)
 
 	// 第一部分：提示符和 OSC 1337（开始标记之前，应该被丢弃）
 	r1 := filter.Process([]byte("prompt$ \x1b]1337;CurrentDir=/Users/test\x07"))
@@ -513,7 +514,7 @@ func TestMarkerFilter_Process_OSC1337EdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			filter := NewMarkerFilter()
+			filter := NewMarkerFilter(testLogger)
 			// 进入命令输出模式
 			filter.Process([]byte("\x1b]133;A\x1b\\"))
 
@@ -526,7 +527,7 @@ func TestMarkerFilter_Process_OSC1337EdgeCases(t *testing.T) {
 }
 
 func TestMarkerFilter_Process_OSC1337Debug(t *testing.T) {
-	filter := NewMarkerFilter()
+	filter := NewMarkerFilter(testLogger)
 	// 进入命令输出模式
 	filter.Process([]byte("\x1b]133;A\x1b\\"))
 
@@ -536,14 +537,14 @@ func TestMarkerFilter_Process_OSC1337Debug(t *testing.T) {
 
 	t.Logf("输入: %q", input)
 	t.Logf("输出: %q", string(result.Output))
-
+	// 期望 OSC 1337 序列被完全过滤掉，输出为空
 	if string(result.Output) != "" {
 		t.Errorf("OSC 1337 CurrentDir should be filtered, got %q", string(result.Output))
 	}
 }
 
 func TestMarkerFilter_Process_OSC1337SplitAcrossChunks(t *testing.T) {
-	filter := NewMarkerFilter()
+	filter := NewMarkerFilter(testLogger)
 	// 进入命令输出模式
 	filter.Process([]byte("\x1b]133;A\x1b\\"))
 
@@ -567,7 +568,7 @@ func TestMarkerFilter_Process_OSC1337SplitAcrossChunks(t *testing.T) {
 }
 
 func TestMarkerFilter_Process_OSC7(t *testing.T) {
-	filter := NewMarkerFilter()
+	filter := NewMarkerFilter(testLogger)
 	// 进入命令输出模式
 	filter.Process([]byte("\x1b]133;A\x1b\\"))
 
@@ -586,7 +587,7 @@ func TestMarkerFilter_Process_OSC7(t *testing.T) {
 }
 
 func TestMarkerFilter_Process_RealWorldOutput(t *testing.T) {
-	filter := NewMarkerFilter()
+	filter := NewMarkerFilter(testLogger)
 	// 进入命令输出模式
 	filter.Process([]byte("\x1b]133;A\x1b\\"))
 
@@ -600,5 +601,156 @@ func TestMarkerFilter_Process_RealWorldOutput(t *testing.T) {
 	// 应该只有 \r 被保留（因为它不是 OSC 序列的一部分）
 	if string(result.Output) != "\r" {
 		t.Errorf("expected only \\r, got %q", string(result.Output))
+	}
+}
+
+func TestMarkerFilter_Process_PwdMarker(t *testing.T) {
+	tests := []struct {
+		name           string
+		input          string
+		expectedPwd    string
+		expectedPwdChg bool
+	}{
+		{
+			name:           "PWD marker with base64 encoded path",
+			input:          "\x1b]1337;Pwd;" + base64.StdEncoding.EncodeToString([]byte("/Users/test")) + "\x1b\\",
+			expectedPwd:    "/Users/test",
+			expectedPwdChg: true,
+		},
+		{
+			name:           "PWD marker with home path",
+			input:          "\x1b]1337;Pwd;" + base64.StdEncoding.EncodeToString([]byte("~")) + "\x07",
+			expectedPwd:    "~",
+			expectedPwdChg: true,
+		},
+		{
+			name:           "PWD marker with BEL terminator",
+			input:          "\x1b]1337;Pwd;" + base64.StdEncoding.EncodeToString([]byte("/home/user")) + "\x07",
+			expectedPwd:    "/home/user",
+			expectedPwdChg: true,
+		},
+		{
+			name:           "Invalid base64 in PWD marker",
+			input:          "\x1b]1337;Pwd;invalid!base64\x1b\\",
+			expectedPwd:    "",
+			expectedPwdChg: false,
+		},
+		{
+			name:           "PWD marker with complex path",
+			input:          "\x1b]1337;Pwd;" + base64.StdEncoding.EncodeToString([]byte("/Users/test/path with spaces")) + "\x1b\\",
+			expectedPwd:    "/Users/test/path with spaces",
+			expectedPwdChg: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			filter := NewMarkerFilter(testLogger)
+			// 进入命令输出模式
+			filter.Process([]byte("\x1b]133;A\x1b\\"))
+
+			result := filter.Process([]byte(tt.input))
+
+			if result.PwdChanged != tt.expectedPwdChg {
+				t.Errorf("expected PwdChanged %v, got %v", tt.expectedPwdChg, result.PwdChanged)
+			}
+
+			if result.Pwd != tt.expectedPwd {
+				t.Errorf("expected Pwd %q, got %q", tt.expectedPwd, result.Pwd)
+			}
+		})
+	}
+}
+
+func TestMarkerFilter_isPossibleMarkerStart(t *testing.T) {
+	filter := NewMarkerFilter(testLogger)
+
+	tests := []struct {
+		input    string
+		expected bool
+	}{
+		{"\x1b", true},
+		{"\x1b]133", true},
+		{"normal text", false},
+		{"hello\x1bworld", true},
+		{"", false},
+		{"no escape here", false},
+		{"\x1b]", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := filter.isPossibleMarkerStart(tt.input)
+			if result != tt.expected {
+				t.Errorf("isPossibleMarkerStart(%q) = %v, want %v", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestMarkerFilter_Process_OSCGeneric(t *testing.T) {
+	tests := []struct {
+		name           string
+		input          string
+		expectedOutput string
+	}{
+		{
+			name:           "OSC 0 - window title",
+			input:          "\x1b]0;My Terminal Title\x07",
+			expectedOutput: "",
+		},
+		{
+			name:           "OSC 1 - icon title",
+			input:          "\x1b]1;Icon Name\x1b\\",
+			expectedOutput: "",
+		},
+		{
+			name:           "OSC 2 - window title",
+			input:          "\x1b]2;Window Title\x07",
+			expectedOutput: "",
+		},
+		{
+			name:           "OSC 7 - current directory",
+			input:          "\x1b]7;file://localhost/Users/test\x07",
+			expectedOutput: "",
+		},
+		{
+			name:           "OSC 0 with text before and after",
+			input:          "before\x1b]0;Title\x07after",
+			expectedOutput: "beforeafter",
+		},
+		{
+			name:           "multiple OSC generic sequences",
+			input:          "\x1b]0;Title1\x07\x1b]1;Icon\x07text\x1b]2;Title2\x07",
+			expectedOutput: "text",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			filter := NewMarkerFilter(testLogger)
+			// 进入命令输出模式
+			filter.Process([]byte("\x1b]133;A\x1b\\"))
+
+			result := filter.Process([]byte(tt.input))
+			if string(result.Output) != tt.expectedOutput {
+				t.Errorf("expected output %q, got %q", tt.expectedOutput, string(result.Output))
+			}
+		})
+	}
+}
+
+func TestMarkerFilter_Process_MixedOSCSequences(t *testing.T) {
+	filter := NewMarkerFilter(testLogger)
+	// 进入命令输出模式
+	filter.Process([]byte("\x1b]133;A\x1b\\"))
+
+	// 混合多种 OSC 序列
+	input := "\x1b]0;Title\x07\x1b]1337;SetMark\x07real output\x1b]7;file://path\x07"
+	result := filter.Process([]byte(input))
+
+	// 只有 "real output" 应该被保留
+	if string(result.Output) != "real output" {
+		t.Errorf("expected 'real output', got %q", string(result.Output))
 	}
 }

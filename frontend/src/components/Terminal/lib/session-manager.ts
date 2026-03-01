@@ -27,6 +27,7 @@ interface CachedSession {
   parser: AnsiParser;
   unbindCallbacks: (() => void)[];
   environmentInfo?: TerminalEnvironmentInfo;
+  onEnvChange?: (env: TerminalEnvironmentInfo) => void;
 }
 
 class TerminalSessionManager {
@@ -48,6 +49,17 @@ class TerminalSessionManager {
     }
 
     return session;
+  }
+
+  // 设置环境信息变化回调
+  setEnvChangeCallback(
+    sessionId: string,
+    callback: (env: TerminalEnvironmentInfo) => void,
+  ): void {
+    const session = this.sessions.get(sessionId);
+    if (session) {
+      session.onEnvChange = callback;
+    }
   }
 
   private setupEventListeners(sessionId: string): void {
@@ -90,7 +102,44 @@ class TerminalSessionManager {
       },
     );
 
-    session.unbindCallbacks = [unbindOutput, unbindError, unbindCommandEnd];
+    // 工作路径更新事件
+    const unbindPwdUpdate = Events.On(
+      "terminal:pwd_update",
+      (event: { data: { sessionId: string; pwd: string } }) => {
+        if (event.data.sessionId === sessionId) {
+          this.handlePwdUpdate(sessionId, event.data.pwd);
+        }
+      },
+    );
+
+    // Git 状态更新事件
+    const unbindGitUpdate = Events.On(
+      "terminal:git_update",
+      (event: {
+        data: {
+          sessionId: string;
+          git: {
+            isRepo: boolean;
+            branch?: string;
+            modifiedFiles: number;
+            addedLines: number;
+            deletedLines: number;
+          };
+        };
+      }) => {
+        if (event.data.sessionId === sessionId) {
+          this.handleGitUpdate(sessionId, event.data.git);
+        }
+      },
+    );
+
+    session.unbindCallbacks = [
+      unbindOutput,
+      unbindError,
+      unbindCommandEnd,
+      unbindPwdUpdate,
+      unbindGitUpdate,
+    ];
   }
 
   private handleOutput(
@@ -166,6 +215,61 @@ class TerminalSessionManager {
 
     // 完成 block
     store.finalizeBlock(sessionId, blockId, exitCode);
+  }
+
+  // 通用的环境信息更新方法
+  private updateEnvironmentInfo(
+    sessionId: string,
+    updater: (env: TerminalEnvironmentInfo) => TerminalEnvironmentInfo,
+  ): void {
+    const session = this.sessions.get(sessionId);
+    if (!session || !session.environmentInfo) return;
+
+    session.environmentInfo = updater(session.environmentInfo);
+
+    if (session.onEnvChange) {
+      session.onEnvChange(session.environmentInfo);
+    }
+  }
+
+  private handlePwdUpdate(sessionId: string, pwd: string): void {
+    const session = this.sessions.get(sessionId);
+    if (!session || !session.environmentInfo) return;
+
+    // 检查路径是否真的变化了
+    if (session.environmentInfo.workPath === pwd) return;
+
+    this.updateEnvironmentInfo(sessionId, (env) => ({
+      ...env,
+      workPath: pwd,
+    }));
+
+    // 通知后端更新工作路径（用于 Git 监听器）
+    TerminalService.UpdateWorkPath(sessionId, pwd).catch((err) => {
+      console.error("更新工作路径失败:", err);
+    });
+  }
+
+  private handleGitUpdate(
+    sessionId: string,
+    git: {
+      isRepo: boolean;
+      branch?: string;
+      modifiedFiles: number;
+      addedLines: number;
+      deletedLines: number;
+    },
+  ): void {
+    this.updateEnvironmentInfo(sessionId, (env) => ({
+      ...env,
+      gitInfo: {
+        isRepo: git.isRepo,
+        branch: git.branch ?? "",
+        modifiedFiles: git.modifiedFiles,
+        addedLines: git.addedLines,
+        deletedLines: git.deletedLines,
+      },
+    }));
   }
 
   async initialize(

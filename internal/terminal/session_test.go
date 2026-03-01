@@ -73,7 +73,7 @@ func TestNewSession(t *testing.T) {
 		t.Skip("无法获取 stdout")
 	}
 
-	session := NewSession(ctx, id, os.Stdout, cmd, ShellTypeBash, false)
+	session := NewSession(ctx, id, os.Stdout, cmd, ShellTypeBash, false, testLogger)
 
 	if session == nil {
 		t.Fatal("NewSession returned nil")
@@ -108,7 +108,7 @@ func TestNewSession(t *testing.T) {
 
 func TestSessionContext(t *testing.T) {
 	ctx := context.Background()
-	session := NewSession(ctx, "test", os.Stdout, nil, ShellTypeBash, false)
+	session := NewSession(ctx, "test", os.Stdout, nil, ShellTypeBash, false, testLogger)
 
 	// 测试 Context 方法
 	if session.Context() == nil {
@@ -131,7 +131,7 @@ func TestSessionContext(t *testing.T) {
 }
 
 func TestSessionAccessors(t *testing.T) {
-	session := NewSession(context.Background(), "test", os.Stdout, nil, ShellTypeZsh, true)
+	session := NewSession(context.Background(), "test", os.Stdout, nil, ShellTypeZsh, true, testLogger)
 	session.SetConfigPath("/tmp/test-config")
 
 	// 测试 ShellType
@@ -161,7 +161,7 @@ func TestSessionAccessors(t *testing.T) {
 }
 
 func TestSessionCurrentBlock(t *testing.T) {
-	session := NewSession(context.Background(), "test", os.Stdout, nil, ShellTypeBash, false)
+	session := NewSession(context.Background(), "test", os.Stdout, nil, ShellTypeBash, false, testLogger)
 
 	// 初始 block 应为空
 	if session.CurrentBlock() != "" {
@@ -194,7 +194,7 @@ func TestSessionCurrentBlock(t *testing.T) {
 
 func TestSessionCreatedAt(t *testing.T) {
 	before := time.Now()
-	session := NewSession(context.Background(), "test", os.Stdout, nil, ShellTypeBash, false)
+	session := NewSession(context.Background(), "test", os.Stdout, nil, ShellTypeBash, false, testLogger)
 	after := time.Now()
 
 	if session.CreatedAt.Before(before) {
@@ -208,7 +208,7 @@ func TestSessionCreatedAt(t *testing.T) {
 
 func TestSessionKillProcess(t *testing.T) {
 	// 测试 nil Cmd 的情况
-	session := NewSession(context.Background(), "test", os.Stdout, nil, ShellTypeBash, false)
+	session := NewSession(context.Background(), "test", os.Stdout, nil, ShellTypeBash, false, testLogger)
 	err := session.KillProcess()
 	if err != nil {
 		t.Errorf("KillProcess with nil Cmd should return nil, got %v", err)
@@ -216,7 +216,7 @@ func TestSessionKillProcess(t *testing.T) {
 
 	// 测试 nil Process 的情况
 	cmd := &exec.Cmd{}
-	session = NewSession(context.Background(), "test", os.Stdout, cmd, ShellTypeBash, false)
+	session = NewSession(context.Background(), "test", os.Stdout, cmd, ShellTypeBash, false, testLogger)
 	err = session.KillProcess()
 	if err != nil {
 		t.Errorf("KillProcess with nil Process should return nil, got %v", err)
@@ -225,7 +225,7 @@ func TestSessionKillProcess(t *testing.T) {
 
 func TestSessionWaitProcess(t *testing.T) {
 	// 测试 nil Cmd 的情况
-	session := NewSession(context.Background(), "test", os.Stdout, nil, ShellTypeBash, false)
+	session := NewSession(context.Background(), "test", os.Stdout, nil, ShellTypeBash, false, testLogger)
 	err := session.WaitProcess()
 	if err != nil {
 		t.Errorf("WaitProcess with nil Cmd should return nil, got %v", err)
@@ -233,7 +233,7 @@ func TestSessionWaitProcess(t *testing.T) {
 }
 
 func TestSessionClose(t *testing.T) {
-	session := NewSession(context.Background(), "test", os.Stdout, nil, ShellTypeBash, false)
+	session := NewSession(context.Background(), "test", os.Stdout, nil, ShellTypeBash, false, testLogger)
 
 	// Close 不应该 panic
 	session.Close()
@@ -248,4 +248,101 @@ func TestSessionClose(t *testing.T) {
 
 	// 多次 Close 应该是安全的
 	session.Close()
+}
+
+func TestSession_SetEmitter(t *testing.T) {
+	session := NewSession(context.Background(), "test", os.Stdout, nil, ShellTypeBash, false, testLogger)
+
+	// 初始 emitter 应该为 nil
+	if session.emitter != nil {
+		t.Error("initial emitter should be nil")
+	}
+
+	// 设置 emitter
+	emitter := &mockEventEmitter{}
+	session.SetEmitter(emitter)
+
+	if session.emitter != emitter {
+		t.Error("emitter should be set")
+	}
+}
+
+func TestSession_SetLogger(t *testing.T) {
+	session := NewSession(context.Background(), "test", os.Stdout, nil, ShellTypeBash, false, testLogger)
+
+	// 设置新的 logger
+	newLogger := testLogger
+	session.SetLogger(newLogger)
+
+	if session.logger != newLogger {
+		t.Error("logger should be set")
+	}
+}
+
+func TestSession_WorkPath(t *testing.T) {
+	session := NewSession(context.Background(), "test", os.Stdout, nil, ShellTypeBash, false, testLogger)
+
+	// 初始工作路径应该为空
+	if session.WorkPath() != "" {
+		t.Errorf("initial work path should be empty, got %s", session.WorkPath())
+	}
+
+	// 设置工作路径
+	testPath := "/tmp/test/path"
+	session.SetWorkPath(testPath)
+
+	if session.WorkPath() != testPath {
+		t.Errorf("expected work path %s, got %s", testPath, session.WorkPath())
+	}
+}
+
+func TestSession_GitWatcher(t *testing.T) {
+	session := NewSession(context.Background(), "test", os.Stdout, nil, ShellTypeBash, false, testLogger)
+
+	// 初始 GitWatcher 应该为 nil
+	if session.GitWatcher() != nil {
+		t.Error("initial GitWatcher should be nil")
+	}
+}
+
+func TestSession_StopGitWatcher(t *testing.T) {
+	session := NewSession(context.Background(), "test", os.Stdout, nil, ShellTypeBash, false, testLogger)
+
+	// 停止 nil 的 GitWatcher 应该是安全的
+	session.StopGitWatcher()
+
+	// 再次停止也应该是安全的
+	session.StopGitWatcher()
+}
+
+func TestSession_UpdateGitWorkPath(t *testing.T) {
+	session := NewSession(context.Background(), "test", os.Stdout, nil, ShellTypeBash, false, testLogger)
+
+	// 没有 GitWatcher 时更新工作路径应该返回 nil
+	result := session.UpdateGitWorkPath("/tmp/new/path")
+	if result != nil {
+		t.Error("expected nil result when no GitWatcher")
+	}
+
+	// 工作路径应该被更新
+	if session.WorkPath() != "/tmp/new/path" {
+		t.Errorf("expected work path /tmp/new/path, got %s", session.WorkPath())
+	}
+}
+
+func TestSession_UpdateGitWorkPath_WithTilde(t *testing.T) {
+	session := NewSession(context.Background(), "test", os.Stdout, nil, ShellTypeBash, false, testLogger)
+
+	// 使用 ~ 开头的路径
+	result := session.UpdateGitWorkPath("~/Documents")
+	if result != nil {
+		t.Error("expected nil result when no GitWatcher")
+	}
+
+	// 工作路径应该被展开
+	homeDir, _ := os.UserHomeDir()
+	expectedPath := homeDir + "/Documents"
+	if session.WorkPath() != expectedPath {
+		t.Errorf("expected work path %s, got %s", expectedPath, session.WorkPath())
+	}
 }

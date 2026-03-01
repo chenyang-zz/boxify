@@ -178,7 +178,7 @@ func TestCommandWrapper_Wrap(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			wrapper := NewCommandWrapper(tt.shellType)
+			wrapper := NewCommandWrapper(tt.shellType, testLogger)
 			result := wrapper.Wrap(tt.command)
 			tt.checkFunc(t, result)
 		})
@@ -187,7 +187,7 @@ func TestCommandWrapper_Wrap(t *testing.T) {
 
 func TestNewCommandWrapper(t *testing.T) {
 	shellType := ShellTypeBash
-	wrapper := NewCommandWrapper(shellType)
+	wrapper := NewCommandWrapper(shellType, testLogger)
 
 	if wrapper == nil {
 		t.Fatal("NewCommandWrapper returned nil")
@@ -225,7 +225,7 @@ func TestCommandWrapper_ComplexCommands(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			wrapper := NewCommandWrapper(tt.shellType)
+			wrapper := NewCommandWrapper(tt.shellType, testLogger)
 			result := wrapper.Wrap(tt.command)
 
 			// 确保原始命令在包装后的结果中

@@ -343,3 +343,66 @@ func TestOutputHandler_MultipleEvents(t *testing.T) {
 		}
 	}
 }
+
+func TestOutputHandler_emitPwdUpdate(t *testing.T) {
+	emitter := &mockEventEmitter{}
+	handler := NewOutputHandler(emitter, testLogger)
+
+	// 测试发送 PWD 更新事件
+	handler.emitPwdUpdate("session-1", "/Users/test/Documents")
+
+	if len(emitter.events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(emitter.events))
+	}
+
+	event := emitter.events[0]
+	if event.name != "terminal:pwd_update" {
+		t.Errorf("event name = %s, want terminal:pwd_update", event.name)
+	}
+
+	if event.data["sessionId"] != "session-1" {
+		t.Errorf("sessionId = %v, want session-1", event.data["sessionId"])
+	}
+	if event.data["pwd"] != "/Users/test/Documents" {
+		t.Errorf("pwd = %v, want /Users/test/Documents", event.data["pwd"])
+	}
+}
+
+func TestOutputHandler_emitPwdUpdate_NilEmitter(t *testing.T) {
+	handler := NewOutputHandler(nil, testLogger)
+
+	// 不应该 panic
+	handler.emitPwdUpdate("session-1", "/tmp/test")
+}
+
+func TestOutputHandler_emitPwdUpdate_VariousPaths(t *testing.T) {
+	emitter := &mockEventEmitter{}
+	handler := NewOutputHandler(emitter, testLogger)
+
+	tests := []struct {
+		name string
+		pwd  string
+	}{
+		{"home directory", "/Users/test"},
+		{"root directory", "/"},
+		{"path with spaces", "/Users/test/My Documents"},
+		{"path with special chars", "/Users/test/path-with_special.chars"},
+		{"tilde path", "~"},
+		{"tilde expanded path", "~/Documents"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			emitter.events = nil
+			handler.emitPwdUpdate("session-1", tt.pwd)
+
+			if len(emitter.events) != 1 {
+				t.Fatalf("expected 1 event, got %d", len(emitter.events))
+			}
+
+			if emitter.events[0].data["pwd"] != tt.pwd {
+				t.Errorf("pwd = %v, want %v", emitter.events[0].data["pwd"], tt.pwd)
+			}
+		})
+	}
+}
