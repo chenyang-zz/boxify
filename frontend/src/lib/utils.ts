@@ -7,9 +7,14 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+interface BaseResult {
+  success: boolean;
+  message: string;
+}
+
 // 封装一个函数用于调用Wails后端函数，并统一处理错误
 export async function callWails<
-  T extends (...args: any[]) => Promise<QueryResult | null>,
+  T extends (...args: any[]) => Promise<BaseResult | null>,
 >(fn: T, ...args: Parameters<T>) {
   let timer: ReturnType<typeof setTimeout> | undefined;
 

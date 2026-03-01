@@ -43,7 +43,7 @@ const Tabs: FC = () => {
   };
 
   return (
-    <div className="h-full w-full flex flex-col rounded-lg overflow-hidden">
+    <div className="h-full w-full flex flex-col rounded-lg border overflow-hidden">
       {/* 标签栏 */}
       <TabBar
         tabs={tabs}

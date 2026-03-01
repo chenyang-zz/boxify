@@ -93,6 +93,8 @@ export const OutputRenderer = memo(function OutputRenderer({
     await navigator.clipboard.writeText(text);
   }, [output]);
 
+  if (output.length === 0) return null;
+
   return (
     <div
       ref={containerRef}

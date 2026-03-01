@@ -22,7 +22,7 @@ const TabContent: FC<TabContentProps> = ({ tabs, activeTabId }) => {
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
   return (
-    <div className="flex-1 overflow-hidden border">
+    <div className="flex-1 overflow-hidden ">
       {/* React 19 Activity: 所有标签都渲染，使用 hidden 隐藏非活动标签
           这样每个标签的组件状态（滚动、分页等）都会被保留 */}
       {tabs.map((tab) => (
