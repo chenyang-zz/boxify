@@ -18,6 +18,7 @@ import { useTerminalStore } from "../store/terminal.store";
 import type { TerminalTheme } from "../types/theme";
 import { Badge } from "@/components/ui/badge";
 import {
+  DiffIcon,
   FileIcon,
   FolderIcon,
   GitBranchIcon,
@@ -205,14 +206,22 @@ export function InputEditor({
             </Badge>
             <span className="w-1 h-2 border-l" />
             <Badge variant="ghost" className="hover:bg-accent cursor-pointer">
-              <FileIcon />
-              {envInfo?.gitInfo?.modifiedFiles}
-              <span className="text-green-500 font-bold ml-1">
-                +{envInfo?.gitInfo?.addedLines}
-              </span>
-              <span className="text-red-500 font-bold">
-                -{envInfo?.gitInfo?.deletedLines}
-              </span>
+              {(envInfo.gitInfo?.modifiedFiles ?? 0) > 0 ? (
+                <>
+                  <FileIcon />
+                  {envInfo?.gitInfo?.modifiedFiles}
+                  <span className="text-green-500 font-bold ml-1">
+                    +{envInfo?.gitInfo?.addedLines}
+                  </span>
+                  <span className="text-red-500 font-bold">
+                    -{envInfo?.gitInfo?.deletedLines}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <DiffIcon />0
+                </>
+              )}
             </Badge>
           </Badge>
         )}
