@@ -58,6 +58,9 @@ func main() {
 		func(app *application.App) application.Service {
 			return application.NewService(service.NewTerminalService(deps))
 		},
+		func(app *application.App) application.Service {
+			return application.NewService(service.NewFilesystemService(deps))
+		},
 	}
 
 	am.RegisterService(services...)

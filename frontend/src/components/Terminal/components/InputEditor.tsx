@@ -12,19 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useState, useRef, useCallback, useEffect, use, useMemo } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { terminalSessionManager } from "../lib/session-manager";
 import { useTerminalStore } from "../store/terminal.store";
 import type { TerminalTheme } from "../types/theme";
 import { Badge } from "@/components/ui/badge";
-import {
-  DiffIcon,
-  FileIcon,
-  FolderIcon,
-  GitBranchIcon,
-  TerminalIcon,
-} from "lucide-react";
+import { DiffIcon, FileIcon, GitBranchIcon, TerminalIcon } from "lucide-react";
 import { TerminalEnvironmentInfo } from "@wails/types/models";
+import { DirectorySelector } from "./DirectorySelector";
 
 interface InputEditorProps {
   sessionId: string;
@@ -36,7 +31,6 @@ interface InputEditorProps {
 
 export function InputEditor({
   sessionId,
-  theme,
   envInfo,
   onSubmit,
   onResize,
@@ -52,6 +46,11 @@ export function InputEditor({
     if (inputRef.current) {
       inputRef.current.focus();
     }
+  }, []);
+
+  // 聚焦输入框
+  const focusInput = useCallback(() => {
+    inputRef.current?.focus();
   }, []);
 
   // 处理输入变化
@@ -187,12 +186,11 @@ export function InputEditor({
             {envInfo?.pythonEnv?.envName}
           </Badge>
         )}
-        <Badge
-          variant="secondary"
-          className="border text-cyan-200 hover:bg-accent cursor-pointer"
-        >
-          <FolderIcon /> {envInfo?.workPath}
-        </Badge>
+        <DirectorySelector
+          workPath={envInfo?.workPath || ""}
+          onDirectorySelect={onSubmit}
+          onFocus={focusInput}
+        />
         {hasGitRepo && (
           <Badge
             variant="secondary"
@@ -235,12 +233,6 @@ export function InputEditor({
           {/* 高亮层 */}
           <div
             className="highlight-layer absolute inset-0 pointer-events-none whitespace-pre-wrap break-all overflow-hidden"
-            style={{
-              fontFamily: theme.fontFamily,
-              fontSize: theme.fontSize,
-              lineHeight: theme.lineHeight,
-              color: theme.foreground,
-            }}
             aria-hidden="true"
           >
             {value || "\u200B"}
@@ -252,18 +244,7 @@ export function InputEditor({
             value={value}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
-            className="actual-input w-full bg-transparent outline-none resize-none"
-            style={{
-              fontFamily: theme.fontFamily,
-              fontSize: theme.fontSize,
-              lineHeight: theme.lineHeight,
-              color: "transparent",
-              caretColor: theme.cursor,
-              position: "relative",
-              zIndex: 1,
-              minHeight: "1.5em",
-              maxHeight: "10em",
-            }}
+            className="actual-input w-full relative min-h-[1.5em] max-h-[10em] text-transparent bg-transparent outline-none resize-none text-sm caret-primary"
             spellCheck={false}
             autoComplete="off"
             autoCorrect="off"
