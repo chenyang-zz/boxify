@@ -81,6 +81,7 @@ class TerminalSessionManager {
       "terminal:error",
       (event: { data: { sessionId: string; message: string } }) => {
         if (event.data.sessionId === sessionId) {
+          console.log("[terminal:error]:", event.data);
           this.handleError(sessionId, event.data.message);
         }
       },
@@ -93,6 +94,7 @@ class TerminalSessionManager {
         data: { sessionId: string; blockId: string; exitCode: number };
       }) => {
         if (event.data.sessionId === sessionId) {
+          console.log("[terminal:command_end]:", event.data);
           this.handleCommandEnd(
             sessionId,
             event.data.blockId,
@@ -107,6 +109,8 @@ class TerminalSessionManager {
       "terminal:pwd_update",
       (event: { data: { sessionId: string; pwd: string } }) => {
         if (event.data.sessionId === sessionId) {
+          console.log("[terminal:pwd_update]:", event.data);
+
           this.handlePwdUpdate(sessionId, event.data.pwd);
         }
       },
@@ -128,6 +132,7 @@ class TerminalSessionManager {
         };
       }) => {
         if (event.data.sessionId === sessionId) {
+          console.log("[terminal:git_update]:", event.data);
           this.handleGitUpdate(sessionId, event.data.git);
         }
       },

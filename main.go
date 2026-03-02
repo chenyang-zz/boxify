@@ -3,7 +3,9 @@ package main
 import (
 	"embed"
 
+	"github.com/chenyang-zz/boxify/internal/events"
 	"github.com/chenyang-zz/boxify/internal/service"
+	boxtypes "github.com/chenyang-zz/boxify/internal/types"
 	"github.com/chenyang-zz/boxify/internal/window"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -26,6 +28,11 @@ func init() {
 	// 终端事件
 	application.RegisterEvent[map[string]interface{}]("terminal:output")
 	application.RegisterEvent[map[string]interface{}]("terminal:error")
+	application.RegisterEvent[map[string]interface{}]("terminal:command_end")
+	application.RegisterEvent[map[string]interface{}]("terminal:pwd_update")
+
+	// git事件
+	application.RegisterEvent[boxtypes.GitStatusChangedEvent](string(events.EventTypeGitStatusChanged))
 }
 
 //go:embed all:frontend/dist
@@ -40,6 +47,9 @@ func main() {
 
 	// 注册服务
 	services := []func(app *application.App) application.Service{
+		func(app *application.App) application.Service {
+			return application.NewService(service.NewTypeExportService(deps))
+		},
 		func(app *application.App) application.Service {
 			return application.NewService(service.NewDatabaseService(deps))
 		},
@@ -60,6 +70,9 @@ func main() {
 		},
 		func(app *application.App) application.Service {
 			return application.NewService(service.NewFilesystemService(deps))
+		},
+		func(app *application.App) application.Service {
+			return application.NewService(service.NewGitService(deps))
 		},
 	}
 

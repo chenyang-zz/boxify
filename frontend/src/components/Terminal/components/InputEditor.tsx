@@ -20,6 +20,8 @@ import { Badge } from "@/components/ui/badge";
 import { DiffIcon, FileIcon, GitBranchIcon, TerminalIcon } from "lucide-react";
 import { TerminalEnvironmentInfo } from "@wails/types/models";
 import { DirectorySelector } from "./DirectorySelector";
+import { useEventStore } from "@/store/event.store";
+import { EventType } from "@wails/events/models";
 
 interface InputEditorProps {
   sessionId: string;
@@ -37,6 +39,12 @@ export function InputEditor({
 }: InputEditorProps) {
   const [value, setValue] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const gitStatus = useEventStore(
+    (state) => state.latestEvents[EventType.EventTypeGitStatusChanged],
+  );
+
+  console.log(gitStatus);
 
   // 获取 store 方法
   const navigateHistory = useTerminalStore((state) => state.navigateHistory);

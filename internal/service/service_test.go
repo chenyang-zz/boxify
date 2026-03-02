@@ -15,17 +15,45 @@
 package service
 
 import (
+	"context"
 	"log/slog"
 	"testing"
 	"time"
 
 	"github.com/chenyang-zz/boxify/internal/logger"
+	"github.com/chenyang-zz/boxify/internal/terminal"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 func TestExample(t *testing.T) {
+	ctx := context.Background()
 	logger.Init(slog.LevelInfo)
-	service := NewTerminalService(NewServiceDeps(application.New(application.Options{}), nil))
-	service.TestExample()
-	time.Sleep(3 * time.Second)
+	service := NewTerminalService(NewServiceDeps(application.New(application.Options{
+		LogLevel: slog.LevelDebug,
+	}), nil))
+	service.ServiceStartup(ctx, application.ServiceOptions{})
+	service.Create(terminal.TerminalConfig{
+		ID:             "123",
+		Shell:          terminal.ShellTypeZsh,
+		Rows:           0,
+		Cols:           0,
+		WorkPath:       "/Users/sheepzhao/WorkSpace/Boxify",
+		InitialCommand: "",
+	})
+	time.Sleep(10 * time.Second)
+	service.ServiceShutdown()
+}
+
+func TestGitService(t *testing.T) {
+	ctx := context.Background()
+	logger.Init(slog.LevelInfo)
+	service := NewGitService(NewServiceDeps(application.New(application.Options{
+		LogLevel: slog.LevelDebug,
+	}), nil))
+	service.ServiceStartup(ctx, application.ServiceOptions{})
+	repoPath := "/Users/sheepzhao/WorkSpace/Boxify"
+	service.RegisterRepo(repoPath, repoPath)
+	service.StartRepoWatch(repoPath, 200)
+	time.Sleep(10 * time.Second)
+	service.ServiceShutdown()
 }

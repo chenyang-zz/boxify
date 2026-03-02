@@ -113,6 +113,9 @@ func (b *BaseService) DefaultServiceShutdown() error {
 	return nil
 }
 
+func (b *BaseService) ExportTypes() {
+}
+
 // getServiceName 获取服务名称（用于日志）
 func getServiceName(service any) string {
 	t := reflect.TypeOf(service)

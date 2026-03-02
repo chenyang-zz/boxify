@@ -48,7 +48,6 @@ func NewTerminalService(deps *ServiceDeps) *TerminalService {
 		shellDetector:   shellDetector,
 		configGenerator: configGenerator,
 		validator:       terminal.NewValidator(shellDetector),
-		processManager:  terminal.NewProcessManager(configGenerator, nil), // logger 稍后设置
 	}
 }
 
@@ -59,7 +58,7 @@ func (ts *TerminalService) ServiceStartup(ctx context.Context, options applicati
 	// 创建输出处理器（实现 EventEmitter 接口）
 	ts.outputHandler = terminal.NewOutputHandler(ts, ts.Logger())
 
-	// 更新 processManager 的 logger
+	// 更新 processManager
 	ts.processManager = terminal.NewProcessManager(ts.configGenerator, ts.Logger())
 
 	ts.Logger().Info("服务启动", "service", "TerminalService")
@@ -134,19 +133,15 @@ func (ts *TerminalService) Create(config terminal.TerminalConfig) *types.Termina
 	}
 
 	// 创建会话
-	session := terminal.NewSession(context.Background(), config.ID, process.Pty, process.Cmd, validationResult.ShellType, process.UseHooks, ts.Logger())
+	session := terminal.NewSession(ts.Context(), config.ID, process.Pty, process.Cmd, validationResult.ShellType, process.UseHooks, ts.Logger())
 	session.SetConfigPath(process.ConfigPath)
 	session.SetWorkPath(validationResult.WorkPath)
-	session.SetEmitter(ts) // 设置事件发射器
 	session.SetLogger(ts.Logger())
 
 	ts.sessionManager.Add(session)
 
 	// 启动输出读取 goroutine
 	go ts.outputHandler.StartOutputLoop(session)
-
-	// 启动 Git 监听（Session 自管理）
-	gitStatus := session.StartGitWatcher()
 
 	ts.Logger().Info("终端会话创建",
 		"sessionId", config.ID,
@@ -158,11 +153,6 @@ func (ts *TerminalService) Create(config terminal.TerminalConfig) *types.Termina
 
 	// 获取环境信息
 	envInfo := terminal.GetEnvironmentInfo(validationResult.WorkPath)
-
-	// 使用 Git 监听器获取的 Git 信息（更准确）
-	if gitStatus != nil {
-		envInfo.GitInfo = gitStatus
-	}
 
 	return &types.TerminalCreateResult{
 		BaseResult: types.BaseResult{
@@ -320,18 +310,6 @@ func (ts *TerminalService) TestConfig(config terminal.TerminalConfig) *types.Ter
 	return result
 }
 
-// Test 测试方法
-func (ts *TerminalService) TestExample() {
-	ts.Create(terminal.TerminalConfig{
-		ID:             "123",
-		Shell:          terminal.ShellTypeZsh,
-		Rows:           0,
-		Cols:           0,
-		WorkPath:       "",
-		InitialCommand: "ls",
-	})
-}
-
 // UpdateWorkPath 更新工作路径（由 shell hook 触发）
 func (ts *TerminalService) UpdateWorkPath(sessionID, newPwd string) {
 	session, ok := ts.sessionManager.Get(sessionID)
@@ -339,6 +317,5 @@ func (ts *TerminalService) UpdateWorkPath(sessionID, newPwd string) {
 		return
 	}
 
-	// 使用 Session 的方法更新工作路径和 Git 监听器
-	session.UpdateGitWorkPath(newPwd)
+	session.SetWorkPath(newPwd)
 }

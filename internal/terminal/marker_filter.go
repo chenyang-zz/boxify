@@ -28,7 +28,8 @@ import (
 type MarkerFilter struct {
 	mu               sync.Mutex
 	buffer           bytes.Buffer
-	inCommandOutput  bool // 是否在命令输出区域内
+	inCommandOutput  bool   // 是否在命令输出区域内
+	currentPwd       string // 当前工作路径
 	startMarkerRegex *regexp.Regexp
 	endMarkerRegex   *regexp.Regexp
 	pwdMarkerRegex   *regexp.Regexp // OSC 1337;Pwd 序列
@@ -177,8 +178,13 @@ func (f *MarkerFilter) Process(data []byte) ProcessResult {
 			if pwdMatch[2] != -1 && pwdMatch[3] != -1 {
 				encoded := content[pwdMatch[2]:pwdMatch[3]]
 				if decoded, err := base64.StdEncoding.DecodeString(encoded); err == nil {
-					pwd = string(decoded)
-					pwdChanged = true
+					newPwd := string(decoded)
+					// 只有路径真正改变时才设置 PwdChanged
+					if newPwd != f.currentPwd {
+						f.currentPwd = newPwd
+						pwd = newPwd
+						pwdChanged = true
+					}
 				}
 			}
 		case 1:

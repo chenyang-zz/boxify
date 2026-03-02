@@ -19,6 +19,8 @@ import { propertyTypeToTabType } from "@/lib/property";
 import { StoreMethods } from "./common";
 import { terminalSessionManager } from "@/components/Terminal/lib/session-manager";
 import { PropertyItemType } from "@/types/property";
+import { callWails } from "@/lib/utils";
+import { GitService } from "@wails/service";
 
 // 标签页状态接口
 export interface TabState {
@@ -81,6 +83,16 @@ export const useTabsStore = create<TabsState>((set, get) => ({
       tabs: [...state.tabs, newTab],
       activeTabId: newTab.id,
     }));
+
+    if (newTab.type === TabType.TERMINAL) {
+      // 启动git状态监听
+      const repoPath = propertyItem.terminalConfig!.workpath;
+      callWails(GitService.RegisterRepo, repoPath, repoPath)
+        .then(() => {
+          callWails(GitService.StartRepoWatch, repoPath).catch(() => {});
+        })
+        .catch(() => {});
+    }
 
     return newTab.id;
   },

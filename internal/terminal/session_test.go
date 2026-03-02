@@ -250,23 +250,6 @@ func TestSessionClose(t *testing.T) {
 	session.Close()
 }
 
-func TestSession_SetEmitter(t *testing.T) {
-	session := NewSession(context.Background(), "test", os.Stdout, nil, ShellTypeBash, false, testLogger)
-
-	// 初始 emitter 应该为 nil
-	if session.emitter != nil {
-		t.Error("initial emitter should be nil")
-	}
-
-	// 设置 emitter
-	emitter := &mockEventEmitter{}
-	session.SetEmitter(emitter)
-
-	if session.emitter != emitter {
-		t.Error("emitter should be set")
-	}
-}
-
 func TestSession_SetLogger(t *testing.T) {
 	session := NewSession(context.Background(), "test", os.Stdout, nil, ShellTypeBash, false, testLogger)
 
@@ -293,56 +276,5 @@ func TestSession_WorkPath(t *testing.T) {
 
 	if session.WorkPath() != testPath {
 		t.Errorf("expected work path %s, got %s", testPath, session.WorkPath())
-	}
-}
-
-func TestSession_GitWatcher(t *testing.T) {
-	session := NewSession(context.Background(), "test", os.Stdout, nil, ShellTypeBash, false, testLogger)
-
-	// 初始 GitWatcher 应该为 nil
-	if session.GitWatcher() != nil {
-		t.Error("initial GitWatcher should be nil")
-	}
-}
-
-func TestSession_StopGitWatcher(t *testing.T) {
-	session := NewSession(context.Background(), "test", os.Stdout, nil, ShellTypeBash, false, testLogger)
-
-	// 停止 nil 的 GitWatcher 应该是安全的
-	session.StopGitWatcher()
-
-	// 再次停止也应该是安全的
-	session.StopGitWatcher()
-}
-
-func TestSession_UpdateGitWorkPath(t *testing.T) {
-	session := NewSession(context.Background(), "test", os.Stdout, nil, ShellTypeBash, false, testLogger)
-
-	// 没有 GitWatcher 时更新工作路径应该返回 nil
-	result := session.UpdateGitWorkPath("/tmp/new/path")
-	if result != nil {
-		t.Error("expected nil result when no GitWatcher")
-	}
-
-	// 工作路径应该被更新
-	if session.WorkPath() != "/tmp/new/path" {
-		t.Errorf("expected work path /tmp/new/path, got %s", session.WorkPath())
-	}
-}
-
-func TestSession_UpdateGitWorkPath_WithTilde(t *testing.T) {
-	session := NewSession(context.Background(), "test", os.Stdout, nil, ShellTypeBash, false, testLogger)
-
-	// 使用 ~ 开头的路径
-	result := session.UpdateGitWorkPath("~/Documents")
-	if result != nil {
-		t.Error("expected nil result when no GitWatcher")
-	}
-
-	// 工作路径应该被展开
-	homeDir, _ := os.UserHomeDir()
-	expectedPath := homeDir + "/Documents"
-	if session.WorkPath() != expectedPath {
-		t.Errorf("expected work path %s, got %s", expectedPath, session.WorkPath())
 	}
 }

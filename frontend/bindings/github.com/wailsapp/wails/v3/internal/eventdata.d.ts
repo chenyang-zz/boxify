@@ -8,16 +8,22 @@ import type { Events } from "@wailsio/runtime";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import type * as service$0 from "../../../../chenyang-zz/boxify/internal/service/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import type * as types$0 from "../../../../chenyang-zz/boxify/internal/types/models.js";
 
 declare module "@wailsio/runtime" {
     namespace Events {
         interface CustomEvents {
             "data-sync:broadcast": service$0.DataSyncEvent;
             "data-sync:targeted": service$0.DataSyncEvent;
+            "git:status-changed": types$0.GitStatusChangedEvent;
             "initial-data:received": service$0.InitialDataEntry;
             "menu:clicked": service$0.MenuClickEvent;
+            "terminal:command_end": { [_ in string]?: any };
             "terminal:error": { [_ in string]?: any };
             "terminal:output": { [_ in string]?: any };
+            "terminal:pwd_update": { [_ in string]?: any };
             "window:closed": { [_ in string]?: any };
             "window:opened": { [_ in string]?: any };
         }

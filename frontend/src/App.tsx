@@ -14,6 +14,7 @@
 
 import { FC, JSX, lazy, useEffect } from "react";
 import { dataSyncStoreMethods } from "./store/data-sync.store";
+import { eventStoreMethods } from "./store/event.store";
 import { currentPageId, currentWindowName } from "./lib/utils";
 import { Toaster } from "./components/ui/sonner";
 import { ThemeProvider } from "./providers/ThemeProvider";
@@ -39,6 +40,11 @@ const App: FC = () => {
     const windowName = currentWindowName();
     console.log(`📄  当前窗口名称: ${windowName}`);
     dataSyncStoreMethods.setCurrentWindow(windowName);
+    eventStoreMethods.initialize();
+
+    return () => {
+      eventStoreMethods.dispose();
+    };
   }, []);
 
   return (

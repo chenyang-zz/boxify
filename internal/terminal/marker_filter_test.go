@@ -662,6 +662,36 @@ func TestMarkerFilter_Process_PwdMarker(t *testing.T) {
 	}
 }
 
+func TestMarkerFilter_Process_PwdChanged_OnlyWhenPathChanges(t *testing.T) {
+	filter := NewMarkerFilter(testLogger)
+	// 进入命令输出模式
+	filter.Process([]byte("\x1b]133;A\x1b\\"))
+
+	// 第一次设置路径，应该触发 PwdChanged
+	result1 := filter.Process([]byte("\x1b]1337;Pwd;" + base64.StdEncoding.EncodeToString([]byte("/Users/test")) + "\x1b\\"))
+	if !result1.PwdChanged {
+		t.Error("expected PwdChanged true for first path, got false")
+	}
+	if result1.Pwd != "/Users/test" {
+		t.Errorf("expected Pwd /Users/test, got %q", result1.Pwd)
+	}
+
+	// 再次发送相同路径，不应该触发 PwdChanged
+	result2 := filter.Process([]byte("\x1b]1337;Pwd;" + base64.StdEncoding.EncodeToString([]byte("/Users/test")) + "\x1b\\"))
+	if result2.PwdChanged {
+		t.Error("expected PwdChanged false for same path, got true")
+	}
+
+	// 发送不同路径，应该触发 PwdChanged
+	result3 := filter.Process([]byte("\x1b]1337;Pwd;" + base64.StdEncoding.EncodeToString([]byte("/Users/other")) + "\x1b\\"))
+	if !result3.PwdChanged {
+		t.Error("expected PwdChanged true for different path, got false")
+	}
+	if result3.Pwd != "/Users/other" {
+		t.Errorf("expected Pwd /Users/other, got %q", result3.Pwd)
+	}
+}
+
 func TestMarkerFilter_isPossibleMarkerStart(t *testing.T) {
 	filter := NewMarkerFilter(testLogger)
 

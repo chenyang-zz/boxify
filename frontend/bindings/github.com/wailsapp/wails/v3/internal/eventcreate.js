@@ -9,24 +9,31 @@ import { Create as $Create } from "@wailsio/runtime";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as service$0 from "../../../../chenyang-zz/boxify/internal/service/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as types$0 from "../../../../chenyang-zz/boxify/internal/types/models.js";
 
 function configure() {
     Object.freeze(Object.assign($Create.Events, {
         "data-sync:broadcast": $$createType0,
         "data-sync:targeted": $$createType0,
-        "initial-data:received": $$createType1,
-        "menu:clicked": $$createType2,
-        "terminal:error": $$createType3,
-        "terminal:output": $$createType3,
-        "window:closed": $$createType3,
-        "window:opened": $$createType3,
+        "git:status-changed": $$createType1,
+        "initial-data:received": $$createType2,
+        "menu:clicked": $$createType3,
+        "terminal:command_end": $$createType4,
+        "terminal:error": $$createType4,
+        "terminal:output": $$createType4,
+        "terminal:pwd_update": $$createType4,
+        "window:closed": $$createType4,
+        "window:opened": $$createType4,
     }));
 }
 
 // Private type creation functions
 const $$createType0 = service$0.DataSyncEvent.createFrom;
-const $$createType1 = service$0.InitialDataEntry.createFrom;
-const $$createType2 = service$0.MenuClickEvent.createFrom;
-const $$createType3 = $Create.Map($Create.Any, $Create.Any);
+const $$createType1 = types$0.GitStatusChangedEvent.createFrom;
+const $$createType2 = service$0.InitialDataEntry.createFrom;
+const $$createType3 = service$0.MenuClickEvent.createFrom;
+const $$createType4 = $Create.Map($Create.Any, $Create.Any);
 
 configure();
