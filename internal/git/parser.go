@@ -101,7 +101,7 @@ func (p *StatusParser) parseBranchLine(status *boxtypes.GitRepoStatus, line stri
 
 // parseChangedLine 解析普通变更记录（前缀 1）。
 func (p *StatusParser) parseChangedLine(line string) (boxtypes.GitFileStatus, error) {
-	parts := strings.Fields(line)
+	parts := strings.SplitN(line, " ", 9)
 	if len(parts) < 9 {
 		return boxtypes.GitFileStatus{}, fmt.Errorf("invalid changed line")
 	}
@@ -109,8 +109,12 @@ func (p *StatusParser) parseChangedLine(line string) (boxtypes.GitFileStatus, er
 	if len(xy) < 2 {
 		return boxtypes.GitFileStatus{}, fmt.Errorf("invalid changed line")
 	}
+	path := strings.TrimSpace(parts[8])
+	if path == "" {
+		return boxtypes.GitFileStatus{}, fmt.Errorf("invalid changed line")
+	}
 	return boxtypes.GitFileStatus{
-		Path:           parts[len(parts)-1],
+		Path:           path,
 		IndexStatus:    string(xy[0]),
 		WorkTreeStatus: string(xy[1]),
 		Kind:           "changed",
@@ -142,7 +146,7 @@ func (p *StatusParser) parseRenamedLine(line string) (boxtypes.GitFileStatus, er
 
 // parseUnmergedLine 解析冲突记录（前缀 u）。
 func (p *StatusParser) parseUnmergedLine(line string) (boxtypes.GitFileStatus, error) {
-	parts := strings.Fields(line)
+	parts := strings.SplitN(line, " ", 11)
 	if len(parts) < 11 {
 		return boxtypes.GitFileStatus{}, fmt.Errorf("invalid unmerged line")
 	}
@@ -150,8 +154,12 @@ func (p *StatusParser) parseUnmergedLine(line string) (boxtypes.GitFileStatus, e
 	if len(xy) < 2 {
 		return boxtypes.GitFileStatus{}, fmt.Errorf("invalid unmerged line")
 	}
+	path := strings.TrimSpace(parts[10])
+	if path == "" {
+		return boxtypes.GitFileStatus{}, fmt.Errorf("invalid unmerged line")
+	}
 	return boxtypes.GitFileStatus{
-		Path:           parts[len(parts)-1],
+		Path:           path,
 		IndexStatus:    string(xy[0]),
 		WorkTreeStatus: string(xy[1]),
 		Kind:           "unmerged",

@@ -266,6 +266,10 @@ func (w *RepositoryWatcher) snapshot(status boxtypes.GitRepoStatus) string {
 	b.WriteString(strconv.Itoa(status.UntrackedCount))
 	b.WriteString("|")
 	b.WriteString(strconv.Itoa(status.ConflictCount))
+	b.WriteString("|")
+	b.WriteString(strconv.Itoa(status.AddedLines))
+	b.WriteString("|")
+	b.WriteString(strconv.Itoa(status.DeletedLines))
 	for _, file := range status.Files {
 		b.WriteString("|")
 		b.WriteString(file.Kind)

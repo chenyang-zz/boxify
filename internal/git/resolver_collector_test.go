@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 )
@@ -71,5 +72,48 @@ func TestStatusCollectorCollectByPath(t *testing.T) {
 	}
 	if status.IsClean {
 		t.Fatal("status should not be clean")
+	}
+}
+
+func TestStatusCollectorCollectByPathLineStats(t *testing.T) {
+	repoDir := mustInitGitRepo(t)
+	filePath := filepath.Join(repoDir, "README.md")
+
+	runGit(t, repoDir, "-c", "user.name=boxify-test", "-c", "user.email=boxify@test.local", "add", "README.md")
+	runGit(t, repoDir, "-c", "user.name=boxify-test", "-c", "user.email=boxify@test.local", "commit", "-m", "init", "--no-gpg-sign")
+
+	if err := os.WriteFile(filePath, []byte("line1\nline2\nline3\n"), 0o644); err != nil {
+		t.Fatalf("write file failed: %v", err)
+	}
+
+	runGit(t, repoDir, "add", "README.md")
+	if err := os.WriteFile(filePath, []byte("line1\nline3\nline4\n"), 0o644); err != nil {
+		t.Fatalf("rewrite file failed: %v", err)
+	}
+
+	runner := NewCommandRunner(0, slog.Default())
+	resolver := NewResolver(runner, slog.Default())
+	parser := NewStatusParser(slog.Default())
+	collector := NewStatusCollector(runner, resolver, parser, slog.Default())
+
+	status, _, err := collector.CollectByPath(context.Background(), repoDir)
+	if err != nil {
+		t.Fatalf("collect failed: %v", err)
+	}
+
+	if status.AddedLines != 4 {
+		t.Fatalf("unexpected added lines: %d", status.AddedLines)
+	}
+	if status.DeletedLines != 2 {
+		t.Fatalf("unexpected deleted lines: %d", status.DeletedLines)
+	}
+}
+
+func runGit(t *testing.T, dir string, args ...string) {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git %v failed: %v, output=%s", args, err, string(out))
 	}
 }

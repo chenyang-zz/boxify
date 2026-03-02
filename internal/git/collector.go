@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"time"
 
@@ -60,7 +61,57 @@ func (c *StatusCollector) CollectByRepoRoot(ctx context.Context, currentPath, re
 
 	status.RepositoryRoot = repoRoot
 	status.CurrentPath = currentPath
+	status.AddedLines, status.DeletedLines = c.collectLineStats(ctx, repoRoot)
 	status.UpdatedAt = time.Now().Unix()
 	status.IsClean = status.StagedCount == 0 && status.UnstagedCount == 0 && status.UntrackedCount == 0 && status.ConflictCount == 0
 	return status, nil
+}
+
+// collectLineStats 汇总暂存区与工作区的新增/删除行数。
+func (c *StatusCollector) collectLineStats(ctx context.Context, repoRoot string) (int, int) {
+	totalAdded, totalDeleted := 0, 0
+	commands := [][]string{
+		{"diff", "--numstat"},
+		{"diff", "--cached", "--numstat"},
+	}
+
+	for _, args := range commands {
+		out, err := c.runner.Run(ctx, repoRoot, args...)
+		if err != nil {
+			c.logger.Debug("采集 Git 行数统计失败", "repo", repoRoot, "args", strings.Join(args, " "), "error", err)
+			continue
+		}
+		added, deleted := parseNumstat(out)
+		totalAdded += added
+		totalDeleted += deleted
+	}
+
+	return totalAdded, totalDeleted
+}
+
+// parseNumstat 解析 git diff --numstat 输出。
+func parseNumstat(output string) (int, int) {
+	added, deleted := 0, 0
+	for _, raw := range strings.Split(strings.ReplaceAll(output, "\r\n", "\n"), "\n") {
+		line := strings.TrimSpace(raw)
+		if line == "" {
+			continue
+		}
+		parts := strings.Split(line, "\t")
+		if len(parts) < 2 {
+			continue
+		}
+
+		if parts[0] != "-" {
+			if n, err := strconv.Atoi(parts[0]); err == nil {
+				added += n
+			}
+		}
+		if parts[1] != "-" {
+			if n, err := strconv.Atoi(parts[1]); err == nil {
+				deleted += n
+			}
+		}
+	}
+	return added, deleted
 }

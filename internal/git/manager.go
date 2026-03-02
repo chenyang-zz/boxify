@@ -207,12 +207,11 @@ func (m *Manager) StopAllWatches() int {
 // SetActiveRepo 设置当前激活仓库。
 func (m *Manager) SetActiveRepo(repoKey string, autoStart bool, stopOthers bool) (*boxtypes.GitRepoInfo, error) {
 	m.mu.Lock()
-	entry, ok := m.repos[repoKey]
+	_, ok := m.repos[repoKey]
 	if !ok {
 		m.mu.Unlock()
 		return nil, fmt.Errorf("仓库未注册: %s", repoKey)
 	}
-	m.activeRepoKey = repoKey
 
 	var otherEntries []*repoEntry
 	if stopOthers {
@@ -224,19 +223,24 @@ func (m *Manager) SetActiveRepo(repoKey string, autoStart bool, stopOthers bool)
 	}
 	m.mu.Unlock()
 
-	if stopOthers {
-		for _, repo := range otherEntries {
-			repo.watcher.Stop()
-		}
-	}
 	if autoStart {
 		if _, err := m.StartWatch(repoKey, 0); err != nil {
 			return nil, err
 		}
 	}
+	if stopOthers {
+		for _, repo := range otherEntries {
+			repo.watcher.Stop()
+		}
+	}
 
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	entry, ok := m.repos[repoKey]
+	if !ok {
+		return nil, fmt.Errorf("仓库未注册: %s", repoKey)
+	}
+	m.activeRepoKey = repoKey
 	info := m.repoToInfo(entry)
 	return &info, nil
 }

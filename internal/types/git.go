@@ -38,6 +38,8 @@ type GitRepoStatus struct {
 	UnstagedCount  int             `json:"unstagedCount"`      // 工作区未暂存变更文件数
 	UntrackedCount int             `json:"untrackedCount"`     // 未跟踪文件数
 	ConflictCount  int             `json:"conflictCount"`      // 冲突文件数
+	AddedLines     int             `json:"addedLines"`         // 新增代码行数（暂存+未暂存）
+	DeletedLines   int             `json:"deletedLines"`       // 删除代码行数（暂存+未暂存）
 	Files          []GitFileStatus `json:"files"`              // 文件级状态明细
 	UpdatedAt      int64           `json:"updatedAt"`          // 状态更新时间（Unix 秒）
 }
