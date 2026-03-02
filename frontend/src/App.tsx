@@ -40,11 +40,11 @@ const App: FC = () => {
     const windowName = currentWindowName();
     console.log(`📄  当前窗口名称: ${windowName}`);
     dataSyncStoreMethods.setCurrentWindow(windowName);
-    eventStoreMethods.initialize();
+    // eventStoreMethods.initialize();
 
-    return () => {
-      eventStoreMethods.dispose();
-    };
+    // return () => {
+    //   eventStoreMethods.dispose();
+    // };
   }, []);
 
   return (

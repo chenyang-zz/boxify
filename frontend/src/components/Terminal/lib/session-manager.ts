@@ -306,14 +306,6 @@ class TerminalSessionManager {
     }
   }
 
-  async write(sessionId: string, data: string): Promise<void> {
-    const session = this.sessions.get(sessionId);
-    if (!session || !session.isInitialized) return;
-
-    const encoded = btoa(data);
-    await TerminalService.Write(sessionId, encoded);
-  }
-
   /**
    * 写入命令并返回 block ID
    * 用于追踪命令输出，实现 block 关联

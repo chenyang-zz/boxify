@@ -5,7 +5,6 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"errors"
-	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -17,6 +16,14 @@ import (
 	boxtypes "github.com/chenyang-zz/boxify/internal/types"
 	"github.com/fsnotify/fsnotify"
 )
+
+var gitHotPathCandidates = []string{
+	"HEAD",
+	"index",
+	"refs",
+	"logs",
+	"packed-refs",
+}
 
 // RepositoryWatcher 负责单仓库监听与状态增量推送。
 type RepositoryWatcher struct {
@@ -278,22 +285,22 @@ func (w *RepositoryWatcher) snapshot(status boxtypes.GitRepoStatus) string {
 // addRepoWatchPaths 注册仓库工作区与 .git 目录监听。
 func (w *RepositoryWatcher) addRepoWatchPaths(watcher *fsnotify.Watcher) error {
 	var errList []string
+	seen := make(map[string]struct{})
 
-	skipWorkspace := func(path string, d fs.DirEntry) bool {
-		if !d.IsDir() {
-			return false
-		}
-		if filepath.Clean(path) == filepath.Clean(w.repoRoot) {
-			return false
-		}
-		return d.Name() == ".git"
+	// 只监听工作区根目录而不是整棵目录树：
+	// 这样可以在目录规模较大时显著降低 watcher/FD 消耗。
+	// 工作区内深层变化依赖轮询兜底，以及新建目录时的动态补充监听。
+	if err := w.addWatchPath(watcher, seen, w.repoRoot); err != nil {
+		errList = append(errList, "workspaceRoot: "+err.Error())
 	}
 
-	if err := w.addWatchTree(watcher, w.repoRoot, skipWorkspace); err != nil {
-		errList = append(errList, "workspace: "+err.Error())
-	}
-	if err := w.addWatchTree(watcher, w.gitDir, nil); err != nil {
-		errList = append(errList, "gitDir: "+err.Error())
+	// .git 是状态变化高频源，这里监听关键路径而不是完整递归树。
+	// refs/logs 作为目录监听，HEAD/index/packed-refs 作为文件监听。
+	for _, rel := range gitHotPathCandidates {
+		candidate := filepath.Join(w.gitDir, rel)
+		if err := w.addWatchPath(watcher, seen, candidate); err != nil {
+			errList = append(errList, ".git/"+rel+": "+err.Error())
+		}
 	}
 
 	if len(errList) > 0 {
@@ -302,35 +309,25 @@ func (w *RepositoryWatcher) addRepoWatchPaths(watcher *fsnotify.Watcher) error {
 	return nil
 }
 
-// addWatchTree 递归添加目录树到 fsnotify 监听。
-func (w *RepositoryWatcher) addWatchTree(watcher *fsnotify.Watcher, root string, skipFn func(path string, d fs.DirEntry) bool) error {
-	root = filepath.Clean(root)
-	if _, err := os.Stat(root); err != nil {
+// addWatchPath 将单个文件或目录添加到监听列表。
+// 如果路径不存在则忽略，避免在不同 git 实现/平台差异下导致启动失败。
+func (w *RepositoryWatcher) addWatchPath(watcher *fsnotify.Watcher, seen map[string]struct{}, path string) error {
+	clean := filepath.Clean(path)
+	if _, ok := seen[clean]; ok {
+		return nil
+	}
+
+	if _, err := os.Stat(clean); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
 		return err
 	}
 
-	var errList []string
-	walkErr := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return nil
-		}
-		if !d.IsDir() {
-			return nil
-		}
-		if skipFn != nil && skipFn(path, d) {
-			return filepath.SkipDir
-		}
-		if addErr := watcher.Add(path); addErr != nil {
-			errList = append(errList, path+": "+addErr.Error())
-		}
-		return nil
-	})
-	if walkErr != nil {
-		return walkErr
+	if err := watcher.Add(clean); err != nil {
+		return err
 	}
-	if len(errList) > 0 {
-		return errors.New(strings.Join(errList, "; "))
-	}
+	seen[clean] = struct{}{}
 	return nil
 }
 
@@ -346,5 +343,8 @@ func (w *RepositoryWatcher) tryAddDynamicWatch(watcher *fsnotify.Watcher, create
 	if strings.HasPrefix(cleanPath, filepath.Clean(gitPath)+string(os.PathSeparator)) || cleanPath == filepath.Clean(gitPath) {
 		return
 	}
-	_ = w.addWatchTree(watcher, cleanPath, nil)
+
+	// 动态目录只添加当前目录，不递归添加整棵子树，避免单次创建触发大量 watcher。
+	// 后续子目录创建事件会继续触发本函数补充监听。
+	_ = watcher.Add(cleanPath)
 }

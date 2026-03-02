@@ -26,34 +26,49 @@ import (
 )
 
 func TestExample(t *testing.T) {
+	app := application.New(application.Options{
+		LogLevel: slog.LevelInfo,
+	})
 	ctx := context.Background()
 	logger.Init(slog.LevelInfo)
-	service := NewTerminalService(NewServiceDeps(application.New(application.Options{
-		LogLevel: slog.LevelDebug,
-	}), nil))
-	service.ServiceStartup(ctx, application.ServiceOptions{})
-	service.Create(terminal.TerminalConfig{
+	ts := NewTerminalService(NewServiceDeps(app, nil))
+	gs := NewGitService(NewServiceDeps(app, nil))
+
+	ts.ServiceStartup(ctx, application.ServiceOptions{})
+	gs.ServiceStartup(ctx, application.ServiceOptions{})
+
+	time.Sleep(2 * time.Second)
+
+	ts.Create(terminal.TerminalConfig{
 		ID:             "123",
 		Shell:          terminal.ShellTypeZsh,
 		Rows:           0,
 		Cols:           0,
 		WorkPath:       "/Users/sheepzhao/WorkSpace/Boxify",
-		InitialCommand: "",
+		InitialCommand: "fnm use 16",
 	})
-	time.Sleep(10 * time.Second)
-	service.ServiceShutdown()
+
+	repoPath := "/Users/sheepzhao/WorkSpace/Boxify"
+	gs.RegisterRepo(repoPath, repoPath)
+	gs.StartRepoWatch(repoPath, 200)
+
+	time.Sleep(3 * time.Second)
+	ts.WriteCommand("123", "echo Hello, World!\n")
+	time.Sleep(3 * time.Second)
+	ts.ServiceShutdown()
+	gs.ServiceShutdown()
 }
 
 func TestGitService(t *testing.T) {
 	ctx := context.Background()
 	logger.Init(slog.LevelInfo)
-	service := NewGitService(NewServiceDeps(application.New(application.Options{
+	gs := NewGitService(NewServiceDeps(application.New(application.Options{
 		LogLevel: slog.LevelDebug,
 	}), nil))
-	service.ServiceStartup(ctx, application.ServiceOptions{})
+	gs.ServiceStartup(ctx, application.ServiceOptions{})
 	repoPath := "/Users/sheepzhao/WorkSpace/Boxify"
-	service.RegisterRepo(repoPath, repoPath)
-	service.StartRepoWatch(repoPath, 200)
+	gs.RegisterRepo(repoPath, repoPath)
+	gs.StartRepoWatch(repoPath, 200)
 	time.Sleep(10 * time.Second)
-	service.ServiceShutdown()
+	gs.ServiceShutdown()
 }

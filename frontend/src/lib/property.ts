@@ -26,7 +26,7 @@ import {
   propertyStoreMethods,
   usePropertyStore,
 } from "@/store/property.store";
-import { DatabaseService, GitService } from "@wails/service";
+import { DatabaseService } from "@wails/service";
 import { callWails } from "./utils";
 import { v4 as uuid } from "uuid";
 import { ConnectionConfig, QueryResult } from "@wails/connection";
