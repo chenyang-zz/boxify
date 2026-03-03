@@ -15,7 +15,6 @@
 package terminal
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -32,16 +31,6 @@ func GetEnvironmentInfo(workPath string) *types.TerminalEnvironmentInfo {
 
 	// 获取 Python 环境信息
 	info.PythonEnv = GetPythonEnv(workPath)
-
-	// 获取 Git 信息（注意：这里只获取初始信息，实时更新由 GitWatcher 负责）
-	gitStatus := GetGitStatus(workPath)
-	info.GitInfo = &types.GitInfo{
-		IsRepo:        gitStatus.IsRepo,
-		Branch:        gitStatus.Branch,
-		ModifiedFiles: gitStatus.ModifiedFiles,
-		AddedLines:    gitStatus.AddedLines,
-		DeletedLines:  gitStatus.DeletedLines,
-	}
 
 	return info
 }
@@ -130,85 +119,4 @@ func GetPythonEnv(workPath string) *types.PythonEnv {
 	}
 
 	return env
-}
-
-// GetGitStatus 获取 Git 状态信息（静态方法，不监听）
-func GetGitStatus(workPath string) *types.GitInfo {
-	status := &types.GitInfo{}
-
-	// 检查是否是 Git 仓库
-	cmd := exec.Command("git", "rev-parse", "--is-inside-work-tree")
-	cmd.Dir = workPath
-	output, err := cmd.CombinedOutput()
-	if err != nil || strings.TrimSpace(string(output)) != "true" {
-		return status
-	}
-
-	status.IsRepo = true
-
-	// 获取当前分支
-	cmd = exec.Command("git", "branch", "--show-current")
-	cmd.Dir = workPath
-	output, err = cmd.Output()
-	if err == nil {
-		status.Branch = strings.TrimSpace(string(output))
-	}
-
-	// 获取修改统计
-	cmd = exec.Command("git", "diff", "--numstat")
-	cmd.Dir = workPath
-	output, err = cmd.Output()
-	if err == nil {
-		lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-		for _, line := range lines {
-			if line == "" {
-				continue
-			}
-			status.ModifiedFiles++
-			parts := strings.Split(line, "\t")
-			if len(parts) >= 2 {
-				// 新增行数（第一列）
-				if parts[0] != "-" {
-					var added int
-					fmt.Sscanf(parts[0], "%d", &added)
-					status.AddedLines += added
-				}
-				// 删除行数（第二列）
-				if parts[1] != "-" {
-					var deleted int
-					fmt.Sscanf(parts[1], "%d", &deleted)
-					status.DeletedLines += deleted
-				}
-			}
-		}
-	}
-
-	// 获取暂存区修改统计
-	cmd = exec.Command("git", "diff", "--cached", "--numstat")
-	cmd.Dir = workPath
-	output, err = cmd.Output()
-	if err == nil {
-		lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-		for _, line := range lines {
-			if line == "" {
-				continue
-			}
-			status.ModifiedFiles++
-			parts := strings.Split(line, "\t")
-			if len(parts) >= 2 {
-				if parts[0] != "-" {
-					var added int
-					fmt.Sscanf(parts[0], "%d", &added)
-					status.AddedLines += added
-				}
-				if parts[1] != "-" {
-					var deleted int
-					fmt.Sscanf(parts[1], "%d", &deleted)
-					status.DeletedLines += deleted
-				}
-			}
-		}
-	}
-
-	return status
 }

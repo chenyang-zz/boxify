@@ -160,44 +160,6 @@ func TestGetPythonEnv_WithConda(t *testing.T) {
 	}
 }
 
-func TestGetGitStatus(t *testing.T) {
-	// 测试非 Git 目录
-	status := GetGitStatus("/tmp")
-	if status == nil {
-		t.Fatal("GetGitStatus returned nil")
-	}
-
-	// /tmp 通常不是 Git 仓库
-	t.Logf("Git status for /tmp: IsRepo=%v, Branch=%s", status.IsRepo, status.Branch)
-
-	// 测试当前项目目录（应该是 Git 仓库）
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Skip("无法获取当前工作目录")
-	}
-
-	status = GetGitStatus(cwd)
-	if status == nil {
-		t.Fatal("GetGitStatus returned nil")
-	}
-
-	t.Logf("Git status for %s: IsRepo=%v, Branch=%s, ModifiedFiles=%d, AddedLines=%d, DeletedLines=%d",
-		cwd, status.IsRepo, status.Branch, status.ModifiedFiles, status.AddedLines, status.DeletedLines)
-}
-
-func TestGetGitStatus_EmptyPath(t *testing.T) {
-	// 测试空路径
-	// 注意：空路径时 git 命令会在当前目录执行，可能返回当前目录的 Git 状态
-	status := GetGitStatus("")
-	if status == nil {
-		t.Fatal("GetGitStatus returned nil")
-	}
-
-	// 空路径时，结果取决于当前工作目录
-	// 主要验证函数不会崩溃
-	t.Logf("Git status for empty path: IsRepo=%v", status.IsRepo)
-}
-
 func TestGetEnvironmentInfo(t *testing.T) {
 	// 测试获取环境信息
 	info := GetEnvironmentInfo("/tmp")
@@ -206,19 +168,11 @@ func TestGetEnvironmentInfo(t *testing.T) {
 		t.Fatal("GetEnvironmentInfo returned nil")
 	}
 
-	// 检查工作路径被缩短（如果 /tmp 不是用户主目录的子目录，则不会被缩短）
-	t.Logf("Environment info: WorkPath=%s, PythonEnv=%v, GitInfo=%v",
-		info.WorkPath, info.PythonEnv, info.GitInfo)
-
 	// 检查 Python 环境信息
 	if info.PythonEnv == nil {
 		t.Error("PythonEnv should not be nil")
 	}
 
-	// 检查 Git 信息
-	if info.GitInfo == nil {
-		t.Error("GitInfo should not be nil")
-	}
 }
 
 func TestGetEnvironmentInfo_WithHomePath(t *testing.T) {

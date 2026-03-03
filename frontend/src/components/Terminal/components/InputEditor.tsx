@@ -44,8 +44,6 @@ export function InputEditor({
     (state) => state.latestEvents[EventType.EventTypeGitStatusChanged],
   );
 
-  console.log(gitStatus);
-
   // 获取 store 方法
   const navigateHistory = useTerminalStore((state) => state.navigateHistory);
 
@@ -180,11 +178,6 @@ export function InputEditor({
     return envInfo?.pythonEnv?.hasPython && envInfo?.pythonEnv?.envActive;
   }, [envInfo?.pythonEnv]);
 
-  // 是否在 Git 仓库中
-  const hasGitRepo = useMemo(() => {
-    return envInfo?.gitInfo?.isRepo;
-  }, [envInfo?.gitInfo]);
-
   return (
     <div className="input-editor-wrapper flex flex-col items-start px-3 py-2 ">
       <div className="flex items-center gap-1.5 shrink-0">
@@ -199,7 +192,7 @@ export function InputEditor({
           onDirectorySelect={onSubmit}
           onFocus={focusInput}
         />
-        {hasGitRepo && (
+        {gitStatus && (
           <Badge
             variant="secondary"
             className="border p-0 gap-0 flex items-center "
@@ -208,19 +201,19 @@ export function InputEditor({
               variant="ghost"
               className="text-green-200 hover:bg-accent cursor-pointer"
             >
-              <GitBranchIcon className="text-xs" /> {envInfo?.gitInfo?.branch}
+              <GitBranchIcon className="text-xs" /> {gitStatus.data.status.head}
             </Badge>
             <span className="w-1 h-2 border-l" />
             <Badge variant="ghost" className="hover:bg-accent cursor-pointer">
-              {(envInfo.gitInfo?.modifiedFiles ?? 0) > 0 ? (
+              {gitStatus.data.status.files.length > 0 ? (
                 <>
                   <FileIcon />
-                  {envInfo?.gitInfo?.modifiedFiles}
+                  {gitStatus.data.status.files.length}
                   <span className="text-green-500 font-bold ml-1">
-                    +{envInfo?.gitInfo?.addedLines}
+                    +{gitStatus.data.status.addedLines}
                   </span>
                   <span className="text-red-500 font-bold">
-                    -{envInfo?.gitInfo?.deletedLines}
+                    -{gitStatus.data.status.deletedLines}
                   </span>
                 </>
               ) : (

@@ -47,6 +47,8 @@ export function TerminalCore({ sessionId, config }: TerminalCoreProps) {
 
   // 使用 useCallback 缓存环境变化回调
   const handleEnvChange = useCallback((env: TerminalEnvironmentInfo) => {
+    console.log(env);
+
     setEnvInfo(env);
   }, []);
 
@@ -68,11 +70,6 @@ export function TerminalCore({ sessionId, config }: TerminalCoreProps) {
       setEnvInfo(session.environmentInfo);
       setIsInitialized(true);
     }
-
-    // 清理回调
-    return () => {
-      terminalSessionManager.setEnvChangeCallback(sessionId, () => {});
-    };
   }, [sessionId, config, isInitialized, handleEnvChange]);
 
   // 自动滚动到底部

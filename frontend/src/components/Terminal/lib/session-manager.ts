@@ -110,7 +110,6 @@ class TerminalSessionManager {
       (event: { data: { sessionId: string; pwd: string } }) => {
         if (event.data.sessionId === sessionId) {
           console.log("[terminal:pwd_update]:", event.data);
-
           this.handlePwdUpdate(sessionId, event.data.pwd);
         }
       },
@@ -304,6 +303,14 @@ class TerminalSessionManager {
     } catch (err) {
       console.error("创建终端失败:", err);
     }
+  }
+
+  async write(sessionId: string, data: string): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (!session || !session.isInitialized) return;
+
+    const encoded = btoa(data);
+    await TerminalService.Write(sessionId, encoded);
   }
 
   /**

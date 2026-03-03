@@ -24,7 +24,6 @@ type TerminalCreateResult struct {
 type TerminalEnvironmentInfo struct {
 	WorkPath  string     `json:"workPath,omitempty"`  // 当前工作路径
 	PythonEnv *PythonEnv `json:"pythonEnv,omitempty"` // Python 环境信息
-	GitInfo   *GitInfo   `json:"gitInfo,omitempty"`   // Git 信息
 }
 
 // PythonEnv Python 环境信息
@@ -39,11 +38,11 @@ type PythonEnv struct {
 
 // GitInfo Git 信息
 type GitInfo struct {
-	IsRepo        bool   `json:"isRepo"`               // 是否是 Git 仓库
-	Branch        string `json:"branch,omitempty"`     // 当前分支
-	ModifiedFiles int    `json:"modifiedFiles"`        // 修改的文件数
-	AddedLines    int    `json:"addedLines"`           // 新增代码行数
-	DeletedLines  int    `json:"deletedLines"`         // 删除代码行数
+	IsRepo        bool   `json:"isRepo"`           // 是否是 Git 仓库
+	Branch        string `json:"branch,omitempty"` // 当前分支
+	ModifiedFiles int    `json:"modifiedFiles"`    // 修改的文件数
+	AddedLines    int    `json:"addedLines"`       // 新增代码行数
+	DeletedLines  int    `json:"deletedLines"`     // 删除代码行数
 }
 
 // TerminalTestConfigResult 终端配置测试结果
