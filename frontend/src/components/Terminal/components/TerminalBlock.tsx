@@ -70,8 +70,8 @@ export const TerminalBlock = memo(function TerminalBlock({
       <div className="block-header flex items-center gap-2">
         <div className=" select-none text-xs text-secondary-foreground flex gap-2">
           <span>base</span>
-          <span>~/Workspace/Boxify</span>
-          <span>git:(main)</span>
+          {block.workPath && <span>{block.workPath}</span>}
+          {block.gitBranch && <span>git:({block.gitBranch})</span>}
         </div>
 
         {/* 命令 */}

@@ -14,7 +14,7 @@
 
 import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { terminalSessionManager } from "./lib/session-manager";
-import { useTerminalStore } from "./store/terminal.store";
+import { useSessionBlocks, useSessionTheme, useTerminalStore } from "./store/terminal.store";
 import { TerminalBlock } from "./components/TerminalBlock";
 import { InputEditor } from "./components/InputEditor";
 import type { TerminalConfig } from "@/types/property";
@@ -28,33 +28,33 @@ interface TerminalCoreProps {
 export function TerminalCore({ sessionId, config }: TerminalCoreProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const resizeRafRef = useRef<number | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [envInfo, setEnvInfo] = useState<TerminalEnvironmentInfo | undefined>(
     undefined,
   );
 
-  // 直接从 store 获取数据
-  const sessionBlocks = useTerminalStore((state) => state.sessionBlocks);
-  const theme = useTerminalStore((state) => state.currentTheme);
+  const blocks = useSessionBlocks(sessionId);
+  const theme = useSessionTheme();
 
   const addToHistory = useTerminalStore((state) => state.addToHistory);
   const createBlock = useTerminalStore((state) => state.createBlock);
-
-  // 使用 useMemo 稳定 blocks 引用
-  const blocks = useMemo(() => {
-    return sessionBlocks[sessionId] || [];
-  }, [sessionBlocks, sessionId]);
+  const terminalScrollStyle = useMemo(
+    () => ({
+      scrollbarWidth: "thin" as const,
+      scrollbarColor: `${theme.brightBlack} transparent`,
+    }),
+    [theme.brightBlack],
+  );
 
   // 使用 useCallback 缓存环境变化回调
   const handleEnvChange = useCallback((env: TerminalEnvironmentInfo) => {
-    console.log(env);
-
     setEnvInfo(env);
   }, []);
 
   // 初始化后端会话
   useEffect(() => {
-    if (isInitialized) return;
+    let cancelled = false;
 
     const session = terminalSessionManager.getOrCreate(sessionId);
 
@@ -63,6 +63,7 @@ export function TerminalCore({ sessionId, config }: TerminalCoreProps) {
 
     if (!session.isInitialized) {
       terminalSessionManager.initialize(sessionId, config).then((env) => {
+        if (cancelled) return;
         setEnvInfo(env);
         setIsInitialized(true);
       });
@@ -70,7 +71,12 @@ export function TerminalCore({ sessionId, config }: TerminalCoreProps) {
       setEnvInfo(session.environmentInfo);
       setIsInitialized(true);
     }
-  }, [sessionId, config, isInitialized, handleEnvChange]);
+
+    return () => {
+      cancelled = true;
+      terminalSessionManager.setEnvChangeCallback(sessionId, undefined);
+    };
+  }, [sessionId, config, handleEnvChange]);
 
   // 自动滚动到底部
   const scrollToBottom = useCallback(() => {
@@ -98,30 +104,58 @@ export function TerminalCore({ sessionId, config }: TerminalCoreProps) {
 
       // 使用后端返回的 blockId 创建 block
       if (blockId) {
-        createBlock(sessionId, trimmed, blockId);
+        createBlock(sessionId, trimmed, blockId, {
+          workPath: envInfo?.workPath,
+          gitBranch:
+            (envInfo as { gitInfo?: { branch?: string } } | undefined)?.gitInfo
+              ?.branch || undefined,
+        });
       }
       addToHistory(sessionId, trimmed);
       setTimeout(scrollToBottom, 50);
     },
-    [sessionId, createBlock, addToHistory, scrollToBottom],
+    [sessionId, createBlock, addToHistory, scrollToBottom, envInfo],
   );
 
-  // 处理终端大小变化
+  // 监听容器大小变化，同步终端 rows/cols
   useEffect(() => {
-    const handleResize = () => {
+    const updateSize = () => {
       if (containerRef.current) {
         const { clientWidth, clientHeight } = containerRef.current;
         const charWidth = 8;
         const charHeight = 16;
-        const cols = Math.floor(clientWidth / charWidth);
-        const rows = Math.floor(clientHeight / charHeight);
+        const cols = Math.max(20, Math.floor(clientWidth / charWidth));
+        const rows = Math.max(6, Math.floor(clientHeight / charHeight));
         terminalSessionManager.resize(sessionId, cols, rows);
       }
     };
 
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    const scheduleResize = () => {
+      if (resizeRafRef.current !== null) {
+        cancelAnimationFrame(resizeRafRef.current);
+      }
+      resizeRafRef.current = requestAnimationFrame(() => {
+        updateSize();
+        resizeRafRef.current = null;
+      });
+    };
+
+    scheduleResize();
+
+    const observer = new ResizeObserver(() => {
+      scheduleResize();
+    });
+
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+
+    return () => {
+      observer.disconnect();
+      if (resizeRafRef.current !== null) {
+        cancelAnimationFrame(resizeRafRef.current);
+      }
+    };
   }, [sessionId]);
 
   return (
@@ -133,10 +167,7 @@ export function TerminalCore({ sessionId, config }: TerminalCoreProps) {
       <div
         ref={scrollRef}
         className="output-area flex-1 overflow-auto"
-        style={{
-          scrollbarWidth: "thin",
-          scrollbarColor: `${theme.brightBlack} transparent`,
-        }}
+        style={terminalScrollStyle}
       >
         {blocks.map((block) => (
           <TerminalBlock key={block.id} block={block} theme={theme} />

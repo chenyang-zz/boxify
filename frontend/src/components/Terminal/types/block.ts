@@ -47,6 +47,8 @@ export interface TerminalBlock {
   startTime: number;
   endTime?: number;
   exitCode?: number;
+  workPath?: string;
+  gitBranch?: string;
 }
 
 // 用于创建新 block 的参数

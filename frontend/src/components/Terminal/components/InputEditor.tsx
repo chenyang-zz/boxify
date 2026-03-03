@@ -47,12 +47,26 @@ export function InputEditor({
   // 获取 store 方法
   const navigateHistory = useTerminalStore((state) => state.navigateHistory);
 
+  const adjustInputHeight = useCallback(() => {
+    const el = inputRef.current;
+    if (!el) return;
+
+    el.style.height = "0px";
+    el.style.height = `${el.scrollHeight}px`;
+    onResize?.();
+  }, [onResize]);
+
   // 自动聚焦
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.focus();
+      adjustInputHeight();
     }
-  }, []);
+  }, [adjustInputHeight]);
+
+  useEffect(() => {
+    adjustInputHeight();
+  }, [value, adjustInputHeight]);
 
   // 聚焦输入框
   const focusInput = useCallback(() => {
@@ -60,13 +74,9 @@ export function InputEditor({
   }, []);
 
   // 处理输入变化
-  const handleChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      setValue(e.target.value);
-      onResize?.();
-    },
-    [onResize],
-  );
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setValue(e.target.value);
+  }, []);
 
   // 处理键盘事件
   const handleKeyDown = useCallback(
@@ -188,7 +198,7 @@ export function InputEditor({
           </Badge>
         )}
         <DirectorySelector
-          workPath={envInfo?.workPath || ""}
+          workPath={envInfo?.workPath || "~"}
           onDirectorySelect={onSubmit}
           onFocus={focusInput}
         />
@@ -229,23 +239,13 @@ export function InputEditor({
         className="flex items-start flex-1 pt-1 w-full"
         onClick={handleContainerClick}
       >
-        {/* 输入区域 */}
         <div className="input-field-wrapper relative flex-1">
-          {/* 高亮层 */}
-          <div
-            className="highlight-layer absolute inset-0 pointer-events-none whitespace-pre-wrap break-all overflow-hidden"
-            aria-hidden="true"
-          >
-            {value || "\u200B"}
-          </div>
-
-          {/* 实际输入框 */}
           <textarea
             ref={inputRef}
             value={value}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
-            className="actual-input w-full relative min-h-[1.5em] max-h-[10em] text-transparent bg-transparent outline-none resize-none text-sm caret-primary"
+            className="actual-input w-full block overflow-hidden bg-transparent outline-none resize-none text-sm leading-6 caret-primary"
             spellCheck={false}
             autoComplete="off"
             autoCorrect="off"

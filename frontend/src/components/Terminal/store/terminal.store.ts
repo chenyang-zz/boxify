@@ -34,7 +34,12 @@ interface TerminalState {
   currentTheme: TerminalTheme;
 
   // === Block 操作 ===
-  createBlock: (sessionId: string, command: string, blockId?: string) => string;
+  createBlock: (
+    sessionId: string,
+    command: string,
+    blockId?: string,
+    context?: { workPath?: string; gitBranch?: string },
+  ) => string;
   updateBlockOutput: (
     sessionId: string,
     blockId: string,
@@ -46,6 +51,14 @@ interface TerminalState {
     blockId: string,
     content: string,
     formattedContent: OutputLine["formattedContent"],
+  ) => void;
+  appendOutputBatch: (
+    sessionId: string,
+    blockId: string,
+    chunks: Array<{
+      content: string;
+      formattedContent: OutputLine["formattedContent"];
+    }>,
   ) => void;
   finalizeBlock: (sessionId: string, blockId: string, exitCode: number) => void;
   updateBlockStatus: (
@@ -69,6 +82,36 @@ interface TerminalState {
   setTheme: (theme: TerminalTheme) => void;
 }
 
+const EMPTY_BLOCKS: TerminalBlock[] = [];
+
+function appendOutput(
+  output: OutputLine[],
+  content: string,
+  formattedContent: OutputLine["formattedContent"],
+): OutputLine[] {
+  const lastLine = output[output.length - 1];
+
+  if (lastLine) {
+    return [
+      ...output.slice(0, -1),
+      {
+        ...lastLine,
+        content: lastLine.content + content,
+        formattedContent: [...lastLine.formattedContent, ...formattedContent],
+      },
+    ];
+  }
+
+  return [
+    {
+      id: uuid(),
+      content,
+      formattedContent,
+      timestamp: Date.now(),
+    },
+  ];
+}
+
 export const useTerminalStore = create<TerminalState>((set, get) => ({
   sessionBlocks: {},
   currentBlockIds: {},
@@ -76,7 +119,12 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   historyIndexes: {},
   currentTheme: defaultTheme,
 
-  createBlock: (sessionId: string, command: string, blockId?: string) => {
+  createBlock: (
+    sessionId: string,
+    command: string,
+    blockId?: string,
+    context?: { workPath?: string; gitBranch?: string },
+  ) => {
     const id = blockId || uuid();
     const newBlock: TerminalBlock = {
       id,
@@ -84,6 +132,8 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       output: [],
       status: "running",
       startTime: Date.now(),
+      workPath: context?.workPath,
+      gitBranch: context?.gitBranch,
     };
 
     set((state) => ({
@@ -144,31 +194,41 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       if (blockIndex === -1) return state;
 
       const block = blocks[blockIndex];
-      const lastLine = block.output[block.output.length - 1];
+      const newOutput = appendOutput(block.output, content, formattedContent);
 
-      let newOutput: OutputLine[];
+      return {
+        sessionBlocks: {
+          ...state.sessionBlocks,
+          [sessionId]: blocks.map((b, i) =>
+            i === blockIndex ? { ...b, output: newOutput } : b,
+          ),
+        },
+      };
+    });
+  },
+  appendOutputBatch: (sessionId, blockId, chunks) => {
+    if (chunks.length === 0) return;
 
-      if (lastLine) {
-        newOutput = [
-          ...block.output.slice(0, -1),
-          {
-            ...lastLine,
-            content: lastLine.content + content,
-            formattedContent: [
-              ...lastLine.formattedContent,
-              ...formattedContent,
-            ],
-          },
-        ];
-      } else {
-        const newLine: OutputLine = {
-          id: uuid(),
-          content,
-          formattedContent,
-          timestamp: Date.now(),
-        };
-        newOutput = [newLine];
-      }
+    set((state) => {
+      const blocks = state.sessionBlocks[sessionId];
+      if (!blocks) return state;
+
+      const blockIndex = blocks.findIndex((b) => b.id === blockId);
+      if (blockIndex === -1) return state;
+
+      const block = blocks[blockIndex];
+      const mergedChunk = chunks.reduce(
+        (acc, chunk) => ({
+          content: acc.content + chunk.content,
+          formattedContent: [...acc.formattedContent, ...chunk.formattedContent],
+        }),
+        { content: "", formattedContent: [] as OutputLine["formattedContent"] },
+      );
+      const newOutput = appendOutput(
+        block.output,
+        mergedChunk.content,
+        mergedChunk.formattedContent,
+      );
 
       return {
         sessionBlocks: {
@@ -304,7 +364,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
 
 // 选择器 hooks
 export function useSessionBlocks(sessionId: string): TerminalBlock[] {
-  return useTerminalStore((state) => state.sessionBlocks[sessionId] || []);
+  return useTerminalStore((state) => state.sessionBlocks[sessionId] ?? EMPTY_BLOCKS);
 }
 
 export function useCurrentBlockId(sessionId: string): string | null {

@@ -32,6 +32,11 @@ interface CachedSession {
 
 class TerminalSessionManager {
   private sessions = new Map<string, CachedSession>();
+  private outputQueues = new Map<
+    string,
+    Array<{ content: string; formattedContent: ReturnType<AnsiParser["parse"]> }>
+  >();
+  private flushFrameId: number | null = null;
   private defaultRows = 24;
   private defaultCols = 80;
 
@@ -54,7 +59,7 @@ class TerminalSessionManager {
   // 设置环境信息变化回调
   setEnvChangeCallback(
     sessionId: string,
-    callback: (env: TerminalEnvironmentInfo) => void,
+    callback?: (env: TerminalEnvironmentInfo) => void,
   ): void {
     const session = this.sessions.get(sessionId);
     if (session) {
@@ -160,8 +165,6 @@ class TerminalSessionManager {
       const bytes = Uint8Array.from(binaryString, (c) => c.charCodeAt(0));
       const decoded = new TextDecoder("utf-8").decode(bytes);
 
-      const formattedContent = session.parser.parse(decoded);
-
       const store = useTerminalStore.getState();
 
       // 优先使用事件中的 blockId，否则回退到 store 中的当前 blockId
@@ -169,16 +172,48 @@ class TerminalSessionManager {
 
       // 只在有 block 时追加输出
       if (targetBlockId) {
-        store.appendToLastLine(
-          sessionId,
-          targetBlockId,
-          decoded,
-          formattedContent,
-        );
+        const formattedContent = session.parser.parse(decoded);
+        this.enqueueOutput(sessionId, targetBlockId, decoded, formattedContent);
       }
     } catch (e) {
       console.error("处理终端输出失败:", e);
     }
+  }
+
+  private enqueueOutput(
+    sessionId: string,
+    blockId: string,
+    content: string,
+    formattedContent: ReturnType<AnsiParser["parse"]>,
+  ): void {
+    const queueKey = `${sessionId}:${blockId}`;
+    const queue = this.outputQueues.get(queueKey) ?? [];
+    queue.push({ content, formattedContent });
+    this.outputQueues.set(queueKey, queue);
+
+    if (this.flushFrameId !== null) return;
+
+    this.flushFrameId = requestAnimationFrame(() => {
+      this.flushOutputQueue();
+    });
+  }
+
+  private flushOutputQueue(): void {
+    this.flushFrameId = null;
+    if (this.outputQueues.size === 0) return;
+
+    const store = useTerminalStore.getState();
+
+    this.outputQueues.forEach((chunks, key) => {
+      if (chunks.length === 0) return;
+      const separator = key.indexOf(":");
+      if (separator === -1) return;
+      const sessionId = key.slice(0, separator);
+      const blockId = key.slice(separator + 1);
+      store.appendOutputBatch(sessionId, blockId, chunks);
+    });
+
+    this.outputQueues.clear();
   }
 
   private handleError(sessionId: string, message: string): void {
@@ -192,13 +227,11 @@ class TerminalSessionManager {
       const formattedContent = session.parser.parse(
         `\x1b[31m错误: ${message}\x1b[0m`,
       );
-      store.appendToLastLine(
+      store.appendOutputBatch(
         sessionId,
         currentBlockId,
-        `\n错误: ${message}`,
-        formattedContent,
+        [{ content: `\n错误: ${message}`, formattedContent }],
       );
-      store.updateBlockStatus(sessionId, currentBlockId, "error");
       store.finalizeBlock(sessionId, currentBlockId, 1);
     }
   }
@@ -209,15 +242,6 @@ class TerminalSessionManager {
     exitCode: number,
   ): void {
     const store = useTerminalStore.getState();
-
-    // 更新 block 状态
-    if (exitCode === 0) {
-      store.updateBlockStatus(sessionId, blockId, "success");
-    } else {
-      store.updateBlockStatus(sessionId, blockId, "error");
-    }
-
-    // 完成 block
     store.finalizeBlock(sessionId, blockId, exitCode);
   }
 
@@ -298,7 +322,6 @@ class TerminalSessionManager {
 
       session.isInitialized = true;
       session.environmentInfo = res.data ?? undefined;
-      console.log("终端会话创建成功:", sessionId);
       return session.environmentInfo;
     } catch (err) {
       console.error("创建终端失败:", err);
@@ -348,6 +371,16 @@ class TerminalSessionManager {
     });
 
     useTerminalStore.getState().clearSession(sessionId);
+
+    for (const key of this.outputQueues.keys()) {
+      if (key.startsWith(`${sessionId}:`)) {
+        this.outputQueues.delete(key);
+      }
+    }
+    if (this.flushFrameId !== null && this.outputQueues.size === 0) {
+      cancelAnimationFrame(this.flushFrameId);
+      this.flushFrameId = null;
+    }
 
     this.sessions.delete(sessionId);
   }
