@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -20,9 +20,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { FolderIcon, ChevronUpIcon, Loader2Icon } from "lucide-react";
+import { FolderIcon, ChevronUpIcon, Loader2Icon, SearchIcon } from "lucide-react";
 import { DirectoryInfo, ListDirectoryData } from "@wails/types/models";
 import { FilesystemService } from "@wails/service";
+import { Input } from "@/components/ui/input";
 
 interface DirectorySelectorProps {
   workPath: string;
@@ -39,6 +40,8 @@ export function DirectorySelector({
   const [directoryResult, setDirectoryResult] =
     useState<ListDirectoryData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const menuOpenedAtRef = useRef(0);
 
   // 加载目录列表
   const loadDirectories = useCallback(async (path: string) => {
@@ -48,19 +51,7 @@ export function DirectorySelector({
 
       if (result?.success && result.data) {
         const data = result.data;
-        // 添加返回上一级选项
         const directories = data.directories.filter((d) => d !== null);
-
-        // 如果有父目录，添加返回上一级选项
-        if (data.parentPath && data.parentPath !== data.currentPath) {
-          directories.unshift({
-            name: "..",
-            path: data.parentPath,
-            displayName: ".. (返回上一级)",
-            isParent: true,
-            children: undefined,
-          });
-        }
 
         setDirectoryResult({
           currentPath: data.currentPath,
@@ -80,6 +71,11 @@ export function DirectorySelector({
     (open: boolean) => {
       setIsMenuOpen(open);
       if (open && workPath) {
+        menuOpenedAtRef.current = Date.now();
+        setSearchKeyword("");
+        // 避免打开时短暂显示上一次目录列表
+        setDirectoryResult(null);
+        setIsLoading(true);
         // 展开路径（将 ~ 替换为用户目录）
         FilesystemService.ExpandPath(workPath).then((expandedPath) => {
           loadDirectories(expandedPath);
@@ -105,6 +101,43 @@ export function DirectorySelector({
     [onDirectorySelect, onFocus],
   );
 
+  const handleDirectoryItemSelect = useCallback(
+    (dir: DirectoryInfo, event: Event) => {
+      // 防止菜单刚打开时由同一次点击/按键导致的误选
+      if (Date.now() - menuOpenedAtRef.current < 150) {
+        event.preventDefault();
+        return;
+      }
+
+      handleDirectorySelect(dir);
+    },
+    [handleDirectorySelect],
+  );
+
+  const parentDirectory = useMemo(() => {
+    if (!directoryResult?.parentPath) return null;
+    if (directoryResult.parentPath === directoryResult.currentPath) return null;
+
+    return {
+      name: "..",
+      path: directoryResult.parentPath,
+      displayName: ".. (返回上一级)",
+      isParent: true,
+      children: undefined,
+    } satisfies DirectoryInfo;
+  }, [directoryResult]);
+
+  const filteredDirectories = useMemo(() => {
+    const dirs = directoryResult?.directories ?? [];
+    const keyword = searchKeyword.trim().toLowerCase();
+    if (!keyword) return dirs;
+
+    return dirs.filter((dir) => {
+      const name = dir?.displayName || dir?.name || "";
+      return name.toLowerCase().includes(keyword);
+    });
+  }, [directoryResult?.directories, searchKeyword]);
+
   return (
     <DropdownMenu open={isMenuOpen} onOpenChange={handleMenuOpenChange}>
       <DropdownMenuTrigger asChild>
@@ -116,35 +149,64 @@ export function DirectorySelector({
         </Badge>
       </DropdownMenuTrigger>
       <DropdownMenuContent
+        side="top"
         align="start"
-        className="max-h-64 overflow-y-auto min-w-48"
+        className="min-w-64 max-w-80 p-0 overflow-hidden"
       >
         {isLoading ? (
           <div className="flex items-center justify-center py-2">
             <Loader2Icon className="size-4 animate-spin" />
             <span className="ml-2 text-sm">加载中...</span>
           </div>
-        ) : directoryResult?.directories.length === 0 ? (
-          <div className="px-2 py-1.5 text-sm text-muted-foreground">
-            无子目录
-          </div>
         ) : (
-          directoryResult?.directories.map((dir) => (
-            <DropdownMenuItem
-              key={dir?.path}
-              onClick={() => handleDirectorySelect(dir!)}
-              className="cursor-pointer"
-            >
-              {dir?.isParent ? (
-                <ChevronUpIcon className="size-4 text-muted-foreground" />
-              ) : (
-                <FolderIcon className="size-4 text-cyan-200" />
+          <div className="w-full">
+            <div className="sticky top-0 z-20 bg-popover border-b p-2 space-y-2">
+              <div className="relative">
+                <SearchIcon className="absolute left-2 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Input
+                  value={searchKeyword}
+                  onChange={(e) => setSearchKeyword(e.target.value)}
+                  placeholder="搜索当前目录内子文件夹"
+                  className="h-8 pl-8 text-sm"
+                  autoFocus
+                />
+              </div>
+
+              {parentDirectory && (
+                <DropdownMenuItem
+                  key={parentDirectory.path}
+                  onSelect={(event) =>
+                    handleDirectoryItemSelect(parentDirectory, event)
+                  }
+                  className="cursor-pointer"
+                >
+                  <ChevronUpIcon className="size-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">
+                    {parentDirectory.displayName}
+                  </span>
+                </DropdownMenuItem>
               )}
-              <span className={dir?.isParent ? "text-muted-foreground" : ""}>
-                {dir?.displayName}
-              </span>
-            </DropdownMenuItem>
-          ))
+            </div>
+
+            <div className="max-h-56 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden p-1">
+              {filteredDirectories.length === 0 ? (
+                <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                  {searchKeyword.trim() ? "未匹配到子目录" : "无子目录"}
+                </div>
+              ) : (
+                filteredDirectories.map((dir) => (
+                  <DropdownMenuItem
+                    key={dir?.path}
+                    onSelect={(event) => handleDirectoryItemSelect(dir!, event)}
+                    className="cursor-pointer"
+                  >
+                    <FolderIcon className="size-4 text-cyan-200" />
+                    <span>{dir?.displayName}</span>
+                  </DropdownMenuItem>
+                ))
+              )}
+            </div>
+          </div>
         )}
       </DropdownMenuContent>
     </DropdownMenu>
