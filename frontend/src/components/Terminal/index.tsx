@@ -16,6 +16,13 @@ import { useMemo, useEffect, useRef } from "react";
 import { TerminalCore } from "./TerminalCore";
 import { terminalSessionManager } from "./lib/session-manager";
 import { getPropertyItemByUUID } from "@/lib/property";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
+import { useReviewPanelOpen } from "./store/terminal.store";
+import { GitReviewPanel } from "./components/GitReviewPanel";
 
 interface TerminalComponentProps {
   sessionId: string;
@@ -28,6 +35,7 @@ export default function Terminal({ sessionId }: TerminalComponentProps) {
     () => getPropertyItemByUUID(sessionId),
     [sessionId],
   );
+  const reviewOpen = useReviewPanelOpen(sessionId);
 
   // 清理：当组件卸载时销毁终端会话
   useEffect(() => {
@@ -55,11 +63,27 @@ export default function Terminal({ sessionId }: TerminalComponentProps) {
   }
 
   return (
-    <div className="terminal-wrapper h-full w-full" style={{ textAlign: "left" }}>
-      <TerminalCore
-        sessionId={sessionId}
-        config={propertyItem.terminalConfig}
-      />
+    <div
+      className="terminal-wrapper h-full w-full overflow-hidden"
+      style={{ textAlign: "left" }}
+    >
+      <ResizablePanelGroup orientation="horizontal">
+        <ResizablePanel minSize="30%">
+          <TerminalCore
+            sessionId={sessionId}
+            config={propertyItem.terminalConfig}
+          />
+        </ResizablePanel>
+
+        {reviewOpen && (
+          <>
+            <ResizableHandle className="opacity-0" />
+            <ResizablePanel defaultSize="50%" minSize="20%">
+              <GitReviewPanel sessionId={sessionId} />
+            </ResizablePanel>
+          </>
+        )}
+      </ResizablePanelGroup>
     </div>
   );
 }

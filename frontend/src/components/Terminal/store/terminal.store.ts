@@ -30,6 +30,9 @@ interface TerminalState {
   sessionHistory: Record<string, string[]>;
   historyIndexes: Record<string, number>;
 
+  // 每个会话的代码审查面板开关
+  reviewPanelOpenBySession: Record<string, boolean>;
+
   // 主题
   currentTheme: TerminalTheme;
 
@@ -75,6 +78,10 @@ interface TerminalState {
   ) => string | null;
   resetHistoryIndex: (sessionId: string) => void;
 
+  // === 审查面板 ===
+  openReviewPanel: (sessionId: string) => void;
+  closeReviewPanel: (sessionId: string) => void;
+
   // === 会话管理 ===
   clearSession: (sessionId: string) => void;
 
@@ -117,6 +124,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   currentBlockIds: {},
   sessionHistory: {},
   historyIndexes: {},
+  reviewPanelOpenBySession: {},
   currentTheme: defaultTheme,
 
   createBlock: (
@@ -337,6 +345,24 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     }));
   },
 
+  openReviewPanel: (sessionId: string) => {
+    set((state) => ({
+      reviewPanelOpenBySession: {
+        ...state.reviewPanelOpenBySession,
+        [sessionId]: true,
+      },
+    }));
+  },
+
+  closeReviewPanel: (sessionId: string) => {
+    set((state) => ({
+      reviewPanelOpenBySession: {
+        ...state.reviewPanelOpenBySession,
+        [sessionId]: false,
+      },
+    }));
+  },
+
   clearSession: (sessionId: string) => {
     set((state) => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -347,12 +373,15 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       const { [sessionId]: ___, ...restHistory } = state.sessionHistory;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { [sessionId]: ____, ...restIndexes } = state.historyIndexes;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { [sessionId]: _____, ...restReviewOpen } = state.reviewPanelOpenBySession;
 
       return {
         sessionBlocks: restBlocks,
         currentBlockIds: restBlockIds,
         sessionHistory: restHistory,
         historyIndexes: restIndexes,
+        reviewPanelOpenBySession: restReviewOpen,
       };
     });
   },
@@ -373,4 +402,8 @@ export function useCurrentBlockId(sessionId: string): string | null {
 
 export function useSessionTheme(): TerminalTheme {
   return useTerminalStore((state) => state.currentTheme);
+}
+
+export function useReviewPanelOpen(sessionId: string): boolean {
+  return useTerminalStore((state) => state.reviewPanelOpenBySession[sessionId] ?? false);
 }

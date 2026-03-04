@@ -46,6 +46,7 @@ export function InputEditor({
 
   // 获取 store 方法
   const navigateHistory = useTerminalStore((state) => state.navigateHistory);
+  const openReviewPanel = useTerminalStore((state) => state.openReviewPanel);
 
   const adjustInputHeight = useCallback(() => {
     const el = inputRef.current;
@@ -74,9 +75,12 @@ export function InputEditor({
   }, []);
 
   // 处理输入变化
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setValue(e.target.value);
-  }, []);
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      setValue(e.target.value);
+    },
+    [],
+  );
 
   // 处理键盘事件
   const handleKeyDown = useCallback(
@@ -189,13 +193,17 @@ export function InputEditor({
   }, [envInfo?.pythonEnv]);
 
   const isRepo = useMemo(() => {
-    return !!(envInfo as { gitInfo?: { isRepo?: boolean } } | undefined)?.gitInfo
-      ?.isRepo;
+    return !!(envInfo as { gitInfo?: { isRepo?: boolean } } | undefined)
+      ?.gitInfo?.isRepo;
   }, [envInfo]);
+
+  const handleOpenReviewPanel = useCallback(() => {
+    openReviewPanel(sessionId);
+  }, [openReviewPanel, sessionId]);
 
   return (
     <div className="input-editor-wrapper flex flex-col items-start px-3 py-2 ">
-      <div className="flex items-center gap-1.5 shrink-0">
+      <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
         {hasPythonEnv && (
           <Badge variant="secondary" className="border text-yellow-200 ">
             <TerminalIcon />
@@ -210,16 +218,20 @@ export function InputEditor({
         {isRepo && gitStatus && (
           <Badge
             variant="secondary"
-            className="border p-0 gap-0 flex items-center "
+            className="border p-0 gap-0 flex items-center cursor-pointer select-none"
           >
             <Badge
               variant="ghost"
-              className="text-green-200 hover:bg-accent cursor-pointer"
+              className="text-green-200 hover:bg-accent cursor-pointer select-none"
             >
               <GitBranchIcon className="text-xs" /> {gitStatus.data.status.head}
             </Badge>
             <span className="w-1 h-2 border-l" />
-            <Badge variant="ghost" className="hover:bg-accent cursor-pointer">
+            <Badge
+              variant="ghost"
+              className="hover:bg-accent cursor-pointer select-none"
+              onClick={handleOpenReviewPanel}
+            >
               {gitStatus.data.status.files.length > 0 ? (
                 <>
                   <FileIcon />

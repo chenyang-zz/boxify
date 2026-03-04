@@ -23,7 +23,7 @@ function MainApp() {
         <TitleBar />
         <div className="flex-1 flex overflow-hidden">
           <UtilBar />
-          <main className="h-full flex flex-1 pb-2 overflow-hidden">
+          <main className="h-full flex flex-1 overflow-hidden">
             <ResizablePanelGroup orientation="horizontal">
               {isOpen && (
                 <>
@@ -33,7 +33,7 @@ function MainApp() {
                   <ResizableHandle className=" opacity-0" />
                 </>
               )}
-              <ResizablePanel className="pl-1 pr-2">
+              <ResizablePanel>
                 <Tabs />
               </ResizablePanel>
             </ResizablePanelGroup>

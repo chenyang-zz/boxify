@@ -41,7 +41,7 @@ function Badge({
       data-variant={variant}
       className={cn(
         badgeVariants({ variant }),
-        "rounded-sm cursor-default select-none",
+        "rounded-sm cursor-pointer select-none",
         className,
       )}
       {...props}
