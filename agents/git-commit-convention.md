@@ -3,7 +3,7 @@
 使用中文提交信息，格式：
 
 ```
-<类型>(<范围>): <简短描述>
+<图标> <类型>(<范围>): <简短描述>
 
 <详细描述（可选）>
 
@@ -36,7 +36,7 @@ Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
 ## 示例
 
 ```
-feat(terminal): 添加目录选择器搜索功能
+✨ feat(terminal): 添加目录选择器搜索功能
 
 - 支持模糊搜索过滤目录
 - 高亮匹配的搜索关键词
@@ -49,4 +49,6 @@ Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
 🐛 fix(git): 修复路径解析错误
 
 修复了包含空格的路径无法正确解析的问题
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
 ```
