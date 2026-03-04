@@ -72,9 +72,21 @@ go test ./...         # 运行测试
 
 ## Git 提交规范
 
-提交规范已迁移为独立文档，请查看：
+格式：`<图标> <类型>(<范围>): <简短描述>`
 
-- `agents/git-commit-convention.md`
+| 类型 | 图标 | 说明 |
+|------|------|------|
+| `feat` | ✨ | 新功能 |
+| `fix` | 🐛 | 修复 bug |
+| `refactor` | ♻️ | 重构代码 |
+| `docs` | 📝 | 文档更新 |
+| `test` | ✅ | 测试相关 |
+| `chore` | 🔧 | 构建/工具链 |
+| `perf` | ⚡ | 性能优化 |
+
+示例：`✨ feat(terminal): 添加目录选择器搜索功能`
+
+详细规范见 `agents/git-commit-convention.md`
 
 ## 重要注意事项
 
