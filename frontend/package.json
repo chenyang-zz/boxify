@@ -41,6 +41,7 @@
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
     "uuid": "^13.0.0",
+    "xterm-addon-unicode11": "^0.6.0",
     "zustand": "^5.0.11"
   }
 }

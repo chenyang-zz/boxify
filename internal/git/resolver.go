@@ -72,6 +72,11 @@ func (r *Resolver) normalizePath(path string) (string, error) {
 		p = cwd
 	}
 
+	p, err := expandUserHome(p)
+	if err != nil {
+		return "", err
+	}
+
 	p = filepath.Clean(p)
 	fi, err := os.Stat(p)
 	if err != nil {
@@ -84,4 +89,24 @@ func (r *Resolver) normalizePath(path string) (string, error) {
 		p = filepath.Dir(p)
 	}
 	return p, nil
+}
+
+func expandUserHome(path string) (string, error) {
+	if path == "~" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("获取用户目录失败: %w", err)
+		}
+		return home, nil
+	}
+
+	if strings.HasPrefix(path, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("获取用户目录失败: %w", err)
+		}
+		return filepath.Join(home, path[2:]), nil
+	}
+
+	return path, nil
 }

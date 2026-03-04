@@ -14,6 +14,7 @@
 
 import { Events } from "@wailsio/runtime";
 import { TerminalService } from "@wails/service";
+import { GitService } from "@wails/service";
 import { TerminalConfig as GoTerminalConfig } from "@wails/terminal";
 import type { TerminalConfig } from "@/types/property";
 import { AnsiParser } from "./ansi-parser";
@@ -21,13 +22,28 @@ import { useTerminalStore } from "../store/terminal.store";
 import { defaultTheme } from "../types/theme";
 import { callWails } from "@/lib/utils";
 import { TerminalEnvironmentInfo } from "@wails/types/models";
+import { useEventStore } from "@/store/event.store";
+import { EventType } from "@wails/events/models";
+
+interface SessionGitInfo {
+  isRepo: boolean;
+  branch?: string;
+  modifiedFiles: number;
+  addedLines: number;
+  deletedLines: number;
+}
+
+type SessionEnvironmentInfo = TerminalEnvironmentInfo & {
+  gitInfo?: SessionGitInfo;
+};
 
 interface CachedSession {
   isInitialized: boolean;
   parser: AnsiParser;
   unbindCallbacks: (() => void)[];
-  environmentInfo?: TerminalEnvironmentInfo;
-  onEnvChange?: (env: TerminalEnvironmentInfo) => void;
+  environmentInfo?: SessionEnvironmentInfo;
+  onEnvChange?: (env: SessionEnvironmentInfo) => void;
+  currentGitRepoKey?: string;
 }
 
 class TerminalSessionManager {
@@ -59,7 +75,7 @@ class TerminalSessionManager {
   // 设置环境信息变化回调
   setEnvChangeCallback(
     sessionId: string,
-    callback?: (env: TerminalEnvironmentInfo) => void,
+    callback?: (env: SessionEnvironmentInfo) => void,
   ): void {
     const session = this.sessions.get(sessionId);
     if (session) {
@@ -248,7 +264,7 @@ class TerminalSessionManager {
   // 通用的环境信息更新方法
   private updateEnvironmentInfo(
     sessionId: string,
-    updater: (env: TerminalEnvironmentInfo) => TerminalEnvironmentInfo,
+    updater: (env: SessionEnvironmentInfo) => SessionEnvironmentInfo,
   ): void {
     const session = this.sessions.get(sessionId);
     if (!session || !session.environmentInfo) return;
@@ -276,6 +292,8 @@ class TerminalSessionManager {
     TerminalService.UpdateWorkPath(sessionId, pwd).catch((err) => {
       console.error("更新工作路径失败:", err);
     });
+
+    this.syncGitWatchByWorkPath(sessionId, pwd);
   }
 
   private handleGitUpdate(
@@ -300,6 +318,82 @@ class TerminalSessionManager {
     }));
   }
 
+  private clearGitStatusEvent() {
+    useEventStore
+      .getState()
+      .clearEvent(EventType.EventTypeGitStatusChanged);
+  }
+
+  private async syncGitWatchByWorkPath(
+    sessionId: string,
+    workPath: string,
+  ): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (!session || !workPath) return;
+
+    try {
+      // repoKey 传空，让后端按仓库根目录归一化 key，避免子目录重复注册。
+      const registerRes = await GitService.RegisterRepo("", workPath);
+      if (!registerRes?.success || !registerRes.data?.repoKey) {
+        throw new Error(registerRes?.message || "仓库注册失败");
+      }
+
+      const nextRepoKey = registerRes.data.repoKey;
+
+      // 切换仓库时先停止旧监听。
+      if (
+        session.currentGitRepoKey &&
+        session.currentGitRepoKey !== nextRepoKey
+      ) {
+        await GitService.StopRepoWatch(session.currentGitRepoKey);
+      }
+
+      session.currentGitRepoKey = nextRepoKey;
+
+      // 激活当前仓库并仅保留它的监听。
+      await GitService.SetActiveRepo(nextRepoKey, true, true);
+
+      // 立即拉取一次状态并写入事件缓存，确保前端展示及时更新。
+      const initialRes = await GitService.GetInitialStatusEvent(nextRepoKey);
+      if (initialRes?.success && initialRes.data?.event) {
+        useEventStore
+          .getState()
+          .setEvent(EventType.EventTypeGitStatusChanged, initialRes.data.event);
+      }
+
+      this.updateEnvironmentInfo(sessionId, (env) => ({
+        ...env,
+        gitInfo: {
+          isRepo: true,
+          branch: env.gitInfo?.branch ?? "",
+          modifiedFiles: env.gitInfo?.modifiedFiles ?? 0,
+          addedLines: env.gitInfo?.addedLines ?? 0,
+          deletedLines: env.gitInfo?.deletedLines ?? 0,
+        },
+      }));
+    } catch {
+      // 当前目录不在 git 仓库时，关闭旧监听并清理前端 git 展示。
+      if (session.currentGitRepoKey) {
+        await GitService.StopRepoWatch(session.currentGitRepoKey).catch(
+          () => undefined,
+        );
+      }
+      session.currentGitRepoKey = undefined;
+      this.clearGitStatusEvent();
+
+      this.updateEnvironmentInfo(sessionId, (env) => ({
+        ...env,
+        gitInfo: {
+          isRepo: false,
+          branch: "",
+          modifiedFiles: 0,
+          addedLines: 0,
+          deletedLines: 0,
+        },
+      }));
+    }
+  }
+
   async initialize(
     sessionId: string,
     terminalConfig: TerminalConfig,
@@ -321,7 +415,10 @@ class TerminalSessionManager {
       );
 
       session.isInitialized = true;
-      session.environmentInfo = res.data ?? undefined;
+      session.environmentInfo = (res.data as SessionEnvironmentInfo) ?? undefined;
+      if (terminalConfig.workpath) {
+        void this.syncGitWatchByWorkPath(sessionId, terminalConfig.workpath);
+      }
       return session.environmentInfo;
     } catch (err) {
       console.error("创建终端失败:", err);
@@ -365,6 +462,10 @@ class TerminalSessionManager {
     if (!session) return;
 
     session.unbindCallbacks.forEach((unbind) => unbind());
+
+    if (session.currentGitRepoKey) {
+      GitService.StopRepoWatch(session.currentGitRepoKey).catch(() => undefined);
+    }
 
     TerminalService.Close(sessionId).catch((err) => {
       console.error("关闭终端失败:", err);

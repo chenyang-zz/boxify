@@ -188,6 +188,11 @@ export function InputEditor({
     return envInfo?.pythonEnv?.hasPython && envInfo?.pythonEnv?.envActive;
   }, [envInfo?.pythonEnv]);
 
+  const isRepo = useMemo(() => {
+    return !!(envInfo as { gitInfo?: { isRepo?: boolean } } | undefined)?.gitInfo
+      ?.isRepo;
+  }, [envInfo]);
+
   return (
     <div className="input-editor-wrapper flex flex-col items-start px-3 py-2 ">
       <div className="flex items-center gap-1.5 shrink-0">
@@ -202,7 +207,7 @@ export function InputEditor({
           onDirectorySelect={onSubmit}
           onFocus={focusInput}
         />
-        {gitStatus && (
+        {isRepo && gitStatus && (
           <Badge
             variant="secondary"
             className="border p-0 gap-0 flex items-center "
