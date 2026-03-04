@@ -343,6 +343,10 @@ class TerminalSessionManager {
       const data = res.data;
       if (!data) return;
       session.executableCommands = data;
+      // 命令缓存更新后触发一次回调，确保输入区校验状态及时刷新
+      if (session.environmentInfo && session.onEnvChange) {
+        session.onEnvChange({ ...session.environmentInfo });
+      }
     } catch (err) {
       console.error("获取可执行命令失败:", err);
     }
