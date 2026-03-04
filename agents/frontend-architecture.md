@@ -66,3 +66,9 @@ Boxify/frontend/
 2. 主命令 token 需要基于当前 `session` 的可执行命令缓存（`terminalSessionManager.getExecutableCommandCache`）进行有效性校验。
 3. 有效命令显示绿色，不存在命令显示红色虚线下划线。
 4. 当 session 命令缓存异步刷新后，输入区应同步刷新校验状态，避免用户需要再次输入才触发更新。
+
+## Terminal 详细架构文档
+
+终端组件详细分层、数据流和扩展规范请查看：
+
+- `docs/terminal-component-architecture.md`

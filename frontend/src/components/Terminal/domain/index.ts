@@ -12,5 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export * from "./terminal";
-export * from "./block";
+export {
+  classifyCommandTokens,
+  commandTokenClassName,
+  normalizeCommandToken,
+  splitCommandTokens,
+  type CommandToken,
+  type TokenType,
+} from "./command-parser";
+
+export {
+  appendBatchToBlockLastLine,
+  appendChunkToBlockLastLine,
+  appendLineToBlockOutput,
+  createRunningBlock,
+  finalizeBlock,
+  updateBlockStatus,
+} from "./block-reducer";
+export { runBlockReducerUnitTests } from "./block-reducer.unit";
+export { runCommandParserUnitTests } from "./command-parser.unit";

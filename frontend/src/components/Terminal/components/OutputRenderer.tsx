@@ -14,17 +14,13 @@
 
 import { memo, useRef, useCallback } from "react";
 import type { OutputLine } from "../types/block";
-import type { TerminalTheme } from "../types/theme";
 
 interface OutputRendererProps {
   output: OutputLine[];
-  theme: TerminalTheme;
-  blockId: string;
 }
 
 export const OutputRenderer = memo(function OutputRenderer({
   output,
-  theme,
 }: OutputRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -36,9 +32,10 @@ export const OutputRenderer = memo(function OutputRenderer({
           key={line.id || index}
           className="output-line whitespace-pre-wrap break-all py-0.5"
           style={{
-            fontFamily: theme.fontFamily,
-            fontSize: theme.fontSize,
-            lineHeight: theme.lineHeight,
+            fontFamily:
+              '"Sarasa Mono SC", "JetBrainsMono Nerd", "Fira Code", "Consolas", monospace',
+            fontSize: 13,
+            lineHeight: 1.4,
           }}
         >
           {line.formattedContent.map((char, charIndex) => {
@@ -49,7 +46,7 @@ export const OutputRenderer = memo(function OutputRenderer({
 
             // 合并相邻的相同样式字符
             const style: React.CSSProperties = {
-              color: char.style.fg || theme.foreground,
+              color: char.style.fg || "#c9d1d9",
               backgroundColor: char.style.bg,
               fontWeight: char.style.bold ? "bold" : undefined,
               fontStyle: char.style.italic ? "italic" : undefined,
@@ -64,8 +61,8 @@ export const OutputRenderer = memo(function OutputRenderer({
             // 处理反色
             if (char.style.inverse) {
               const temp = style.color;
-              style.color = style.backgroundColor || theme.background;
-              style.backgroundColor = temp || theme.foreground;
+              style.color = style.backgroundColor || "#1e1e1e";
+              style.backgroundColor = temp || "#c9d1d9";
             }
 
             return (
@@ -77,7 +74,7 @@ export const OutputRenderer = memo(function OutputRenderer({
         </div>
       );
     },
-    [theme],
+    [],
   );
 
   // 处理文本选择和复制

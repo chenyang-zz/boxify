@@ -12,16 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useMemo, useEffect, useRef } from "react";
+import { useMemo, useEffect } from "react";
 import { TerminalCore } from "./TerminalCore";
 import { terminalSessionManager } from "./lib/session-manager";
+import { terminalApplication } from "./app";
 import { getPropertyItemByUUID } from "@/lib/property";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { useReviewPanelOpen } from "./store/terminal.store";
+import { useReviewPanelOpen } from "./store";
 import { GitReviewPanel } from "./components/GitReviewPanel";
 
 interface TerminalComponentProps {
@@ -29,8 +30,6 @@ interface TerminalComponentProps {
 }
 
 export default function Terminal({ sessionId }: TerminalComponentProps) {
-  const isOpenedRef = useRef(false);
-
   const propertyItem = useMemo(
     () => getPropertyItemByUUID(sessionId),
     [sessionId],
@@ -51,7 +50,8 @@ export default function Terminal({ sessionId }: TerminalComponentProps) {
 
     // 预先创建会话缓存
     terminalSessionManager.getOrCreate(sessionId);
-    isOpenedRef.current = true;
+    // 绑定应用层事件处理，负责将终端事件落地到 store。
+    terminalApplication.bindSession(sessionId);
   }, [sessionId, propertyItem]);
 
   if (!propertyItem?.terminalConfig) {
@@ -93,11 +93,7 @@ export { TerminalCore } from "./TerminalCore";
 export { TerminalBlock } from "./components/TerminalBlock";
 export { InputEditor } from "./components/InputEditor";
 export { OutputRenderer } from "./components/OutputRenderer";
-export { useTerminalTheme } from "./hooks/useTerminalTheme";
-export {
-  useTerminalStore,
-  useSessionBlocks,
-  useCurrentBlockId,
-  useSessionTheme,
-} from "./store/terminal.store";
+export * from "./app";
+export * from "./domain";
+export * from "./store";
 export { terminalSessionManager } from "./lib/session-manager";

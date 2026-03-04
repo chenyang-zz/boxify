@@ -15,23 +15,19 @@
 import { memo, useCallback } from "react";
 import {
   Copy,
-  ChevronRight,
   Loader2,
   CheckCircle,
   XCircle,
 } from "lucide-react";
 import type { TerminalBlock as TerminalBlockType } from "../types/block";
-import type { TerminalTheme } from "../types/theme";
 import { OutputRenderer } from "./OutputRenderer";
 
 interface TerminalBlockProps {
   block: TerminalBlockType;
-  theme: TerminalTheme;
 }
 
 export const TerminalBlock = memo(function TerminalBlock({
   block,
-  theme,
 }: TerminalBlockProps) {
   // 复制命令和输出
   const handleCopy = useCallback(async () => {
@@ -52,14 +48,14 @@ export const TerminalBlock = memo(function TerminalBlock({
   // 状态图标
   const StatusIcon = {
     running: (
-      <Loader2 className="w-4 h-4 animate-spin" style={{ color: theme.blue }} />
+      <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
     ),
-    success: <CheckCircle className="w-4 h-4" style={{ color: theme.green }} />,
-    error: <XCircle className="w-4 h-4" style={{ color: theme.red }} />,
+    success: <CheckCircle className="w-4 h-4 text-green-400" />,
+    error: <XCircle className="w-4 h-4 text-red-400" />,
     pending: (
       <div
         className="w-4 h-4 rounded-full border-2"
-        style={{ borderColor: theme.brightBlack }}
+        style={{ borderColor: "#6e7681" }}
       />
     ),
   }[block.status];
@@ -82,10 +78,7 @@ export const TerminalBlock = memo(function TerminalBlock({
 
         {/* 执行时间 */}
         {block.endTime && (
-          <span
-            className="duration text-xs"
-            style={{ color: theme.brightBlack }}
-          >
+          <span className="duration text-xs text-muted-foreground">
             {formatDuration(block.endTime - block.startTime)}
           </span>
         )}
@@ -102,17 +95,13 @@ export const TerminalBlock = memo(function TerminalBlock({
           }}
           title="复制"
         >
-          <Copy className="w-4 h-4" style={{ color: theme.brightBlack }} />
+          <Copy className="w-4 h-4 text-muted-foreground" />
         </button>
       </div>
 
       {/* Block 输出 */}
       <div className="block-output ">
-        <OutputRenderer
-          output={block.output}
-          theme={theme}
-          blockId={block.id}
-        />
+        <OutputRenderer output={block.output} />
       </div>
     </div>
   );

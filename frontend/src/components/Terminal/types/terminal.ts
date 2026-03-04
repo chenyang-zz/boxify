@@ -13,7 +13,6 @@
 // limitations under the License.
 
 import type { TerminalBlock, BlockStatus } from "./block";
-import type { TerminalTheme } from "./theme";
 
 export interface TerminalSize {
   cols: number;
@@ -40,7 +39,6 @@ export interface TerminalSessionConfig {
 
 export interface TerminalState {
   sessions: Map<string, TerminalSession>;
-  currentTheme: TerminalTheme;
 }
 
 // AI 建议类型（预留）

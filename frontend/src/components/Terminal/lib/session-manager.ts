@@ -21,8 +21,6 @@ import {
 } from "@wails/terminal";
 import type { TerminalConfig } from "@/types/property";
 import { AnsiParser } from "./ansi-parser";
-import { useTerminalStore } from "../store/terminal.store";
-import { defaultTheme } from "../types/theme";
 import { callWails } from "@/lib/utils";
 import {
   TerminalEnvironmentInfo,
@@ -30,6 +28,7 @@ import {
 } from "@wails/types/models";
 import { useEventStore } from "@/store/event.store";
 import { EventType } from "@wails/events/models";
+import type { OutputLine } from "../types/block";
 
 interface SessionGitInfo {
   isRepo: boolean;
@@ -50,8 +49,41 @@ interface CachedSession {
   environmentInfo?: SessionEnvironmentInfo;
   executableCommands?: TerminalListExecutableCommandsData;
   onEnvChange?: (env: SessionEnvironmentInfo) => void;
+  onEvent?: (event: TerminalSessionEvent) => void;
   currentGitRepoKey?: string;
+  currentBlockId?: string;
 }
+
+interface OutputChunk {
+  content: string;
+  formattedContent: OutputLine["formattedContent"];
+}
+
+export type TerminalSessionEvent =
+  | {
+      type: "output_batch";
+      sessionId: string;
+      blockId: string;
+      chunks: OutputChunk[];
+    }
+  | {
+      type: "error";
+      sessionId: string;
+      blockId?: string;
+      message: string;
+      content: string;
+      formattedContent: OutputLine["formattedContent"];
+    }
+  | {
+      type: "command_end";
+      sessionId: string;
+      blockId: string;
+      exitCode: number;
+    }
+  | {
+      type: "session_destroyed";
+      sessionId: string;
+    };
 
 class TerminalSessionManager {
   private sessions = new Map<string, CachedSession>();
@@ -69,7 +101,7 @@ class TerminalSessionManager {
     if (!session) {
       session = {
         isInitialized: false,
-        parser: new AnsiParser(defaultTheme),
+        parser: new AnsiParser(),
         unbindCallbacks: [],
       };
       this.sessions.set(sessionId, session);
@@ -87,6 +119,17 @@ class TerminalSessionManager {
     const session = this.sessions.get(sessionId);
     if (session) {
       session.onEnvChange = callback;
+    }
+  }
+
+  // 设置终端事件回调，由应用层决定如何落地到状态管理。
+  setEventCallback(
+    sessionId: string,
+    callback?: (event: TerminalSessionEvent) => void,
+  ): void {
+    const session = this.sessions.get(sessionId);
+    if (session) {
+      session.onEvent = callback;
     }
   }
 
@@ -188,10 +231,8 @@ class TerminalSessionManager {
       const bytes = Uint8Array.from(binaryString, (c) => c.charCodeAt(0));
       const decoded = new TextDecoder("utf-8").decode(bytes);
 
-      const store = useTerminalStore.getState();
-
-      // 优先使用事件中的 blockId，否则回退到 store 中的当前 blockId
-      const targetBlockId = blockId ?? store.currentBlockIds[sessionId] ?? null;
+      // 优先使用事件中的 blockId，否则回退到会话当前 blockId
+      const targetBlockId = blockId ?? session.currentBlockId ?? null;
 
       // 只在有 block 时追加输出
       if (targetBlockId) {
@@ -221,11 +262,15 @@ class TerminalSessionManager {
     });
   }
 
+  private emitEvent(sessionId: string, event: TerminalSessionEvent): void {
+    const session = this.sessions.get(sessionId);
+    if (!session?.onEvent) return;
+    session.onEvent(event);
+  }
+
   private flushOutputQueue(): void {
     this.flushFrameId = null;
     if (this.outputQueues.size === 0) return;
-
-    const store = useTerminalStore.getState();
 
     this.outputQueues.forEach((chunks, key) => {
       if (chunks.length === 0) return;
@@ -233,7 +278,12 @@ class TerminalSessionManager {
       if (separator === -1) return;
       const sessionId = key.slice(0, separator);
       const blockId = key.slice(separator + 1);
-      store.appendOutputBatch(sessionId, blockId, chunks);
+      this.emitEvent(sessionId, {
+        type: "output_batch",
+        sessionId,
+        blockId,
+        chunks,
+      });
     });
 
     this.outputQueues.clear();
@@ -243,19 +293,20 @@ class TerminalSessionManager {
     const session = this.sessions.get(sessionId);
     if (!session) return;
 
-    const store = useTerminalStore.getState();
-    const currentBlockId = store.currentBlockIds[sessionId];
+    const currentBlockId = session.currentBlockId;
 
     if (currentBlockId) {
       const formattedContent = session.parser.parse(
         `\x1b[31m错误: ${message}\x1b[0m`,
       );
-      store.appendOutputBatch(
+      this.emitEvent(sessionId, {
+        type: "error",
         sessionId,
-        currentBlockId,
-        [{ content: `\n错误: ${message}`, formattedContent }],
-      );
-      store.finalizeBlock(sessionId, currentBlockId, 1);
+        blockId: currentBlockId,
+        message,
+        content: `\n错误: ${message}`,
+        formattedContent,
+      });
     }
   }
 
@@ -264,8 +315,16 @@ class TerminalSessionManager {
     blockId: string,
     exitCode: number,
   ): void {
-    const store = useTerminalStore.getState();
-    store.finalizeBlock(sessionId, blockId, exitCode);
+    const session = this.sessions.get(sessionId);
+    if (session?.currentBlockId === blockId) {
+      session.currentBlockId = undefined;
+    }
+    this.emitEvent(sessionId, {
+      type: "command_end",
+      sessionId,
+      blockId,
+      exitCode,
+    });
   }
 
   // 通用的环境信息更新方法
@@ -472,6 +531,7 @@ class TerminalSessionManager {
 
     try {
       const blockId = await TerminalService.WriteCommand(sessionId, command);
+      session.currentBlockId = blockId || undefined;
       return blockId || "";
     } catch (err) {
       console.error("写入命令失败:", err);
@@ -500,7 +560,10 @@ class TerminalSessionManager {
       console.error("关闭终端失败:", err);
     });
 
-    useTerminalStore.getState().clearSession(sessionId);
+    this.emitEvent(sessionId, {
+      type: "session_destroyed",
+      sessionId,
+    });
 
     for (const key of this.outputQueues.keys()) {
       if (key.startsWith(`${sessionId}:`)) {

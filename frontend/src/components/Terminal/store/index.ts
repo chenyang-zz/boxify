@@ -12,5 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export * from "./terminal";
-export * from "./block";
+export {
+  useTerminalStore,
+  useSessionBlocks,
+  useReviewPanelOpen,
+} from "./terminal.store";
+
+export {
+  selectSessionBlocks,
+  selectReviewPanelOpen,
+} from "./selectors";

@@ -13,7 +13,6 @@
 // limitations under the License.
 
 import type { TextStyle, FormattedChar } from "../types/block";
-import type { TerminalTheme } from "../types/theme";
 
 type ParserState = "normal" | "escape" | "csi" | "osc";
 
@@ -35,6 +34,25 @@ const ANSI_COLORS = [
   "cyan",
   "white",
 ] as const;
+
+const ANSI_THEME_COLORS = {
+  black: "#484f58",
+  red: "#ff7b72",
+  green: "#3fb950",
+  yellow: "#d29922",
+  blue: "#58a6ff",
+  magenta: "#bc8cff",
+  cyan: "#39c5cf",
+  white: "#b1bac4",
+  brightBlack: "#6e7681",
+  brightRed: "#ffa198",
+  brightGreen: "#56d364",
+  brightYellow: "#e3b341",
+  brightBlue: "#79c0ff",
+  brightMagenta: "#d2a8ff",
+  brightCyan: "#56d4dd",
+  brightWhite: "#ffffff",
+} as const;
 
 /**
  * 终端缓冲区类 - 处理控制字符和光标移动
@@ -126,11 +144,9 @@ class TerminalBuffer {
 
 export class AnsiParser {
   private context: ParserContext;
-  private theme: TerminalTheme;
 
-  constructor(theme: TerminalTheme) {
+  constructor() {
     this.context = this.createInitialContext();
-    this.theme = theme;
   }
 
   private createInitialContext(): ParserContext {
@@ -140,10 +156,6 @@ export class AnsiParser {
       currentParam: "",
       oscBuffer: "",
     };
-  }
-
-  setTheme(theme: TerminalTheme) {
-    this.theme = theme;
   }
 
   // 解析 ANSI 序列并返回格式化字符
@@ -393,12 +405,12 @@ export class AnsiParser {
 
   private getAnsiColor(index: number, bright: boolean): string {
     const colorName = ANSI_COLORS[index];
+    if (!colorName) return ANSI_THEME_COLORS.white;
     if (bright) {
-      return this.theme[
-        `bright${colorName.charAt(0).toUpperCase() + colorName.slice(1)}` as keyof TerminalTheme
-      ] as string;
+      const brightName = `bright${colorName.charAt(0).toUpperCase() + colorName.slice(1)}` as keyof typeof ANSI_THEME_COLORS;
+      return ANSI_THEME_COLORS[brightName];
     }
-    return this.theme[colorName as keyof TerminalTheme] as string;
+    return ANSI_THEME_COLORS[colorName];
   }
 
   private get256Color(index: number): string {

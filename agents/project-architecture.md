@@ -6,6 +6,7 @@
 
 1. `agents/backend-architecture.md`
 2. `agents/frontend-architecture.md`
+3. `docs/terminal-component-architecture.md`（终端组件详细架构）
 
 维护建议：
 

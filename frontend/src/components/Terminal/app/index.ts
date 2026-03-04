@@ -12,5 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export * from "./terminal";
-export * from "./block";
+export { terminalApplication } from "./terminal-application";
+export { useTerminalController } from "./use-terminal-controller";
+export { useInputEditorController } from "./use-input-editor-controller";
