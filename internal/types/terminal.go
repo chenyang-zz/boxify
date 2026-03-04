@@ -65,3 +65,23 @@ type TerminalTestConfigData struct {
 	InitialCommandExecuted bool   `json:"initialCommandExecuted,omitempty"` // 初始命令是否执行
 	Output                 string `json:"output,omitempty"`                 // 初始命令输出
 }
+
+// TerminalListExecutableCommandsResult 获取可执行命令结果
+type TerminalListExecutableCommandsResult struct {
+	BaseResult
+	Data *TerminalListExecutableCommandsData `json:"data,omitempty"` // 可执行命令数据
+}
+
+// TerminalListExecutableCommandsData 可执行命令数据
+type TerminalListExecutableCommandsData struct {
+	ResolvedShell   string                       `json:"resolvedShell"`   // 实际解析后的终端类型
+	Commands        []*TerminalExecutableCommand `json:"commands"`        // 可执行命令列表
+	DefaultCommands []string                     `json:"defaultCommands"` // shell 默认命令（通常为内建命令）
+	Count           int                          `json:"count"`           // 命令总数
+}
+
+// TerminalExecutableCommand 可执行命令信息
+type TerminalExecutableCommand struct {
+	Name string `json:"name"` // 命令名称
+	Path string `json:"path"` // 命令绝对路径
+}

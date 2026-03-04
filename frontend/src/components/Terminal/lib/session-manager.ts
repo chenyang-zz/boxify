@@ -15,13 +15,19 @@
 import { Events } from "@wailsio/runtime";
 import { TerminalService } from "@wails/service";
 import { GitService } from "@wails/service";
-import { TerminalConfig as GoTerminalConfig } from "@wails/terminal";
+import {
+  ShellType,
+  TerminalConfig as GoTerminalConfig,
+} from "@wails/terminal";
 import type { TerminalConfig } from "@/types/property";
 import { AnsiParser } from "./ansi-parser";
 import { useTerminalStore } from "../store/terminal.store";
 import { defaultTheme } from "../types/theme";
 import { callWails } from "@/lib/utils";
-import { TerminalEnvironmentInfo } from "@wails/types/models";
+import {
+  TerminalEnvironmentInfo,
+  TerminalListExecutableCommandsData,
+} from "@wails/types/models";
 import { useEventStore } from "@/store/event.store";
 import { EventType } from "@wails/events/models";
 
@@ -42,6 +48,7 @@ interface CachedSession {
   parser: AnsiParser;
   unbindCallbacks: (() => void)[];
   environmentInfo?: SessionEnvironmentInfo;
+  executableCommands?: TerminalListExecutableCommandsData;
   onEnvChange?: (env: SessionEnvironmentInfo) => void;
   currentGitRepoKey?: string;
 }
@@ -324,6 +331,23 @@ class TerminalSessionManager {
       .clearEvent(EventType.EventTypeGitStatusChanged);
   }
 
+  private async syncExecutableCommands(
+    sessionId: string,
+    shellType: ShellType,
+  ): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+
+    try {
+      const res = await callWails(TerminalService.ListExecutableCommands, shellType);
+      const data = res.data;
+      if (!data) return;
+      session.executableCommands = data;
+    } catch (err) {
+      console.error("获取可执行命令失败:", err);
+    }
+  }
+
   private async syncGitWatchByWorkPath(
     sessionId: string,
     workPath: string,
@@ -416,6 +440,7 @@ class TerminalSessionManager {
 
       session.isInitialized = true;
       session.environmentInfo = (res.data as SessionEnvironmentInfo) ?? undefined;
+      void this.syncExecutableCommands(sessionId, terminalConfig.shell);
       if (terminalConfig.workpath) {
         void this.syncGitWatchByWorkPath(sessionId, terminalConfig.workpath);
       }
@@ -493,6 +518,12 @@ class TerminalSessionManager {
   isInitialized(sessionId: string): boolean {
     const session = this.sessions.get(sessionId);
     return session?.isInitialized ?? false;
+  }
+
+  getExecutableCommandCache(
+    sessionId: string,
+  ): TerminalListExecutableCommandsData | undefined {
+    return this.sessions.get(sessionId)?.executableCommands;
   }
 }
 

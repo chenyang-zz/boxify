@@ -39,6 +39,7 @@
     "norc",
     "numstat",
     "partialize",
+    "PATHEXT",
     "PEIDIWCH",
     "PIPENV",
     "precmd",

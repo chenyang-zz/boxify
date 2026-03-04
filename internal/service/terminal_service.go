@@ -34,6 +34,7 @@ type TerminalService struct {
 	outputHandler   *terminal.OutputHandler
 	validator       *terminal.Validator
 	shellDetector   *terminal.ShellDetector
+	pathScanner     *terminal.PathCommandScanner
 	configGenerator *terminal.ShellConfigGenerator
 }
 
@@ -46,6 +47,7 @@ func NewTerminalService(deps *ServiceDeps) *TerminalService {
 		BaseService:     NewBaseService(deps),
 		sessionManager:  terminal.NewSessionManager(),
 		shellDetector:   shellDetector,
+		pathScanner:     terminal.NewPathCommandScanner(deps.app.Logger, shellDetector),
 		configGenerator: configGenerator,
 		validator:       terminal.NewValidator(shellDetector),
 	}
@@ -318,4 +320,42 @@ func (ts *TerminalService) UpdateWorkPath(sessionID, newPwd string) {
 	}
 
 	session.SetWorkPath(newPwd)
+}
+
+// ListExecutableCommands 获取当前 PATH 中的可执行命令，并返回对应终端的默认命令
+func (ts *TerminalService) ListExecutableCommands(shellType terminal.ShellType) *types.TerminalListExecutableCommandsResult {
+	resolvedShell, err := ts.pathScanner.ResolveShellType(shellType)
+	if err != nil {
+		ts.Logger().Warn("获取可执行命令失败：终端类型不支持", "shellType", shellType, "error", err)
+		return &types.TerminalListExecutableCommandsResult{
+			BaseResult: types.BaseResult{
+				Success: false,
+				Message: err.Error(),
+			},
+		}
+	}
+
+	commands := ts.pathScanner.ListExecutableCommandsFromPATH()
+	defaultCommands := ts.pathScanner.GetDefaultCommands(resolvedShell)
+	resultCommands := make([]*types.TerminalExecutableCommand, 0, len(commands))
+
+	for _, cmd := range commands {
+		resultCommands = append(resultCommands, &types.TerminalExecutableCommand{
+			Name: cmd.Name,
+			Path: cmd.Path,
+		})
+	}
+
+	return &types.TerminalListExecutableCommandsResult{
+		BaseResult: types.BaseResult{
+			Success: true,
+			Message: "获取可执行命令成功",
+		},
+		Data: &types.TerminalListExecutableCommandsData{
+			ResolvedShell:   string(resolvedShell),
+			Commands:        resultCommands,
+			DefaultCommands: defaultCommands,
+			Count:           len(resultCommands),
+		},
+	}
 }

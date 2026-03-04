@@ -44,3 +44,9 @@ Boxify/frontend/
 3. 组件层：`src/components`
 4. 状态与逻辑层：`src/store`、`src/hooks`、`src/lib`
 5. 桥接层：`bindings`（Wails 前后端调用绑定）
+
+## 类型约束
+
+1. 前后端交互数据结构优先使用 `frontend/bindings` 中生成的类型（例如 `@wails/types/models`）。
+2. 若后端 `internal/types` 已有对应定义，前端禁止在 `src/types` 或业务代码中新增同义接口。
+3. 仅在纯前端 UI 局部状态且无后端对应模型时，才新增前端自定义类型。
