@@ -1,0 +1,21 @@
+.fullscreen-terminal .xterm,
+.fullscreen-terminal .xterm-screen,
+.fullscreen-terminal .xterm-viewport {
+  background: transparent !important;
+}
+
+.fullscreen-terminal .xterm-viewport {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--muted-foreground) 60%, transparent)
+    transparent;
+}
+
+.fullscreen-terminal .xterm-viewport::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.fullscreen-terminal .xterm-viewport::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--muted-foreground) 60%, transparent);
+  border-radius: 6px;
+}

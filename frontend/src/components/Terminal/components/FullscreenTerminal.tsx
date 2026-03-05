@@ -20,6 +20,7 @@ import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { terminalSessionManager } from "../lib/session-manager";
 import "@xterm/xterm/css/xterm.css";
+import "./FullscreenTerminal.css";
 
 interface FullscreenTerminalProps {
   sessionId: string;
@@ -140,5 +141,5 @@ export function FullscreenTerminal({ sessionId }: FullscreenTerminalProps) {
     };
   }, [sessionId]);
 
-  return <div ref={hostRef} className="h-full w-full overflow-hidden" />;
+  return <div ref={hostRef} className="fullscreen-terminal h-full w-full overflow-hidden" />;
 }
