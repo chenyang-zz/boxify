@@ -66,17 +66,11 @@ export function TerminalCore({ sessionId, config }: TerminalCoreProps) {
         className="output-area flex-1 overflow-auto"
         style={terminalScrollStyle}
       >
-        {blocks.map((block) => (
-          <TerminalBlock key={block.id} block={block} />
-        ))}
-
-        {/* 空状态提示 */}
-        {blocks.length === 0 && (
-          <div className="empty-state text-center py-8 opacity-50">
-            <p>终端已就绪</p>
-            <p className="text-sm mt-1">输入命令开始</p>
-          </div>
-        )}
+        <div className="min-h-full flex flex-col justify-end">
+          {blocks.map((block) => (
+            <TerminalBlock key={block.id} block={block} />
+          ))}
+        </div>
       </div>
 
       {/* 输入区域 */}

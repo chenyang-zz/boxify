@@ -74,12 +74,38 @@ export function runBlockReducerUnitTests(): void {
   assertEqual(withBatch?.[0].output.length, 1, "append batch should merge into last line");
   assertEqual(withBatch?.[0].output[0].content, "hello world!", "append batch content");
 
-  const finalized = finalizeBlock(withBatch || [], "block-1", 0, {
+  const withTrailingNewline = appendBatchToBlockLastLine(
+    withBatch || [],
+    "block-1",
+    [
+      {
+        content: "\n\n",
+        formattedContent: [
+          { char: "\n", style: {} },
+          { char: "\n", style: {} },
+        ],
+      },
+    ],
+    lineFactory,
+  );
+  assert(Boolean(withTrailingNewline), "append trailing newline result");
+
+  const finalized = finalizeBlock(withTrailingNewline || [], "block-1", 0, {
     now: () => 3000,
   });
   assert(Boolean(finalized), "finalize result");
   assertEqual(finalized?.[0].status, "success", "finalize status");
   assertEqual(finalized?.[0].endTime, 3000, "finalize end time");
+  assertEqual(
+    finalized?.[0].output[0].content,
+    "hello world!",
+    "finalize should trim trailing newline",
+  );
+  assertEqual(
+    finalized?.[0].output[0].formattedContent.length,
+    0,
+    "finalize should trim trailing newline formatted char",
+  );
 
   const updated = updateBlockStatus(finalized || [], "block-1", "pending");
   assert(Boolean(updated), "update status result");

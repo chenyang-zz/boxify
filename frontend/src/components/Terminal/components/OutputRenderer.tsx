@@ -24,9 +24,36 @@ export const OutputRenderer = memo(function OutputRenderer({
 }: OutputRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // 渲染末行时去掉尾部换行，避免视觉上额外空一行。
+  const trimLastLineBreakForDisplay = useCallback(
+    (
+      formattedContent: OutputLine["formattedContent"],
+      isLastLine: boolean,
+    ): OutputLine["formattedContent"] => {
+      if (!isLastLine || formattedContent.length === 0) return formattedContent;
+
+      let end = formattedContent.length;
+      while (
+        end > 0 &&
+        (formattedContent[end - 1].char === "\n" ||
+          formattedContent[end - 1].char === "\r")
+      ) {
+        end -= 1;
+      }
+      if (end === formattedContent.length) return formattedContent;
+      return formattedContent.slice(0, end);
+    },
+    [],
+  );
+
   // 渲染单行
   const renderLine = useCallback(
     (line: OutputLine, index: number) => {
+      const displayChars = trimLastLineBreakForDisplay(
+        line.formattedContent,
+        index === output.length - 1,
+      );
+
       return (
         <div
           key={line.id || index}
@@ -38,7 +65,7 @@ export const OutputRenderer = memo(function OutputRenderer({
             lineHeight: 1.4,
           }}
         >
-          {line.formattedContent.map((char, charIndex) => {
+          {displayChars.map((char, charIndex) => {
             // 跳过控制字符（回车、退格等），只渲染可见字符和换行符
             if (char.char < " " && char.char !== "\n" && char.char !== "\t") {
               return null;
@@ -74,7 +101,7 @@ export const OutputRenderer = memo(function OutputRenderer({
         </div>
       );
     },
-    [],
+    [output.length, trimLastLineBreakForDisplay],
   );
 
   // 处理文本选择和复制

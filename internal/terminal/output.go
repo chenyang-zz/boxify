@@ -54,9 +54,7 @@ func (h *OutputHandler) StartOutputLoop(session *Session) {
 			if err != nil {
 				if err != io.EOF && session.Context().Err() == nil {
 					// 只有在 context 未取消时才报告错误
-					if h.logger != nil {
-						h.logger.Error("读取 PTY 输出失败", "sessionId", session.ID, "error", err)
-					}
+					h.logger.Error("读取 PTY 输出失败", "sessionId", session.ID, "error", err)
 					h.emitError(session.ID, err.Error())
 				}
 				return
@@ -70,9 +68,7 @@ func (h *OutputHandler) StartOutputLoop(session *Session) {
 
 			// 只有有过滤后输出时才发送
 			if len(result.Output) > 0 {
-				if h.logger != nil {
-					h.logger.Info("提取过滤后终端输出", "text", string(result.Output))
-				}
+				h.logger.Info("提取过滤后终端输出", "text", string(result.Output))
 				h.emitOutput(session.ID, blockID, result.Output)
 			}
 

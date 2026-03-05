@@ -48,6 +48,7 @@ class TerminalApplication {
     context?: CommandExecutionContext,
   ): Promise<void> {
     const trimmed = command.trim();
+    const store = useTerminalStore.getState();
 
     // 空命令只发送回车。
     if (!trimmed) {
@@ -55,10 +56,15 @@ class TerminalApplication {
       return;
     }
 
+    // clear 直接清空当前会话 block 列表，不创建新的命令 block。
+    if (trimmed === "clear") {
+      store.clearBlocks(sessionId);
+      return;
+    }
+
     const blockId = await terminalSessionManager.writeCommand(sessionId, trimmed);
     if (!blockId) return;
 
-    const store = useTerminalStore.getState();
     store.createBlock(sessionId, trimmed, blockId, context);
     store.addToHistory(sessionId, trimmed);
   }

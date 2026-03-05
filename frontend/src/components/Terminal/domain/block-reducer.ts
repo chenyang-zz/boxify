@@ -33,6 +33,69 @@ interface BlockFactory {
   now: () => number;
 }
 
+// 去掉命令结束时输出末尾的换行，避免渲染出额外空行。
+function trimTrailingLineBreak(value: string): string {
+  let result = value;
+  while (result.endsWith("\r\n") || result.endsWith("\n")) {
+    if (result.endsWith("\r\n")) {
+      result = result.slice(0, -2);
+      continue;
+    }
+    result = result.slice(0, -1);
+  }
+  return result;
+}
+
+// 同步裁剪格式化字符中的末尾换行，保持 content 与 formattedContent 一致。
+function trimTrailingLineBreakChars(
+  formattedContent: OutputLine["formattedContent"],
+): OutputLine["formattedContent"] {
+  const length = formattedContent.length;
+  if (length === 0) return formattedContent;
+
+  let end = length;
+  while (end > 0) {
+    if (formattedContent[end - 1].char === "\n") {
+      end -= 1;
+      if (end > 0 && formattedContent[end - 1].char === "\r") {
+        end -= 1;
+      }
+      continue;
+    }
+    break;
+  }
+
+  if (end === length) return formattedContent;
+  return formattedContent.slice(0, end);
+}
+
+// 仅处理最后一行的尾部换行，避免影响正文中的空行。
+function trimLastOutputLineTrailingBreak(output: OutputLine[]): OutputLine[] {
+  const lastLine = output[output.length - 1];
+  if (!lastLine) return output;
+
+  const nextContent = trimTrailingLineBreak(lastLine.content);
+  const nextFormattedContent = trimTrailingLineBreakChars(
+    lastLine.formattedContent,
+  );
+
+  if (
+    nextContent === lastLine.content &&
+    nextFormattedContent === lastLine.formattedContent
+  ) {
+    return output;
+  }
+
+  return [
+    ...output.slice(0, -1),
+    {
+      ...lastLine,
+      content: nextContent,
+      formattedContent: nextFormattedContent,
+    },
+  ];
+}
+
 function appendOutputToLastLine(
   output: OutputLine[],
   content: string,
@@ -156,6 +219,7 @@ export function finalizeBlock(
 ): TerminalBlock[] | null {
   return updateBlocksById(blocks, blockId, (block) => ({
     ...block,
+    output: trimLastOutputLineTrailingBreak(block.output),
     status: exitCode === 0 ? "success" : "error",
     endTime: factory.now(),
     exitCode,

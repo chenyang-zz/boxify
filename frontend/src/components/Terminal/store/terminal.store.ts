@@ -59,6 +59,7 @@ interface TerminalState {
     blockId: string,
     status: BlockStatus,
   ) => void;
+  clearBlocks: (sessionId: string) => void;
 
   // === 历史操作 ===
   addToHistory: (sessionId: string, command: string) => void;
@@ -160,6 +161,15 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
         },
       };
     });
+  },
+
+  clearBlocks: (sessionId: string) => {
+    set((state) => ({
+      sessionBlocks: {
+        ...state.sessionBlocks,
+        [sessionId]: [],
+      },
+    }));
   },
 
   addToHistory: (sessionId: string, command: string) => {

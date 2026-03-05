@@ -380,7 +380,8 @@ func TestShellConfigGenerator_ZshConfigContent(t *testing.T) {
 		"add-zsh-hook preexec __boxify_preexec",
 		"add-zsh-hook precmd __boxify_precmd",
 		`printf '\e]133;A\e\\'`,
-		`printf '\e]133;D;%s\e\\' "$?"`,
+		`local exit_code=$?`,
+		`printf '\e]133;D;%s\e\\' "$exit_code"`,
 	}
 
 	for _, elem := range requiredElements {
@@ -398,6 +399,8 @@ func TestShellConfigGenerator_BashConfigContent(t *testing.T) {
 		"__boxify_in_command",
 		"__boxify_preexec",
 		"__boxify_prompt_command",
+		"local exit_code=$?",
+		`printf '\e]133;D;%s\e\\' "$exit_code"`,
 		"PROMPT_COMMAND",
 		"trap '__boxify_preexec' DEBUG",
 	}

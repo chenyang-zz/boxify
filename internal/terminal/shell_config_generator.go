@@ -158,13 +158,15 @@ __boxify_preexec() {
 
 # 命令执行后、下一个提示符前调用
 __boxify_precmd() {
+    local exit_code=$?
+
     # 输出当前工作路径（OSC 1337;Pwd 序列）
     local pwd="${PWD/#$HOME/~}"
     local encoded=$(printf '%s' "$pwd" | base64)
     printf '\e]1337;Pwd;%s\e\\' "$encoded"
 
     # 命令结束标记
-    printf '\e]133;D;%s\e\\' "$?"
+    printf '\e]133;D;%s\e\\' "$exit_code"
 }
 
 # 注册 hooks
@@ -188,6 +190,7 @@ __boxify_preexec() {
 
 # 命令执行后调用
 __boxify_prompt_command() {
+    local exit_code=$?
     __boxify_in_command=""
 
     # 输出当前工作路径（OSC 1337;Pwd 序列）
@@ -196,7 +199,7 @@ __boxify_prompt_command() {
     printf '\e]1337;Pwd;%s\e\\' "$encoded"
 
     # 命令结束标记
-    printf '\e]133;D;%s\e\\' "$?"
+    printf '\e]133;D;%s\e\\' "$exit_code"
 }
 
 # 设置 PROMPT_COMMAND
