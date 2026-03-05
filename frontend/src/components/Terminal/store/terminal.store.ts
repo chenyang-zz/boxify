@@ -22,6 +22,7 @@ import {
   updateBlockStatus as updateBlockStatusReducer,
 } from "../domain/block-reducer";
 import {
+  selectFullscreenMode,
   selectReviewPanelOpen,
   selectSelectedBlockId,
   selectSessionBlocks,
@@ -39,6 +40,7 @@ interface TerminalState {
   // 每个会话的代码审查面板开关
   reviewPanelOpenBySession: Record<string, boolean>;
   selectedBlockBySession: Record<string, string | undefined>;
+  fullscreenBySession: Record<string, boolean>;
 
   // === Block 操作 ===
   createBlock: (
@@ -75,6 +77,7 @@ interface TerminalState {
   // === 审查面板 ===
   openReviewPanel: (sessionId: string) => void;
   closeReviewPanel: (sessionId: string) => void;
+  setFullscreenMode: (sessionId: string, inFullscreen: boolean) => void;
 
   // === 会话管理 ===
   clearSession: (sessionId: string) => void;
@@ -86,6 +89,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   historyIndexes: {},
   reviewPanelOpenBySession: {},
   selectedBlockBySession: {},
+  fullscreenBySession: {},
 
   createBlock: (
     sessionId: string,
@@ -256,6 +260,15 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     }));
   },
 
+  setFullscreenMode: (sessionId: string, inFullscreen: boolean) => {
+    set((state) => ({
+      fullscreenBySession: {
+        ...state.fullscreenBySession,
+        [sessionId]: inFullscreen,
+      },
+    }));
+  },
+
   clearSession: (sessionId: string) => {
     set((state) => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -268,6 +281,8 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       const { [sessionId]: _____, ...restReviewOpen } = state.reviewPanelOpenBySession;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { [sessionId]: ______, ...restSelectedBlock } = state.selectedBlockBySession;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { [sessionId]: _______, ...restFullscreen } = state.fullscreenBySession;
 
       return {
         sessionBlocks: restBlocks,
@@ -275,6 +290,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
         historyIndexes: restIndexes,
         reviewPanelOpenBySession: restReviewOpen,
         selectedBlockBySession: restSelectedBlock,
+        fullscreenBySession: restFullscreen,
       };
     });
   },
@@ -291,4 +307,8 @@ export function useReviewPanelOpen(sessionId: string): boolean {
 
 export function useSelectedBlockId(sessionId: string): string | undefined {
   return useTerminalStore(selectSelectedBlockId(sessionId));
+}
+
+export function useFullscreenMode(sessionId: string): boolean {
+  return useTerminalStore(selectFullscreenMode(sessionId));
 }

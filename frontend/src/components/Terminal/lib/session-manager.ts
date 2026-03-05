@@ -15,15 +15,13 @@
 import { Events } from "@wailsio/runtime";
 import { TerminalService } from "@wails/service";
 import { GitService } from "@wails/service";
-import {
-  ShellType,
-  TerminalConfig as GoTerminalConfig,
-} from "@wails/terminal";
+import { ShellType, TerminalConfig as GoTerminalConfig } from "@wails/terminal";
 import type { TerminalConfig } from "@/types/property";
 import { AnsiParser } from "./ansi-parser";
 import { callWails } from "@/lib/utils";
 import {
   TerminalEnvironmentInfo,
+  TerminalFullscreenChangedEvent,
   TerminalListExecutableCommandsData,
 } from "@wails/types/models";
 import { useEventStore } from "@/store/event.store";
@@ -47,11 +45,13 @@ interface CachedSession {
   parser: AnsiParser;
   unbindCallbacks: (() => void)[];
   environmentInfo?: SessionEnvironmentInfo;
+  inFullscreen?: boolean;
   executableCommands?: TerminalListExecutableCommandsData;
   onEnvChange?: (env: SessionEnvironmentInfo) => void;
   onEvent?: (event: TerminalSessionEvent) => void;
   currentGitRepoKey?: string;
   currentBlockId?: string;
+  fullscreenInteractionBlockId?: string;
 }
 
 interface OutputChunk {
@@ -83,13 +83,22 @@ export type TerminalSessionEvent =
   | {
       type: "session_destroyed";
       sessionId: string;
+    }
+  | {
+      type: "fullscreen_changed";
+      sessionId: string;
+      inFullscreen: boolean;
+      changedAtUnix: number;
     };
 
 class TerminalSessionManager {
   private sessions = new Map<string, CachedSession>();
   private outputQueues = new Map<
     string,
-    Array<{ content: string; formattedContent: ReturnType<AnsiParser["parse"]> }>
+    Array<{
+      content: string;
+      formattedContent: ReturnType<AnsiParser["parse"]>;
+    }>
   >();
   private flushTimerId: number | null = null;
   private defaultRows = 24;
@@ -186,6 +195,17 @@ class TerminalSessionManager {
       },
     );
 
+    // 全屏交互模式切换事件
+    const unbindFullscreenChange = Events.On(
+      "terminal:fullscreen_change",
+      (event: { data: TerminalFullscreenChangedEvent }) => {
+        if (event.data.sessionId === sessionId) {
+          console.log("[terminal:fullscreen_change]:", event.data);
+          this.handleFullscreenChange(sessionId, event.data);
+        }
+      },
+    );
+
     // Git 状态更新事件
     const unbindGitUpdate = Events.On(
       "terminal:git_update",
@@ -213,6 +233,7 @@ class TerminalSessionManager {
       unbindError,
       unbindCommandEnd,
       unbindPwdUpdate,
+      unbindFullscreenChange,
       unbindGitUpdate,
     ];
   }
@@ -233,6 +254,20 @@ class TerminalSessionManager {
 
       // 仅消费带 blockId 的输出，避免初始化阶段输出误挂到用户命令 block。
       const targetBlockId = blockId ?? null;
+
+      // 全屏交互期间产生的 block 输出在结束后只保留一个 "%" 占位，避免回灌大段交互内容。
+      if (targetBlockId && session.inFullscreen) {
+        session.fullscreenInteractionBlockId = targetBlockId;
+        return;
+      }
+
+      // 全屏交互结束后，到命令结束前仍可能有尾部输出，继续丢弃该 block 的原始内容。
+      if (
+        targetBlockId &&
+        session.fullscreenInteractionBlockId === targetBlockId
+      ) {
+        return;
+      }
 
       // 只在有 block 时追加输出
       if (targetBlockId) {
@@ -317,6 +352,23 @@ class TerminalSessionManager {
     exitCode: number,
   ): void {
     const session = this.sessions.get(sessionId);
+    if (!session) return;
+
+    if (session.fullscreenInteractionBlockId === blockId) {
+      this.emitEvent(sessionId, {
+        type: "output_batch",
+        sessionId,
+        blockId,
+        chunks: [
+          {
+            content: "%",
+            formattedContent: session.parser.parse("%"),
+          },
+        ],
+      });
+      session.fullscreenInteractionBlockId = undefined;
+    }
+
     if (session?.currentBlockId === blockId) {
       session.currentBlockId = undefined;
     }
@@ -385,10 +437,24 @@ class TerminalSessionManager {
     }));
   }
 
+  // 处理全屏交互模式切换，通知应用层切换输入策略。
+  private handleFullscreenChange(
+    sessionId: string,
+    event: TerminalFullscreenChangedEvent,
+  ): void {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+    session.inFullscreen = event.inFullscreen;
+    this.emitEvent(sessionId, {
+      type: "fullscreen_changed",
+      sessionId,
+      inFullscreen: event.inFullscreen,
+      changedAtUnix: event.changedAtUnix,
+    });
+  }
+
   private clearGitStatusEvent() {
-    useEventStore
-      .getState()
-      .clearEvent(EventType.EventTypeGitStatusChanged);
+    useEventStore.getState().clearEvent(EventType.EventTypeGitStatusChanged);
   }
 
   private async syncExecutableCommands(
@@ -399,7 +465,10 @@ class TerminalSessionManager {
     if (!session) return;
 
     try {
-      const res = await callWails(TerminalService.ListExecutableCommands, shellType);
+      const res = await callWails(
+        TerminalService.ListExecutableCommands,
+        shellType,
+      );
       const data = res.data;
       if (!data) return;
       session.executableCommands = data;
@@ -503,7 +572,8 @@ class TerminalSessionManager {
       );
 
       session.isInitialized = true;
-      session.environmentInfo = (res.data as SessionEnvironmentInfo) ?? undefined;
+      session.environmentInfo =
+        (res.data as SessionEnvironmentInfo) ?? undefined;
       void this.syncExecutableCommands(sessionId, terminalConfig.shell);
       if (terminalConfig.workpath) {
         void this.syncGitWatchByWorkPath(sessionId, terminalConfig.workpath);
@@ -537,14 +607,20 @@ class TerminalSessionManager {
     try {
       let resolvedBlockId = "";
 
-      if (blockId && typeof TerminalService.WriteCommandWithBlock === "function") {
+      if (
+        blockId &&
+        typeof TerminalService.WriteCommandWithBlock === "function"
+      ) {
         resolvedBlockId = await TerminalService.WriteCommandWithBlock(
           sessionId,
           blockId,
           command,
         );
       } else {
-        resolvedBlockId = await TerminalService.WriteCommand(sessionId, command);
+        resolvedBlockId = await TerminalService.WriteCommand(
+          sessionId,
+          command,
+        );
       }
 
       session.currentBlockId = resolvedBlockId || undefined;
@@ -569,7 +645,9 @@ class TerminalSessionManager {
     session.unbindCallbacks.forEach((unbind) => unbind());
 
     if (session.currentGitRepoKey) {
-      GitService.StopRepoWatch(session.currentGitRepoKey).catch(() => undefined);
+      GitService.StopRepoWatch(session.currentGitRepoKey).catch(
+        () => undefined,
+      );
     }
 
     TerminalService.Close(sessionId).catch((err) => {
@@ -601,6 +679,11 @@ class TerminalSessionManager {
   isInitialized(sessionId: string): boolean {
     const session = this.sessions.get(sessionId);
     return session?.isInitialized ?? false;
+  }
+
+  // 查询当前会话是否处于全屏交互模式。
+  isInFullscreen(sessionId: string): boolean {
+    return this.sessions.get(sessionId)?.inFullscreen ?? false;
   }
 
   getExecutableCommandCache(

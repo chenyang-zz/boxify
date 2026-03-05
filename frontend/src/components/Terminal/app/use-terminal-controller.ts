@@ -20,6 +20,7 @@ import { terminalSessionManager } from "../lib/session-manager";
 interface UseTerminalControllerParams {
   sessionId: string;
   config: TerminalConfig;
+  autoResize?: boolean;
 }
 
 interface UseTerminalControllerResult {
@@ -31,6 +32,7 @@ interface UseTerminalControllerResult {
 export function useTerminalController({
   sessionId,
   config,
+  autoResize = true,
 }: UseTerminalControllerParams): UseTerminalControllerResult {
   const containerRef = useRef<HTMLDivElement>(null);
   const resizeRafRef = useRef<number | null>(null);
@@ -67,6 +69,8 @@ export function useTerminalController({
 
   // 监听容器尺寸变化并同步 rows/cols 到后端伪终端。
   useEffect(() => {
+    if (!autoResize) return;
+
     const updateSize = () => {
       if (!containerRef.current) return;
       const { clientWidth, clientHeight } = containerRef.current;
@@ -103,7 +107,7 @@ export function useTerminalController({
         cancelAnimationFrame(resizeRafRef.current);
       }
     };
-  }, [sessionId]);
+  }, [sessionId, autoResize]);
 
   return {
     containerRef,

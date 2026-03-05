@@ -20,6 +20,8 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	boxtypes "github.com/chenyang-zz/boxify/internal/types"
 )
 
 // mockEventEmitter 用于测试的模拟事件发射器
@@ -29,10 +31,10 @@ type mockEventEmitter struct {
 
 type mockEvent struct {
 	name string
-	data map[string]interface{}
+	data interface{}
 }
 
-func (m *mockEventEmitter) Emit(event string, data map[string]interface{}) {
+func (m *mockEventEmitter) Emit(event string, data interface{}) {
 	m.events = append(m.events, mockEvent{name: event, data: data})
 }
 
@@ -80,17 +82,21 @@ func TestOutputHandler_emitOutput(t *testing.T) {
 	if event.name != "terminal:output" {
 		t.Errorf("event name = %s, want terminal:output", event.name)
 	}
+	payload, ok := event.data.(map[string]interface{})
+	if !ok {
+		t.Fatalf("event payload type = %T, want map[string]interface{}", event.data)
+	}
 
 	// 验证数据
-	if event.data["sessionId"] != "session-1" {
-		t.Errorf("sessionId = %v, want session-1", event.data["sessionId"])
+	if payload["sessionId"] != "session-1" {
+		t.Errorf("sessionId = %v, want session-1", payload["sessionId"])
 	}
-	if event.data["blockId"] != "block-1" {
-		t.Errorf("blockId = %v, want block-1", event.data["blockId"])
+	if payload["blockId"] != "block-1" {
+		t.Errorf("blockId = %v, want block-1", payload["blockId"])
 	}
 
 	// 验证 base64 编码
-	encoded, ok := event.data["data"].(string)
+	encoded, ok := payload["data"].(string)
 	if !ok {
 		t.Fatal("data should be a string")
 	}
@@ -126,12 +132,16 @@ func TestOutputHandler_emitError(t *testing.T) {
 	if event.name != "terminal:error" {
 		t.Errorf("event name = %s, want terminal:error", event.name)
 	}
-
-	if event.data["sessionId"] != "session-1" {
-		t.Errorf("sessionId = %v, want session-1", event.data["sessionId"])
+	payload, ok := event.data.(map[string]interface{})
+	if !ok {
+		t.Fatalf("event payload type = %T, want map[string]interface{}", event.data)
 	}
-	if event.data["message"] != "test error message" {
-		t.Errorf("message = %v, want test error message", event.data["message"])
+
+	if payload["sessionId"] != "session-1" {
+		t.Errorf("sessionId = %v, want session-1", payload["sessionId"])
+	}
+	if payload["message"] != "test error message" {
+		t.Errorf("message = %v, want test error message", payload["message"])
 	}
 }
 
@@ -156,23 +166,31 @@ func TestOutputHandler_emitCommandEnd(t *testing.T) {
 	if event.name != "terminal:command_end" {
 		t.Errorf("event name = %s, want terminal:command_end", event.name)
 	}
+	payload, ok := event.data.(map[string]interface{})
+	if !ok {
+		t.Fatalf("event payload type = %T, want map[string]interface{}", event.data)
+	}
 
-	if event.data["sessionId"] != "session-1" {
-		t.Errorf("sessionId = %v, want session-1", event.data["sessionId"])
+	if payload["sessionId"] != "session-1" {
+		t.Errorf("sessionId = %v, want session-1", payload["sessionId"])
 	}
-	if event.data["blockId"] != "block-1" {
-		t.Errorf("blockId = %v, want block-1", event.data["blockId"])
+	if payload["blockId"] != "block-1" {
+		t.Errorf("blockId = %v, want block-1", payload["blockId"])
 	}
-	if event.data["exitCode"] != 0 {
-		t.Errorf("exitCode = %v, want 0", event.data["exitCode"])
+	if payload["exitCode"] != 0 {
+		t.Errorf("exitCode = %v, want 0", payload["exitCode"])
 	}
 
 	// 测试非零退出码
 	emitter.events = nil
 	handler.emitCommandEnd("session-2", "block-2", 1)
 
-	if emitter.events[0].data["exitCode"] != 1 {
-		t.Errorf("exitCode = %v, want 1", emitter.events[0].data["exitCode"])
+	payload2, ok := emitter.events[0].data.(map[string]interface{})
+	if !ok {
+		t.Fatalf("event payload type = %T, want map[string]interface{}", emitter.events[0].data)
+	}
+	if payload2["exitCode"] != 1 {
+		t.Errorf("exitCode = %v, want 1", payload2["exitCode"])
 	}
 }
 
@@ -359,12 +377,15 @@ func TestOutputHandler_emitPwdUpdate(t *testing.T) {
 	if event.name != "terminal:pwd_update" {
 		t.Errorf("event name = %s, want terminal:pwd_update", event.name)
 	}
-
-	if event.data["sessionId"] != "session-1" {
-		t.Errorf("sessionId = %v, want session-1", event.data["sessionId"])
+	payload, ok := event.data.(map[string]interface{})
+	if !ok {
+		t.Fatalf("event payload type = %T, want map[string]interface{}", event.data)
 	}
-	if event.data["pwd"] != "/Users/test/Documents" {
-		t.Errorf("pwd = %v, want /Users/test/Documents", event.data["pwd"])
+	if payload["sessionId"] != "session-1" {
+		t.Errorf("sessionId = %v, want session-1", payload["sessionId"])
+	}
+	if payload["pwd"] != "/Users/test/Documents" {
+		t.Errorf("pwd = %v, want /Users/test/Documents", payload["pwd"])
 	}
 }
 
@@ -399,10 +420,61 @@ func TestOutputHandler_emitPwdUpdate_VariousPaths(t *testing.T) {
 			if len(emitter.events) != 1 {
 				t.Fatalf("expected 1 event, got %d", len(emitter.events))
 			}
-
-			if emitter.events[0].data["pwd"] != tt.pwd {
-				t.Errorf("pwd = %v, want %v", emitter.events[0].data["pwd"], tt.pwd)
+			payload, ok := emitter.events[0].data.(map[string]interface{})
+			if !ok {
+				t.Fatalf("event payload type = %T, want map[string]interface{}", emitter.events[0].data)
+			}
+			if payload["pwd"] != tt.pwd {
+				t.Errorf("pwd = %v, want %v", payload["pwd"], tt.pwd)
 			}
 		})
 	}
+}
+
+func TestOutputHandler_emitFullscreenChange(t *testing.T) {
+	emitter := &mockEventEmitter{}
+	handler := NewOutputHandler(emitter, testLogger)
+
+	handler.emitFullscreenChange("session-1", true)
+
+	if len(emitter.events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(emitter.events))
+	}
+
+	event := emitter.events[0]
+	if event.name != "terminal:fullscreen_change" {
+		t.Fatalf("event name = %s, want terminal:fullscreen_change", event.name)
+	}
+	payload, ok := event.data.(map[string]interface{})
+	if ok {
+		if payload["sessionId"] != "session-1" {
+			t.Fatalf("sessionId = %v, want session-1", payload["sessionId"])
+		}
+		if payload["inFullscreen"] != true {
+			t.Fatalf("inFullscreen = %v, want true", payload["inFullscreen"])
+		}
+		if _, ok := payload["changedAtUnix"].(int64); !ok {
+			t.Fatalf("changedAtUnix should be int64, got %T", payload["changedAtUnix"])
+		}
+		return
+	}
+
+	typed, ok := event.data.(boxtypes.TerminalFullscreenChangedEvent)
+	if !ok {
+		t.Fatalf("unexpected fullscreen payload type: %T", event.data)
+	}
+	if typed.SessionID != "session-1" {
+		t.Fatalf("sessionId = %v, want session-1", typed.SessionID)
+	}
+	if !typed.InFullscreen {
+		t.Fatalf("inFullscreen = %v, want true", typed.InFullscreen)
+	}
+	if typed.ChangedAtUnix <= 0 {
+		t.Fatalf("changedAtUnix should be positive, got %d", typed.ChangedAtUnix)
+	}
+}
+
+func TestOutputHandler_emitFullscreenChange_NilEmitter(t *testing.T) {
+	handler := NewOutputHandler(nil, testLogger)
+	handler.emitFullscreenChange("session-1", false)
 }

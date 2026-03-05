@@ -17,10 +17,12 @@ export {
   useSessionBlocks,
   useReviewPanelOpen,
   useSelectedBlockId,
+  useFullscreenMode,
 } from "./terminal.store";
 
 export {
   selectSessionBlocks,
   selectReviewPanelOpen,
   selectSelectedBlockId,
+  selectFullscreenMode,
 } from "./selectors";

@@ -844,3 +844,40 @@ func TestMarkerFilter_Process_MixedOSCSequences(t *testing.T) {
 		t.Errorf("expected 'real output', got %q", string(result.Output))
 	}
 }
+
+func TestMarkerFilter_Process_FullscreenToggle(t *testing.T) {
+	filter := NewMarkerFilter(testLogger)
+
+	enter := filter.Process([]byte("\x1b[?1049h"))
+	if !enter.FullscreenChanged {
+		t.Fatal("expected fullscreen changed on enter")
+	}
+	if !enter.InFullscreen {
+		t.Fatal("expected in fullscreen after enter")
+	}
+
+	leave := filter.Process([]byte("\x1b[?1049l"))
+	if !leave.FullscreenChanged {
+		t.Fatal("expected fullscreen changed on leave")
+	}
+	if leave.InFullscreen {
+		t.Fatal("expected not in fullscreen after leave")
+	}
+}
+
+func TestMarkerFilter_Process_FullscreenToggleSplitAcrossChunks(t *testing.T) {
+	filter := NewMarkerFilter(testLogger)
+
+	partial := filter.Process([]byte("\x1b[?10"))
+	if partial.FullscreenChanged {
+		t.Fatal("unexpected fullscreen change for partial sequence")
+	}
+
+	merged := filter.Process([]byte("49h"))
+	if !merged.FullscreenChanged {
+		t.Fatal("expected fullscreen change after merged sequence")
+	}
+	if !merged.InFullscreen {
+		t.Fatal("expected fullscreen state true")
+	}
+}

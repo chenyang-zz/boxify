@@ -18,6 +18,7 @@ interface TerminalSelectorState {
   sessionBlocks: Record<string, TerminalBlock[]>;
   reviewPanelOpenBySession: Record<string, boolean>;
   selectedBlockBySession: Record<string, string | undefined>;
+  fullscreenBySession: Record<string, boolean>;
 }
 
 const EMPTY_BLOCKS: TerminalBlock[] = [];
@@ -38,4 +39,10 @@ export function selectReviewPanelOpen(sessionId: string) {
 export function selectSelectedBlockId(sessionId: string) {
   return (state: TerminalSelectorState): string | undefined =>
     state.selectedBlockBySession[sessionId];
+}
+
+// 读取会话是否处于全屏交互模式。
+export function selectFullscreenMode(sessionId: string) {
+  return (state: TerminalSelectorState): boolean =>
+    state.fullscreenBySession[sessionId] ?? false;
 }

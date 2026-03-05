@@ -102,6 +102,9 @@ class TerminalApplication {
         store.clearSession(event.sessionId);
         this.unbindSession(event.sessionId);
         break;
+      case "fullscreen_changed":
+        store.setFullscreenMode(event.sessionId, event.inFullscreen);
+        break;
     }
   }
 }

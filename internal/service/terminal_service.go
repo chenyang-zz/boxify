@@ -76,7 +76,7 @@ func (ts *TerminalService) ServiceShutdown() error {
 }
 
 // Emit 实现 EventEmitter 接口
-func (ts *TerminalService) Emit(event string, data map[string]interface{}) {
+func (ts *TerminalService) Emit(event string, data interface{}) {
 	ts.App().Event.Emit(event, data)
 }
 

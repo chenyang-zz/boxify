@@ -23,6 +23,7 @@ interface InputEditorProps {
   sessionId: string;
   envInfo: TerminalEnvironmentInfo;
   onSubmit: (command: string) => void;
+  inFullscreen?: boolean;
   onResize?: () => void;
 }
 
@@ -34,6 +35,7 @@ export function InputEditor({
   sessionId,
   envInfo,
   onSubmit,
+  inFullscreen = false,
   onResize,
 }: InputEditorProps) {
   const {
@@ -46,90 +48,105 @@ export function InputEditor({
     focusInput,
     handleChange,
     handleKeyDown,
+    handlePaste,
     handleContainerClick,
     handleOpenReviewPanel,
   } = useInputEditorController({
     sessionId,
     envInfo,
     onSubmit,
+    inFullscreen,
     onResize,
   });
 
   return (
     <div className="input-editor-wrapper flex flex-col items-start px-3 py-2 w-full overflow-x-hidden">
-      <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
-        {hasPythonEnv && (
-          <Badge variant="secondary" className="border text-yellow-200 ">
-            <TerminalIcon />
-            {envInfo?.pythonEnv?.envName}
-          </Badge>
-        )}
-        <DirectorySelector
-          workPath={envInfo?.workPath || "~"}
-          onDirectorySelect={onSubmit}
-          onFocus={focusInput}
-        />
-        {isRepo && gitStatus && (
-          <Badge
-            variant="secondary"
-            className="border p-0 gap-0 flex items-center cursor-pointer select-none"
-          >
+      {!inFullscreen && (
+        <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+          {hasPythonEnv && (
             <Badge
-              variant="ghost"
-              className="text-green-200 hover:bg-accent cursor-pointer select-none"
+              variant="secondary"
+              className="border text-yellow-200 "
             >
-              <GitBranchIcon className="text-xs" /> {gitStatus.data.status.head}
+              <TerminalIcon />
+              {envInfo?.pythonEnv?.envName}
             </Badge>
-            <span className="w-1 h-2 border-l" />
+          )}
+          <DirectorySelector
+            workPath={envInfo?.workPath || "~"}
+            onDirectorySelect={onSubmit}
+            onFocus={focusInput}
+          />
+          {isRepo && gitStatus && (
             <Badge
-              variant="ghost"
-              className="hover:bg-accent cursor-pointer select-none"
-              onClick={handleOpenReviewPanel}
+              variant="secondary"
+              className="border p-0 gap-0 flex items-center cursor-pointer select-none"
             >
-              {gitStatus.data.status.files.length > 0 ? (
-                <>
-                  <FileIcon />
-                  {gitStatus.data.status.files.length}
-                  <span className="text-green-500 font-bold ml-1">
-                    +{gitStatus.data.status.addedLines}
-                  </span>
-                  <span className="text-red-500 font-bold">
-                    -{gitStatus.data.status.deletedLines}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <DiffIcon />0
-                </>
-              )}
+              <Badge
+                variant="ghost"
+                className="text-green-200 hover:bg-accent cursor-pointer select-none"
+              >
+                <GitBranchIcon className="text-xs" /> {gitStatus.data.status.head}
+              </Badge>
+              <span className="w-1 h-2 border-l" />
+              <Badge
+                variant="ghost"
+                className="hover:bg-accent cursor-pointer select-none"
+                onClick={handleOpenReviewPanel}
+              >
+                {gitStatus.data.status.files.length > 0 ? (
+                  <>
+                    <FileIcon />
+                    {gitStatus.data.status.files.length}
+                    <span className="text-green-500 font-bold ml-1">
+                      +{gitStatus.data.status.addedLines}
+                    </span>
+                    <span className="text-red-500 font-bold">
+                      -{gitStatus.data.status.deletedLines}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <DiffIcon />0
+                  </>
+                )}
+              </Badge>
             </Badge>
-          </Badge>
-        )}
-      </div>
+          )}
+        </div>
+      )}
+      {inFullscreen && (
+        <div className="w-full text-xs text-muted-foreground">
+          当前为全屏交互模式，输入将直接发送到终端。
+        </div>
+      )}
       <div
         className="flex items-start flex-1 pt-1 w-full min-w-0 overflow-x-hidden"
         onClick={handleContainerClick}
       >
         <div className="input-field-wrapper relative flex-1 min-w-0 overflow-x-hidden">
-          <pre
-            className={`pointer-events-none absolute inset-0 ${INPUT_TEXT_LAYOUT_CLASS}`}
-            aria-hidden="true"
-          >
-            {highlightedTokens.map((token, index) => (
-              <span
-                key={`${index}-${token.value}`}
-                className={commandTokenClassName(token)}
-              >
-                {token.value}
-              </span>
-            ))}
-          </pre>
+          {!inFullscreen && (
+            <pre
+              className={`pointer-events-none absolute inset-0 ${INPUT_TEXT_LAYOUT_CLASS}`}
+              aria-hidden="true"
+            >
+              {highlightedTokens.map((token, index) => (
+                <span
+                  key={`${index}-${token.value}`}
+                  className={commandTokenClassName(token)}
+                >
+                  {token.value}
+                </span>
+              ))}
+            </pre>
+          )}
           <textarea
             ref={inputRef}
-            value={value}
+            value={inFullscreen ? "" : value}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
-            className={`actual-input relative block border-0 bg-transparent outline-none resize-none text-transparent caret-primary ${INPUT_TEXT_LAYOUT_CLASS}`}
+            onPaste={handlePaste}
+            className={`actual-input relative block border-0 bg-transparent outline-none resize-none ${inFullscreen ? "text-foreground caret-foreground" : "text-transparent caret-primary"} ${INPUT_TEXT_LAYOUT_CLASS}`}
             spellCheck={false}
             autoComplete="off"
             autoCorrect="off"

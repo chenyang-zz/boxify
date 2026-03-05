@@ -19,12 +19,15 @@ import (
 	"io"
 	"time"
 
+	"github.com/chenyang-zz/boxify/internal/events"
+	boxtypes "github.com/chenyang-zz/boxify/internal/types"
+
 	"log/slog"
 )
 
 // EventEmitter 事件发射接口（解耦 Wails 依赖）
 type EventEmitter interface {
-	Emit(event string, data map[string]interface{})
+	Emit(event string, data interface{})
 }
 
 // OutputHandler 输出处理器
@@ -81,6 +84,18 @@ func (h *OutputHandler) StartOutputLoop(session *Session) {
 			// 工作路径变化时发送事件
 			if result.PwdChanged {
 				h.emitPwdUpdate(session.ID, result.Pwd)
+			}
+
+			// 全屏交互模式切换时发送事件
+			if result.FullscreenChanged {
+				h.logger.Info(
+					"检测到终端全屏交互模式切换",
+					"sessionId",
+					session.ID,
+					"inFullscreen",
+					result.InFullscreen,
+				)
+				h.emitFullscreenChange(session.ID, result.InFullscreen)
 			}
 
 			// 命令结束时发送事件
@@ -147,4 +162,19 @@ func (h *OutputHandler) emitPwdUpdate(sessionID, pwd string) {
 		"sessionId": sessionID,
 		"pwd":       pwd,
 	})
+}
+
+// emitFullscreenChange 发送全屏交互模式切换事件
+func (h *OutputHandler) emitFullscreenChange(sessionID string, inFullscreen bool) {
+	if h.emitter == nil {
+		return
+	}
+	h.emitter.Emit(
+		string(events.EventTypeTerminalFullscreenChanged),
+		boxtypes.TerminalFullscreenChangedEvent{
+			SessionID:     sessionID,
+			InFullscreen:  inFullscreen,
+			ChangedAtUnix: time.Now().UnixMilli(),
+		},
+	)
 }

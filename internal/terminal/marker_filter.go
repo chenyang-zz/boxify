@@ -30,16 +30,19 @@ type MarkerFilter struct {
 	mu               sync.Mutex
 	buffer           bytes.Buffer
 	inCommandOutput  bool   // 是否在命令输出区域内
+	inFullscreen     bool   // 是否处于 alternate screen 全屏交互模式
 	currentPwd       string // 当前工作路径
 	startMarkerRegex *regexp.Regexp
 	endMarkerRegex   *regexp.Regexp
 	pwdMarkerRegex   *regexp.Regexp // OSC 1337;Pwd 序列
 	oscGenericFilter *regexp.Regexp // 通用 OSC 序列过滤 (0, 1, 2, 7)
 	osc1337Filter    *regexp.Regexp // OSC 1337 序列过滤（在代码中排除 Pwd）
+	altScreenRegex   *regexp.Regexp // CSI ?1049/?1047/?47 h/l 序列
 	createdAt        time.Time      // 过滤器创建时间
 	markerDetected   bool           // 是否已检测到标记
 	fallbackDelay    time.Duration  // 降级延迟时间
 	inFallbackMode   bool           // 是否处于降级模式（透传所有输出）
+	altScreenTail    string         // 处理跨 chunk 的不完整 alternate screen 序列
 	logger           *slog.Logger
 }
 
@@ -58,6 +61,8 @@ func NewMarkerFilter(logger *slog.Logger) *MarkerFilter {
 		oscGenericFilter: regexp.MustCompile(`\x1b\](?:0|1|2|7);[^\x07\x1b]*(?:\x1b\\|\x07)`),
 		// 匹配 OSC 1337 序列（在代码中排除 Pwd）
 		osc1337Filter: regexp.MustCompile(`\x1b\]1337;[^\x07\x1b]*(?:\x1b\\|\x07)`),
+		// 匹配 alternate screen 进入/退出序列：ESC[?1049h/l、ESC[?1047h/l、ESC[?47h/l
+		altScreenRegex: regexp.MustCompile(`\x1b\[\?(?:1049|1047|47)([hl])`),
 		createdAt:     time.Now(),
 		fallbackDelay: 3 * time.Second, // 3秒后如果没检测到标记，进入降级模式
 	}
@@ -65,17 +70,21 @@ func NewMarkerFilter(logger *slog.Logger) *MarkerFilter {
 
 // ProcessResult 处理结果
 type ProcessResult struct {
-	Output       []byte // 过滤后的输出
-	CommandEnded bool   // 命令是否结束
-	ExitCode     int    // 命令退出码（仅在 CommandEnded 为 true 时有效）
-	PwdChanged   bool   // 工作路径是否变化
-	Pwd          string // 新的工作路径（仅在 PwdChanged 为 true 时有效）
+	Output            []byte // 过滤后的输出
+	CommandEnded      bool   // 命令是否结束
+	ExitCode          int    // 命令退出码（仅在 CommandEnded 为 true 时有效）
+	PwdChanged        bool   // 工作路径是否变化
+	Pwd               string // 新的工作路径（仅在 PwdChanged 为 true 时有效）
+	FullscreenChanged bool   // 全屏交互模式是否切换
+	InFullscreen      bool   // 当前是否处于全屏交互模式
 }
 
 // Process 处理输出数据
 func (f *MarkerFilter) Process(data []byte) ProcessResult {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+
+	fullscreenChanged, inFullscreen := f.detectFullscreenTransition(data)
 
 	// 检查是否需要进入降级模式
 	if !f.markerDetected && !f.inFallbackMode {
@@ -86,9 +95,11 @@ func (f *MarkerFilter) Process(data []byte) ProcessResult {
 			output := f.buffer.Bytes()
 			f.buffer.Reset()
 			return ProcessResult{
-				Output:       output,
-				CommandEnded: false,
-				ExitCode:     0,
+				Output:            output,
+				CommandEnded:      false,
+				ExitCode:          0,
+				FullscreenChanged: fullscreenChanged,
+				InFullscreen:      inFullscreen,
 			}
 		}
 	}
@@ -96,9 +107,11 @@ func (f *MarkerFilter) Process(data []byte) ProcessResult {
 	// 降级模式：透传所有输出
 	if f.inFallbackMode {
 		return ProcessResult{
-			Output:       data,
-			CommandEnded: false,
-			ExitCode:     0,
+			Output:            data,
+			CommandEnded:      false,
+			ExitCode:          0,
+			FullscreenChanged: fullscreenChanged,
+			InFullscreen:      inFullscreen,
 		}
 	}
 
@@ -222,12 +235,42 @@ func (f *MarkerFilter) Process(data []byte) ProcessResult {
 	}
 
 	return ProcessResult{
-		Output:       result.Bytes(),
-		CommandEnded: commandEnded,
-		ExitCode:     exitCode,
-		PwdChanged:   pwdChanged,
-		Pwd:          pwd,
+		Output:            result.Bytes(),
+		CommandEnded:      commandEnded,
+		ExitCode:          exitCode,
+		PwdChanged:        pwdChanged,
+		Pwd:               pwd,
+		FullscreenChanged: fullscreenChanged,
+		InFullscreen:      inFullscreen,
 	}
+}
+
+// detectFullscreenTransition 检测 alternate screen（全屏交互）切换。
+func (f *MarkerFilter) detectFullscreenTransition(data []byte) (changed bool, inFullscreen bool) {
+	combined := f.altScreenTail + string(data)
+	matches := f.altScreenRegex.FindAllStringSubmatchIndex(combined, -1)
+
+	for _, match := range matches {
+		if len(match) < 4 || match[2] == -1 || match[3] == -1 {
+			continue
+		}
+
+		mode := combined[match[2]:match[3]]
+		next := mode == "h"
+		if next != f.inFullscreen {
+			changed = true
+			f.inFullscreen = next
+		}
+	}
+
+	// 保留末尾最多 16 个字节，用于处理跨 chunk 的 ESC[?1049h/l 序列。
+	if len(combined) > 16 {
+		f.altScreenTail = combined[len(combined)-16:]
+	} else {
+		f.altScreenTail = combined
+	}
+
+	return changed, f.inFullscreen
 }
 
 // splitIncompleteMarkerTail 将内容拆分为“可立即输出前缀”和“需继续等待的未完成 OSC 尾部”。

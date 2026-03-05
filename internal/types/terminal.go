@@ -85,3 +85,10 @@ type TerminalExecutableCommand struct {
 	Name string `json:"name"` // 命令名称
 	Path string `json:"path"` // 命令绝对路径
 }
+
+// TerminalFullscreenChangedEvent 终端全屏交互模式切换事件。
+type TerminalFullscreenChangedEvent struct {
+	SessionID     string `json:"sessionId"`     // 会话 ID
+	InFullscreen  bool   `json:"inFullscreen"`  // 是否处于全屏交互模式
+	ChangedAtUnix int64  `json:"changedAtUnix"` // 事件时间（Unix 毫秒）
+}

@@ -19,7 +19,8 @@ import {
   useEffect,
   useMemo,
   type ChangeEvent,
-  type KeyboardEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ClipboardEvent as ReactClipboardEvent,
 } from "react";
 import { terminalSessionManager } from "../lib/session-manager";
 import { useTerminalStore } from "../store/terminal.store";
@@ -32,7 +33,65 @@ interface UseInputEditorControllerParams {
   sessionId: string;
   envInfo: TerminalEnvironmentInfo;
   onSubmit: (command: string) => void;
+  inFullscreen: boolean;
   onResize?: () => void;
+}
+
+// 将 Ctrl+<key> 转换为控制字符（例如 Ctrl+C => \x03）。
+function toControlChar(key: string): string | null {
+  if (key.length !== 1) return null;
+  const upper = key.toUpperCase();
+  const code = upper.charCodeAt(0);
+  if (code < 65 || code > 90) return null;
+  return String.fromCharCode(code - 64);
+}
+
+// 将方向键等功能键映射为终端转义序列。
+function mapSpecialKeyToSequence(key: string): string | null {
+  switch (key) {
+    case "Enter":
+      return "\r";
+    case "Backspace":
+      return "\x7f";
+    case "Tab":
+      return "\t";
+    case "Escape":
+      return "\x1b";
+    case "ArrowUp":
+      return "\x1b[A";
+    case "ArrowDown":
+      return "\x1b[B";
+    case "ArrowRight":
+      return "\x1b[C";
+    case "ArrowLeft":
+      return "\x1b[D";
+    case "Delete":
+      return "\x1b[3~";
+    case "Home":
+      return "\x1b[H";
+    case "End":
+      return "\x1b[F";
+    case "PageUp":
+      return "\x1b[5~";
+    case "PageDown":
+      return "\x1b[6~";
+    default:
+      return null;
+  }
+}
+
+// 全屏交互模式：把按键转换为 PTY 输入并直通后端。
+function getInteractiveInput(
+  e: Pick<KeyboardEvent, "key" | "ctrlKey" | "altKey" | "metaKey">,
+): string | null {
+  if (e.metaKey) return null;
+  if (e.ctrlKey) {
+    return toControlChar(e.key);
+  }
+  if (e.altKey && e.key.length === 1) {
+    return `\x1b${e.key}`;
+  }
+  return mapSpecialKeyToSequence(e.key) ?? (e.key.length === 1 ? e.key : null);
 }
 
 // 输入控制器：封装输入状态、快捷键和命令分词校验。
@@ -40,6 +99,7 @@ export function useInputEditorController({
   sessionId,
   envInfo,
   onSubmit,
+  inFullscreen,
   onResize,
 }: UseInputEditorControllerParams) {
   const [value, setValue] = useState("");
@@ -82,14 +142,31 @@ export function useInputEditorController({
   // 同步用户输入到本地状态。
   const handleChange = useCallback(
     (e: ChangeEvent<HTMLTextAreaElement>) => {
+      if (inFullscreen) return;
       setValue(e.target.value);
     },
-    [],
+    [inFullscreen],
   );
 
   // 处理终端常用快捷键与提交行为。
   const handleKeyDown = useCallback(
-    (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    (e: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+      if (inFullscreen) {
+        const data = getInteractiveInput({
+          key: e.key,
+          ctrlKey: e.ctrlKey,
+          altKey: e.altKey,
+          metaKey: e.metaKey,
+        });
+        if (data) {
+          e.preventDefault();
+          terminalSessionManager.write(sessionId, data);
+        } else if (!e.metaKey) {
+          e.preventDefault();
+        }
+        return;
+      }
+
       switch (e.key) {
         case "Enter":
           if (!e.shiftKey) {
@@ -176,7 +253,19 @@ export function useInputEditorController({
           break;
       }
     },
-    [sessionId, value, navigateHistory, onSubmit],
+    [sessionId, value, navigateHistory, onSubmit, inFullscreen],
+  );
+
+  // 全屏交互模式下支持粘贴直通终端。
+  const handlePaste = useCallback(
+    (e: ReactClipboardEvent<HTMLTextAreaElement>) => {
+      if (!inFullscreen) return;
+      e.preventDefault();
+      const text = e.clipboardData.getData("text");
+      if (!text) return;
+      terminalSessionManager.write(sessionId, text);
+    },
+    [inFullscreen, sessionId],
   );
 
   // 点击输入区域空白时聚焦 textarea。
@@ -214,8 +303,8 @@ export function useInputEditorController({
 
   // 对当前输入进行分词与分类，驱动彩色渲染层。
   const highlightedTokens = useMemo(
-    () => classifyCommandTokens(value, commandSet),
-    [value, commandSet],
+    () => (inFullscreen ? [] : classifyCommandTokens(value, commandSet)),
+    [value, commandSet, inFullscreen],
   );
 
   return {
@@ -228,6 +317,7 @@ export function useInputEditorController({
     focusInput,
     handleChange,
     handleKeyDown,
+    handlePaste,
     handleContainerClick,
     handleOpenReviewPanel,
   };

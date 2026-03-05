@@ -14,9 +14,15 @@
 
 import { useRef, useCallback } from "react";
 import { terminalApplication, useTerminalController } from "./app";
-import { useSessionBlocks, useSelectedBlockId, useTerminalStore } from "./store";
+import {
+  useFullscreenMode,
+  useSessionBlocks,
+  useSelectedBlockId,
+  useTerminalStore,
+} from "./store";
 import { TerminalBlock } from "./components/TerminalBlock";
 import { InputEditor } from "./components/InputEditor";
+import { FullscreenTerminal } from "./components/FullscreenTerminal";
 import type { TerminalConfig } from "@/types/property";
 
 interface TerminalCoreProps {
@@ -26,7 +32,12 @@ interface TerminalCoreProps {
 
 export function TerminalCore({ sessionId, config }: TerminalCoreProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { containerRef, envInfo } = useTerminalController({ sessionId, config });
+  const inFullscreen = useFullscreenMode(sessionId);
+  const { containerRef, envInfo } = useTerminalController({
+    sessionId,
+    config,
+    autoResize: !inFullscreen,
+  });
 
   const blocks = useSessionBlocks(sessionId);
   const selectedBlockId = useSelectedBlockId(sessionId);
@@ -56,6 +67,17 @@ export function TerminalCore({ sessionId, config }: TerminalCoreProps) {
     },
     [sessionId, scrollToBottom, envInfo],
   );
+
+  if (inFullscreen) {
+    return (
+      <div
+        ref={containerRef}
+        className="terminal-core h-full w-full text-left bg-background"
+      >
+        <FullscreenTerminal sessionId={sessionId} />
+      </div>
+    );
+  }
 
   return (
     <div
@@ -89,6 +111,7 @@ export function TerminalCore({ sessionId, config }: TerminalCoreProps) {
             onSubmit={handleCommandSubmit}
             onResize={scrollToBottom}
             envInfo={envInfo}
+            inFullscreen={inFullscreen}
           />
         </div>
       )}
