@@ -17,6 +17,7 @@ import type { TerminalBlock } from "../types/block";
 interface TerminalSelectorState {
   sessionBlocks: Record<string, TerminalBlock[]>;
   reviewPanelOpenBySession: Record<string, boolean>;
+  selectedBlockBySession: Record<string, string | undefined>;
 }
 
 const EMPTY_BLOCKS: TerminalBlock[] = [];
@@ -31,4 +32,10 @@ export function selectSessionBlocks(sessionId: string) {
 export function selectReviewPanelOpen(sessionId: string) {
   return (state: TerminalSelectorState): boolean =>
     state.reviewPanelOpenBySession[sessionId] ?? false;
+}
+
+// 读取会话当前选中的 block ID。
+export function selectSelectedBlockId(sessionId: string) {
+  return (state: TerminalSelectorState): string | undefined =>
+    state.selectedBlockBySession[sessionId];
 }

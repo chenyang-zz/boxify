@@ -23,6 +23,7 @@ import {
 } from "../domain/block-reducer";
 import {
   selectReviewPanelOpen,
+  selectSelectedBlockId,
   selectSessionBlocks,
 } from "./selectors";
 
@@ -37,6 +38,7 @@ interface TerminalState {
 
   // 每个会话的代码审查面板开关
   reviewPanelOpenBySession: Record<string, boolean>;
+  selectedBlockBySession: Record<string, string | undefined>;
 
   // === Block 操作 ===
   createBlock: (
@@ -60,6 +62,7 @@ interface TerminalState {
     status: BlockStatus,
   ) => void;
   clearBlocks: (sessionId: string) => void;
+  setSelectedBlock: (sessionId: string, blockId?: string) => void;
 
   // === 历史操作 ===
   addToHistory: (sessionId: string, command: string) => void;
@@ -82,6 +85,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   sessionHistory: {},
   historyIndexes: {},
   reviewPanelOpenBySession: {},
+  selectedBlockBySession: {},
 
   createBlock: (
     sessionId: string,
@@ -169,6 +173,19 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
         ...state.sessionBlocks,
         [sessionId]: [],
       },
+      selectedBlockBySession: {
+        ...state.selectedBlockBySession,
+        [sessionId]: undefined,
+      },
+    }));
+  },
+
+  setSelectedBlock: (sessionId: string, blockId?: string) => {
+    set((state) => ({
+      selectedBlockBySession: {
+        ...state.selectedBlockBySession,
+        [sessionId]: blockId,
+      },
     }));
   },
 
@@ -249,12 +266,15 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       const { [sessionId]: ____, ...restIndexes } = state.historyIndexes;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { [sessionId]: _____, ...restReviewOpen } = state.reviewPanelOpenBySession;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { [sessionId]: ______, ...restSelectedBlock } = state.selectedBlockBySession;
 
       return {
         sessionBlocks: restBlocks,
         sessionHistory: restHistory,
         historyIndexes: restIndexes,
         reviewPanelOpenBySession: restReviewOpen,
+        selectedBlockBySession: restSelectedBlock,
       };
     });
   },
@@ -267,4 +287,8 @@ export function useSessionBlocks(sessionId: string): TerminalBlock[] {
 
 export function useReviewPanelOpen(sessionId: string): boolean {
   return useTerminalStore(selectReviewPanelOpen(sessionId));
+}
+
+export function useSelectedBlockId(sessionId: string): string | undefined {
+  return useTerminalStore(selectSelectedBlockId(sessionId));
 }

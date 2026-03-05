@@ -80,6 +80,19 @@ func (ts *TerminalService) Emit(event string, data map[string]interface{}) {
 	ts.App().Event.Emit(event, data)
 }
 
+// formatCommandPayload 根据会话模式包装命令并补齐换行。
+func formatCommandPayload(session *terminal.Session, command string) string {
+	cmd := command
+	if !session.UseHooks() {
+		cmd = session.Wrapper().Wrap(command)
+	}
+
+	if !strings.HasSuffix(cmd, "\n") && !strings.HasSuffix(cmd, "\r") {
+		cmd += "\r"
+	}
+	return cmd
+}
+
 // Create 创建新的终端会话
 func (ts *TerminalService) Create(config terminal.TerminalConfig) *types.TerminalCreateResult {
 	// 验证基本配置
@@ -127,13 +140,6 @@ func (ts *TerminalService) Create(config terminal.TerminalConfig) *types.Termina
 		}
 	}
 
-	// 执行初始命令
-	if config.InitialCommand != "" {
-		if err := ts.processManager.WriteInitialCommand(process.Pty, config.InitialCommand); err != nil {
-			ts.Logger().Warn("写入初始命令失败", "sessionId", config.ID, "error", err)
-		}
-	}
-
 	// 创建会话
 	session := terminal.NewSession(ts.Context(), config.ID, process.Pty, process.Cmd, validationResult.ShellType, process.UseHooks, ts.Logger())
 	session.SetConfigPath(process.ConfigPath)
@@ -144,6 +150,17 @@ func (ts *TerminalService) Create(config terminal.TerminalConfig) *types.Termina
 
 	// 启动输出读取 goroutine
 	go ts.outputHandler.StartOutputLoop(session)
+
+	// 执行初始命令（不对前端展示输出）
+	if config.InitialCommand != "" {
+		initialBlockID := uuid.New().String()
+		session.PrepareInitialCommand(initialBlockID)
+		initialCmd := formatCommandPayload(session, config.InitialCommand)
+		if _, err := session.Pty.WriteString(initialCmd); err != nil {
+			session.CompleteInitialCommand()
+			ts.Logger().Warn("写入初始命令失败", "sessionId", config.ID, "error", err)
+		}
+	}
 
 	ts.Logger().Info("终端会话创建",
 		"sessionId", config.ID,
@@ -187,31 +204,30 @@ func (ts *TerminalService) Write(sessionID, data string) error {
 	return nil
 }
 
-// WriteCommand 写入命令并返回 block ID
-// 用于追踪命令输出，实现 block 关联
-func (ts *TerminalService) WriteCommand(sessionID, command string) (string, error) {
+// writeCommandInternal 写入命令并返回 block ID。
+// preferredBlockID 不为空时，优先使用前端传入的 block 标识，确保流式输出与前端 block 提前对齐。
+func (ts *TerminalService) writeCommandInternal(sessionID, command, preferredBlockID string) (string, error) {
 	session, ok := ts.sessionManager.Get(sessionID)
 	if !ok {
 		return "", fmt.Errorf("会话不存在: %s", sessionID)
 	}
 
-	// 生成新的 block ID
-	blockID := uuid.New().String()
+	// 初始命令执行完成前，命令排队等待。
+	if err := session.WaitInitialCommandComplete(ts.Context()); err != nil {
+		return "", fmt.Errorf("等待初始命令完成失败: %w", err)
+	}
+
+	// 生成或复用 block ID
+	blockID := strings.TrimSpace(preferredBlockID)
+	if blockID == "" {
+		blockID = uuid.New().String()
+	}
 
 	// 设置当前 block
 	session.SetCurrentBlock(blockID)
 
 	// 根据模式决定是否包装命令
-	cmd := command
-	if !session.UseHooks() {
-		// 非 hooks 模式：使用命令包装器添加标记
-		cmd = session.Wrapper().Wrap(command)
-	}
-
-	// 确保命令以换行符结尾
-	if !strings.HasSuffix(cmd, "\n") && !strings.HasSuffix(cmd, "\r") {
-		cmd += "\r"
-	}
+	cmd := formatCommandPayload(session, command)
 
 	_, err := session.Pty.WriteString(cmd)
 	if err != nil {
@@ -222,6 +238,18 @@ func (ts *TerminalService) WriteCommand(sessionID, command string) (string, erro
 	ts.Logger().Debug("命令已写入", "sessionId", sessionID, "blockId", blockID, "command", command, "useHooks", session.UseHooks())
 
 	return blockID, nil
+}
+
+// WriteCommand 写入命令并返回 block ID
+// 用于追踪命令输出，实现 block 关联（兼容旧调用，不要求前端提供 block ID）。
+func (ts *TerminalService) WriteCommand(sessionID, command string) (string, error) {
+	return ts.writeCommandInternal(sessionID, command, "")
+}
+
+// WriteCommandWithBlock 写入命令并复用前端提供的 block ID。
+// 该方法用于保证命令流式输出与前端 block 在首包输出前就能完成绑定。
+func (ts *TerminalService) WriteCommandWithBlock(sessionID, blockID, command string) (string, error) {
+	return ts.writeCommandInternal(sessionID, command, blockID)
 }
 
 // Resize 调整终端大小

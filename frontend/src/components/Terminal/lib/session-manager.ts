@@ -91,7 +91,7 @@ class TerminalSessionManager {
     string,
     Array<{ content: string; formattedContent: ReturnType<AnsiParser["parse"]> }>
   >();
-  private flushFrameId: number | null = null;
+  private flushTimerId: number | null = null;
   private defaultRows = 24;
   private defaultCols = 80;
 
@@ -231,8 +231,8 @@ class TerminalSessionManager {
       const bytes = Uint8Array.from(binaryString, (c) => c.charCodeAt(0));
       const decoded = new TextDecoder("utf-8").decode(bytes);
 
-      // 优先使用事件中的 blockId，否则回退到会话当前 blockId
-      const targetBlockId = blockId ?? session.currentBlockId ?? null;
+      // 仅消费带 blockId 的输出，避免初始化阶段输出误挂到用户命令 block。
+      const targetBlockId = blockId ?? null;
 
       // 只在有 block 时追加输出
       if (targetBlockId) {
@@ -255,11 +255,12 @@ class TerminalSessionManager {
     queue.push({ content, formattedContent });
     this.outputQueues.set(queueKey, queue);
 
-    if (this.flushFrameId !== null) return;
+    if (this.flushTimerId !== null) return;
 
-    this.flushFrameId = requestAnimationFrame(() => {
+    // 使用定时器而非 requestAnimationFrame，避免 WebView 节流导致输出延迟到命令结束。
+    this.flushTimerId = window.setTimeout(() => {
       this.flushOutputQueue();
-    });
+    }, 16);
   }
 
   private emitEvent(sessionId: string, event: TerminalSessionEvent): void {
@@ -269,7 +270,7 @@ class TerminalSessionManager {
   }
 
   private flushOutputQueue(): void {
-    this.flushFrameId = null;
+    this.flushTimerId = null;
     if (this.outputQueues.size === 0) return;
 
     this.outputQueues.forEach((chunks, key) => {
@@ -525,14 +526,29 @@ class TerminalSessionManager {
    * 写入命令并返回 block ID
    * 用于追踪命令输出，实现 block 关联
    */
-  async writeCommand(sessionId: string, command: string): Promise<string> {
+  async writeCommand(
+    sessionId: string,
+    command: string,
+    blockId?: string,
+  ): Promise<string> {
     const session = this.sessions.get(sessionId);
     if (!session || !session.isInitialized) return "";
 
     try {
-      const blockId = await TerminalService.WriteCommand(sessionId, command);
-      session.currentBlockId = blockId || undefined;
-      return blockId || "";
+      let resolvedBlockId = "";
+
+      if (blockId && typeof TerminalService.WriteCommandWithBlock === "function") {
+        resolvedBlockId = await TerminalService.WriteCommandWithBlock(
+          sessionId,
+          blockId,
+          command,
+        );
+      } else {
+        resolvedBlockId = await TerminalService.WriteCommand(sessionId, command);
+      }
+
+      session.currentBlockId = resolvedBlockId || undefined;
+      return resolvedBlockId || "";
     } catch (err) {
       console.error("写入命令失败:", err);
       return "";
@@ -570,9 +586,9 @@ class TerminalSessionManager {
         this.outputQueues.delete(key);
       }
     }
-    if (this.flushFrameId !== null && this.outputQueues.size === 0) {
-      cancelAnimationFrame(this.flushFrameId);
-      this.flushFrameId = null;
+    if (this.flushTimerId !== null && this.outputQueues.size === 0) {
+      clearTimeout(this.flushTimerId);
+      this.flushTimerId = null;
     }
 
     this.sessions.delete(sessionId);

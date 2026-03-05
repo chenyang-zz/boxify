@@ -15,6 +15,7 @@
 import { terminalSessionManager } from "../lib/session-manager";
 import type { TerminalSessionEvent } from "../lib/session-manager";
 import { useTerminalStore } from "../store/terminal.store";
+import { v4 as uuid } from "uuid";
 
 interface CommandExecutionContext {
   workPath?: string;
@@ -62,11 +63,18 @@ class TerminalApplication {
       return;
     }
 
-    const blockId = await terminalSessionManager.writeCommand(sessionId, trimmed);
-    if (!blockId) return;
-
+    const blockId = uuid();
     store.createBlock(sessionId, trimmed, blockId, context);
     store.addToHistory(sessionId, trimmed);
+
+    const resolvedBlockId = await terminalSessionManager.writeCommand(
+      sessionId,
+      trimmed,
+      blockId,
+    );
+    if (!resolvedBlockId) {
+      store.finalizeBlock(sessionId, blockId, 1);
+    }
   }
 
   private handleSessionEvent(event: TerminalSessionEvent): void {

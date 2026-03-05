@@ -14,7 +14,7 @@
 
 import { useRef, useCallback } from "react";
 import { terminalApplication, useTerminalController } from "./app";
-import { useSessionBlocks } from "./store";
+import { useSessionBlocks, useSelectedBlockId, useTerminalStore } from "./store";
 import { TerminalBlock } from "./components/TerminalBlock";
 import { InputEditor } from "./components/InputEditor";
 import type { TerminalConfig } from "@/types/property";
@@ -29,6 +29,8 @@ export function TerminalCore({ sessionId, config }: TerminalCoreProps) {
   const { containerRef, envInfo } = useTerminalController({ sessionId, config });
 
   const blocks = useSessionBlocks(sessionId);
+  const selectedBlockId = useSelectedBlockId(sessionId);
+  const setSelectedBlock = useTerminalStore((state) => state.setSelectedBlock);
   const terminalScrollStyle = {
     scrollbarWidth: "thin" as const,
     scrollbarColor: "#6e7681 transparent",
@@ -63,12 +65,18 @@ export function TerminalCore({ sessionId, config }: TerminalCoreProps) {
       {/* 输出区域 */}
       <div
         ref={scrollRef}
-        className="output-area flex-1 overflow-auto"
+        className="output-area flex-1 overflow-y-auto overflow-x-hidden min-w-0"
         style={terminalScrollStyle}
+        onClick={() => setSelectedBlock(sessionId, undefined)}
       >
-        <div className="min-h-full flex flex-col justify-end">
+        <div className="min-h-full flex flex-col justify-end min-w-0">
           {blocks.map((block) => (
-            <TerminalBlock key={block.id} block={block} />
+            <TerminalBlock
+              key={block.id}
+              block={block}
+              isActive={selectedBlockId === block.id}
+              onSelect={() => setSelectedBlock(sessionId, block.id)}
+            />
           ))}
         </div>
       </div>

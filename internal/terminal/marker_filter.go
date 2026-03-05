@@ -19,6 +19,7 @@ import (
 	"encoding/base64"
 	"log/slog"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 )
@@ -199,13 +200,15 @@ func (f *MarkerFilter) Process(data []byte) ProcessResult {
 	// 处理剩余内容
 	if len(content) > 0 {
 		if f.inCommandOutput {
-			// 检查是否可能是未完成的标记
-			if f.isPossibleMarkerStart(content) {
-				// 保留到缓冲区等待更多数据
+			// 仅缓存“未完成的 OSC 标记尾部”，其余内容立即透传，避免命令输出延迟到结束才释放。
+			prefix, tail, hasIncompleteTail := f.splitIncompleteMarkerTail(content)
+			if hasIncompleteTail {
+				if len(prefix) > 0 {
+					result.WriteString(prefix)
+				}
 				f.buffer.Reset()
-				f.buffer.WriteString(content)
+				f.buffer.WriteString(tail)
 			} else {
-				// 确定是命令输出
 				result.WriteString(content)
 				f.buffer.Reset()
 			}
@@ -227,15 +230,34 @@ func (f *MarkerFilter) Process(data []byte) ProcessResult {
 	}
 }
 
-// isPossibleMarkerStart 检查是否可能是标记的开始
-func (f *MarkerFilter) isPossibleMarkerStart(s string) bool {
-	// 检查是否以 ESC 开头（可能是未完成的 OSC 序列）
-	for i := 0; i < len(s) && i < 10; i++ {
-		if s[i] == 0x1b {
-			return true
-		}
+// splitIncompleteMarkerTail 将内容拆分为“可立即输出前缀”和“需继续等待的未完成 OSC 尾部”。
+// 仅对不完整的 OSC 序列（ESC ] ...，且尚未遇到 BEL / ST）进行缓存。
+func (f *MarkerFilter) splitIncompleteMarkerTail(s string) (prefix string, tail string, hasIncompleteTail bool) {
+	if s == "" {
+		return "", "", false
 	}
-	return false
+
+	lastEsc := strings.LastIndexByte(s, 0x1b)
+	if lastEsc == -1 {
+		return s, "", false
+	}
+
+	tail = s[lastEsc:]
+	if tail == "\x1b" {
+		return s[:lastEsc], tail, true
+	}
+
+	// 仅处理 OSC 前缀，其他 ANSI 序列（例如 CSI 颜色）不做缓存，直接透传。
+	if !strings.HasPrefix(tail, "\x1b]") {
+		return s, "", false
+	}
+
+	// 已经包含终止符，说明是完整 OSC，无需缓存。
+	if strings.Contains(tail, "\x07") || strings.Contains(tail, "\x1b\\") {
+		return s, "", false
+	}
+
+	return s[:lastEsc], tail, true
 }
 
 // Reset 重置过滤器状态

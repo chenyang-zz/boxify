@@ -43,6 +43,10 @@ type Session struct {
 	cancel       context.CancelFunc // 取消函数
 	currentBlock string             // 当前活动的 block ID
 	blockMutex   sync.RWMutex       // 保护 currentBlock
+	initialBlock string
+	initialDone  chan struct{}
+	initialState sync.RWMutex
+	initialOnce  sync.Once
 
 	// Shell Hooks 相关字段
 	filter     *MarkerFilter   // 输出过滤器
@@ -70,6 +74,11 @@ func NewSession(ctx context.Context, id string, pty *os.File, cmd *exec.Cmd, she
 		shellType: shellType,
 		useHooks:  useHooks,
 		logger:    logger,
+		initialDone: func() chan struct{} {
+			done := make(chan struct{})
+			close(done)
+			return done
+		}(),
 	}
 }
 
@@ -132,6 +141,56 @@ func (s *Session) SetCurrentBlock(blockID string) {
 	s.blockMutex.Lock()
 	defer s.blockMutex.Unlock()
 	s.currentBlock = blockID
+}
+
+// PrepareInitialCommand 标记初始命令 block，并重置完成信号。
+func (s *Session) PrepareInitialCommand(blockID string) {
+	s.initialState.Lock()
+	defer s.initialState.Unlock()
+	s.initialBlock = blockID
+	s.initialDone = make(chan struct{})
+	s.initialOnce = sync.Once{}
+	s.SetCurrentBlock(blockID)
+}
+
+// IsInitialCommandBlock 判断给定 block 是否为初始命令 block。
+func (s *Session) IsInitialCommandBlock(blockID string) bool {
+	if blockID == "" {
+		return false
+	}
+
+	s.initialState.RLock()
+	defer s.initialState.RUnlock()
+	return s.initialBlock != "" && s.initialBlock == blockID
+}
+
+// CompleteInitialCommand 结束初始命令等待并释放排队命令。
+func (s *Session) CompleteInitialCommand() {
+	s.initialState.Lock()
+	defer s.initialState.Unlock()
+	s.initialBlock = ""
+	s.initialOnce.Do(func() {
+		close(s.initialDone)
+	})
+
+	// 初始命令结束时清理当前 block，避免输出归属错误。
+	if s.CurrentBlock() != "" {
+		s.SetCurrentBlock("")
+	}
+}
+
+// WaitInitialCommandComplete 在初始命令完成前阻塞等待。
+func (s *Session) WaitInitialCommandComplete(ctx context.Context) error {
+	s.initialState.RLock()
+	done := s.initialDone
+	s.initialState.RUnlock()
+
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // WorkPath 返回当前工作路径

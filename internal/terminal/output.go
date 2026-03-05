@@ -17,6 +17,7 @@ package terminal
 import (
 	"encoding/base64"
 	"io"
+	"time"
 
 	"log/slog"
 )
@@ -30,13 +31,16 @@ type EventEmitter interface {
 type OutputHandler struct {
 	emitter EventEmitter
 	logger  *slog.Logger
+	// 初始命令结束后保留一段静默窗口，吸收尾部输出，避免串到首条用户命令。
+	initialCommandDrainDelay time.Duration
 }
 
 // NewOutputHandler 创建输出处理器
 func NewOutputHandler(emitter EventEmitter, logger *slog.Logger) *OutputHandler {
 	return &OutputHandler{
-		emitter: emitter,
-		logger:  logger,
+		emitter:                  emitter,
+		logger:                   logger,
+		initialCommandDrainDelay: 200 * time.Millisecond,
 	}
 }
 
@@ -68,8 +72,10 @@ func (h *OutputHandler) StartOutputLoop(session *Session) {
 
 			// 只有有过滤后输出时才发送
 			if len(result.Output) > 0 {
-				h.logger.Info("提取过滤后终端输出", "text", string(result.Output))
-				h.emitOutput(session.ID, blockID, result.Output)
+				if !session.IsInitialCommandBlock(blockID) {
+					h.logger.Info("提取过滤后终端输出", "text", string(result.Output))
+					h.emitOutput(session.ID, blockID, result.Output)
+				}
 			}
 
 			// 工作路径变化时发送事件
@@ -79,6 +85,13 @@ func (h *OutputHandler) StartOutputLoop(session *Session) {
 
 			// 命令结束时发送事件
 			if result.CommandEnded {
+				if session.IsInitialCommandBlock(blockID) {
+					go func(s *Session) {
+						time.Sleep(h.initialCommandDrainDelay)
+						s.CompleteInitialCommand()
+					}(session)
+					continue
+				}
 				h.emitCommandEnd(session.ID, blockID, result.ExitCode)
 			}
 		}

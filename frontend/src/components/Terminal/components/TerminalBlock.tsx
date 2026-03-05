@@ -20,11 +20,16 @@ import { cn } from "@/lib/utils";
 
 interface TerminalBlockProps {
   block: TerminalBlockType;
+  isActive?: boolean;
+  onSelect?: () => void;
 }
 
 export const TerminalBlock = memo(function TerminalBlock({
   block,
+  isActive = false,
+  onSelect,
 }: TerminalBlockProps) {
+  const isErrorBlock = block.status === "error";
   // 复制命令和输出
   const handleCopy = useCallback(async () => {
     const text = [
@@ -56,15 +61,36 @@ export const TerminalBlock = memo(function TerminalBlock({
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      onClick={(event) => {
+        event.stopPropagation();
+        onSelect?.();
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect?.();
+        }
+      }}
       className={cn(
-        "terminal-block border-t py-3 px-4 relative",
-        block.status === "error" &&
-          "bg-red-400/10 before:w-1 before:h-full before:bg-red-400 before:absolute before:left-0 before:top-0",
+        "terminal-block border-t py-3 px-4 relative transition-colors min-w-0 overflow-x-hidden",
+        isErrorBlock && "bg-red-400/10",
+        isErrorBlock &&
+          !isActive &&
+          "before:w-1 before:h-full before:bg-red-400 before:absolute before:left-0 before:top-0",
       )}
     >
+      {isActive && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-primary/10"
+        />
+      )}
+      <div className="relative z-10 min-w-0 overflow-x-hidden">
       {/* Block 头部 */}
-      <div className="block-header flex items-center gap-2">
-        <div className=" select-none text-xs text-secondary-foreground flex gap-2">
+      <div className="block-header flex items-center gap-2 min-w-0 overflow-x-hidden">
+        <div className="select-none text-xs text-secondary-foreground flex gap-2 min-w-0 shrink overflow-hidden whitespace-nowrap text-ellipsis">
           <span>base</span>
           {block.workPath && <span>{block.workPath}</span>}
           {block.gitBranch && <span>git:({block.gitBranch})</span>}
@@ -100,8 +126,9 @@ export const TerminalBlock = memo(function TerminalBlock({
       </div>
 
       {/* Block 输出 */}
-      <div className="block-output ">
+      <div className="block-output min-w-0 overflow-x-hidden">
         <OutputRenderer output={block.output} />
+      </div>
       </div>
     </div>
   );

@@ -53,7 +53,7 @@ export function InputEditor({
   });
 
   return (
-    <div className="input-editor-wrapper flex flex-col items-start px-3 py-2 ">
+    <div className="input-editor-wrapper flex flex-col items-start px-3 py-2 w-full overflow-x-hidden">
       <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
         {hasPythonEnv && (
           <Badge variant="secondary" className="border text-yellow-200 ">
@@ -104,12 +104,12 @@ export function InputEditor({
         )}
       </div>
       <div
-        className="flex items-start flex-1 pt-1 w-full"
+        className="flex items-start flex-1 pt-1 w-full min-w-0 overflow-x-hidden"
         onClick={handleContainerClick}
       >
-        <div className="input-field-wrapper relative flex-1">
+        <div className="input-field-wrapper relative flex-1 min-w-0 overflow-x-hidden">
           <pre
-            className="pointer-events-none absolute inset-0 m-0 whitespace-pre-wrap wrap-break-word text-sm leading-6 font-sans"
+            className="pointer-events-none absolute inset-0 m-0 whitespace-pre-wrap wrap-break-word overflow-x-hidden text-sm leading-6 font-sans"
             aria-hidden="true"
           >
             {highlightedTokens.map((token, index) => (
@@ -126,7 +126,7 @@ export function InputEditor({
             value={value}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
-            className="actual-input relative w-full block overflow-hidden bg-transparent outline-none resize-none text-sm leading-6 text-transparent caret-primary"
+            className="actual-input relative w-full block whitespace-pre-wrap wrap-break-word overflow-x-hidden bg-transparent outline-none resize-none text-sm leading-6 text-transparent caret-primary"
             spellCheck={false}
             autoComplete="off"
             autoCorrect="off"

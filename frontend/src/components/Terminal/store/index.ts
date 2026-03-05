@@ -16,9 +16,11 @@ export {
   useTerminalStore,
   useSessionBlocks,
   useReviewPanelOpen,
+  useSelectedBlockId,
 } from "./terminal.store";
 
 export {
   selectSessionBlocks,
   selectReviewPanelOpen,
+  selectSelectedBlockId,
 } from "./selectors";

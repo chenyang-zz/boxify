@@ -692,29 +692,89 @@ func TestMarkerFilter_Process_PwdChanged_OnlyWhenPathChanges(t *testing.T) {
 	}
 }
 
-func TestMarkerFilter_isPossibleMarkerStart(t *testing.T) {
+func TestMarkerFilter_splitIncompleteMarkerTail(t *testing.T) {
 	filter := NewMarkerFilter(testLogger)
 
 	tests := []struct {
-		input    string
-		expected bool
+		name              string
+		input             string
+		expectedPrefix    string
+		expectedTail      string
+		expectedHasTail   bool
 	}{
-		{"\x1b", true},
-		{"\x1b]133", true},
-		{"normal text", false},
-		{"hello\x1bworld", true},
-		{"", false},
-		{"no escape here", false},
-		{"\x1b]", true},
+		{
+			name:            "single ESC should be buffered",
+			input:           "\x1b",
+			expectedPrefix:  "",
+			expectedTail:    "\x1b",
+			expectedHasTail: true,
+		},
+		{
+			name:            "incomplete OSC should be buffered",
+			input:           "hello\x1b]1337;CurrentDir=/tmp",
+			expectedPrefix:  "hello",
+			expectedTail:    "\x1b]1337;CurrentDir=/tmp",
+			expectedHasTail: true,
+		},
+		{
+			name:            "complete OSC should not be buffered",
+			input:           "hello\x1b]1337;SetMark\x07",
+			expectedPrefix:  "hello\x1b]1337;SetMark\x07",
+			expectedTail:    "",
+			expectedHasTail: false,
+		},
+		{
+			name:            "CSI color sequence should not be buffered",
+			input:           "hello\x1b[31mred",
+			expectedPrefix:  "hello\x1b[31mred",
+			expectedTail:    "",
+			expectedHasTail: false,
+		},
+		{
+			name:            "no escape should not be buffered",
+			input:           "normal text",
+			expectedPrefix:  "normal text",
+			expectedTail:    "",
+			expectedHasTail: false,
+		},
+		{
+			name:            "empty input",
+			input:           "",
+			expectedPrefix:  "",
+			expectedTail:    "",
+			expectedHasTail: false,
+		},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			result := filter.isPossibleMarkerStart(tt.input)
-			if result != tt.expected {
-				t.Errorf("isPossibleMarkerStart(%q) = %v, want %v", tt.input, result, tt.expected)
+		t.Run(tt.name, func(t *testing.T) {
+			prefix, tail, hasTail := filter.splitIncompleteMarkerTail(tt.input)
+			if prefix != tt.expectedPrefix || tail != tt.expectedTail || hasTail != tt.expectedHasTail {
+				t.Fatalf(
+					"splitIncompleteMarkerTail(%q) = (prefix=%q, tail=%q, hasTail=%v), want (prefix=%q, tail=%q, hasTail=%v)",
+					tt.input,
+					prefix,
+					tail,
+					hasTail,
+					tt.expectedPrefix,
+					tt.expectedTail,
+					tt.expectedHasTail,
+				)
 			}
 		})
+	}
+}
+
+func TestMarkerFilter_Process_ImmediateOutputWithANSISequence(t *testing.T) {
+	filter := NewMarkerFilter(testLogger)
+	filter.Process([]byte("\x1b]133;A\x1b\\"))
+
+	result := filter.Process([]byte("line1\n\x1b[31mline2"))
+	if string(result.Output) != "line1\n\x1b[31mline2" {
+		t.Fatalf("expected immediate output, got %q", string(result.Output))
+	}
+	if result.CommandEnded {
+		t.Fatal("command should not be ended")
 	}
 }
 

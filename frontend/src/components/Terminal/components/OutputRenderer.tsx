@@ -57,7 +57,7 @@ export const OutputRenderer = memo(function OutputRenderer({
       return (
         <div
           key={line.id || index}
-          className="output-line whitespace-pre-wrap break-all py-0.5"
+          className="output-line whitespace-pre-wrap break-all py-0.5 overflow-x-hidden"
           style={{
             fontFamily:
               '"Sarasa Mono SC", "JetBrainsMono Nerd", "Fira Code", "Consolas", monospace',
@@ -122,7 +122,7 @@ export const OutputRenderer = memo(function OutputRenderer({
   return (
     <div
       ref={containerRef}
-      className="output-renderer py-1 select-text"
+      className="output-renderer py-1 select-text min-w-0 overflow-x-hidden"
       onCopy={handleCopy}
     >
       {output.map((line, index) => renderLine(line, index))}
