@@ -9,7 +9,7 @@ Boxify/
 ├── internal/
 │   ├── config/                     # 配置加载与解析（page config）
 │   ├── connection/                 # 连接相关类型定义
-│   ├── db/                         # 数据库抽象与 MySQL 实现
+│   ├── db/                         # 数据库抽象、连接管理与 MySQL 实现
 │   ├── events/                     # 事件类型定义
 │   ├── git/                        # Git 管理、解析、监听
 │   ├── logger/                     # 日志能力

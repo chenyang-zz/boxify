@@ -19,7 +19,7 @@ import (
 	"strings"
 
 	"github.com/chenyang-zz/boxify/internal/connection"
-	"github.com/chenyang-zz/boxify/internal/logger"
+	"github.com/chenyang-zz/boxify/internal/db"
 )
 
 // 通用数据库方法
@@ -29,13 +29,13 @@ func (a *DatabaseService) DBConnect(config *connection.ConnectionConfig) *connec
 	// 连接测试需要强制 ping，避免缓存命中但连接已失效时误判成功
 	_, err := a.getDatabaseForcePing(config)
 	if err != nil {
-		logger.Error("DBConnect 连接失败：%s, err: %w", formatConnSummary(config), err)
+		a.Logger().Error("DBConnect 连接失败", "summary", db.FormatConnSummary(config), "error", err)
 		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
 	}
-	logger.Info("DBConnect 连接成功：%s", formatConnSummary(config))
+	a.Logger().Info("DBConnect 连接成功", "summary", db.FormatConnSummary(config))
 
 	return &connection.QueryResult{
 		Success: true,
@@ -47,14 +47,14 @@ func (a *DatabaseService) DBConnect(config *connection.ConnectionConfig) *connec
 func (a *DatabaseService) TestConnection(config *connection.ConnectionConfig) *connection.QueryResult {
 	_, err := a.getDatabaseForcePing(config)
 	if err != nil {
-		logger.Error("TestConnection 连接失败：%s, err: %w", formatConnSummary(config), err)
+		a.Logger().Error("TestConnection 连接失败", "summary", db.FormatConnSummary(config), "error", err)
 		return &connection.QueryResult{
 			Success: false,
 			Message: err.Error(),
 		}
 	}
 
-	logger.Info("TestConnection 连接成功：%s", formatConnSummary(config))
+	a.Logger().Info("TestConnection 连接成功", "summary", db.FormatConnSummary(config))
 	return &connection.QueryResult{
 		Success: true,
 		Message: "连接成功",

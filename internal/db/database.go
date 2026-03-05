@@ -20,6 +20,7 @@ import (
 	"github.com/chenyang-zz/boxify/internal/connection"
 )
 
+// Database 定义数据库驱动需要实现的统一能力。
 type Database interface {
 	Connect(config *connection.ConnectionConfig) error
 	Close() error
@@ -36,24 +37,38 @@ type Database interface {
 	GetTriggers(dbName, tableName string) ([]*connection.TriggerDefinition, error)
 }
 
+// BatchApplier 定义批量数据变更能力。
 type BatchApplier interface {
 	ApplyChanges(tableName string, changes *connection.ChangeSet) error
 }
 
-// Factory
-func NewDatabase(dbType connection.ConnectionType) (Database, error) {
+// DatabaseFactory 负责根据数据库类型创建驱动实例。
+type DatabaseFactory struct{}
+
+// NewDatabaseFactory 创建数据库工厂。
+func NewDatabaseFactory() *DatabaseFactory {
+	return &DatabaseFactory{}
+}
+
+// Create 根据数据库类型创建对应驱动实例。
+func (f *DatabaseFactory) Create(dbType connection.ConnectionType) (Database, error) {
 	switch dbType {
 	case connection.ConnectionTypeMySQL:
 		return &MySQLDB{}, nil
 	case connection.ConnectionTypePostgreSQL:
-		return nil, nil
+		return nil, fmt.Errorf("暂不支持的数据库类型: %s", dbType)
 	case connection.ConnectionTypeSQLite:
-		return nil, nil
+		return nil, fmt.Errorf("暂不支持的数据库类型: %s", dbType)
 	default:
 		// Default to MySQL for backward compatibility if empty
 		if dbType == "" {
-			return nil, nil
+			return &MySQLDB{}, nil
 		}
 		return nil, fmt.Errorf("不支持的数据库类型: %s", dbType)
 	}
+}
+
+// NewDatabase 是兼容历史调用的工厂入口。
+func NewDatabase(dbType connection.ConnectionType) (Database, error) {
+	return NewDatabaseFactory().Create(dbType)
 }
