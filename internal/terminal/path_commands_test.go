@@ -52,6 +52,30 @@ func TestListExecutableCommandsUnix(t *testing.T) {
 	}
 }
 
+func TestListExecutableCommandsUnixWithSymlink(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink behavior differs on windows")
+	}
+
+	dir := t.TempDir()
+	targetPath := filepath.Join(dir, "targetcmd")
+	linkPath := filepath.Join(dir, "windsurf")
+	mustWriteFileWithMode(t, targetPath, 0o755)
+	if err := os.Symlink(targetPath, linkPath); err != nil {
+		t.Fatalf("create symlink failed: %v", err)
+	}
+
+	commands := listExecutableCommands(dir, "", "darwin", testLogger)
+	got := map[string]string{}
+	for _, cmd := range commands {
+		got[cmd.Name] = cmd.Path
+	}
+
+	if got["windsurf"] != linkPath {
+		t.Fatalf("expected symlink command windsurf at %q, got %q", linkPath, got["windsurf"])
+	}
+}
+
 func TestListExecutableCommandsWindows(t *testing.T) {
 	dir1 := t.TempDir()
 	dir2 := t.TempDir()

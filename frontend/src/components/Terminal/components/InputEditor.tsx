@@ -26,6 +26,9 @@ interface InputEditorProps {
   onResize?: () => void;
 }
 
+const INPUT_TEXT_LAYOUT_CLASS =
+  "m-0 w-full p-0 font-mono text-sm leading-6 whitespace-pre-wrap break-words overflow-hidden box-border";
+
 // 终端输入组件：负责输入、快捷键、分词高亮与命令有效性提示。
 export function InputEditor({
   sessionId,
@@ -109,7 +112,7 @@ export function InputEditor({
       >
         <div className="input-field-wrapper relative flex-1 min-w-0 overflow-x-hidden">
           <pre
-            className="pointer-events-none absolute inset-0 m-0 whitespace-pre-wrap wrap-break-word overflow-x-hidden text-sm leading-6 font-sans"
+            className={`pointer-events-none absolute inset-0 ${INPUT_TEXT_LAYOUT_CLASS}`}
             aria-hidden="true"
           >
             {highlightedTokens.map((token, index) => (
@@ -126,7 +129,7 @@ export function InputEditor({
             value={value}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
-            className="actual-input relative w-full block whitespace-pre-wrap wrap-break-word overflow-x-hidden bg-transparent outline-none resize-none text-sm leading-6 text-transparent caret-primary"
+            className={`actual-input relative block border-0 bg-transparent outline-none resize-none text-transparent caret-primary ${INPUT_TEXT_LAYOUT_CLASS}`}
             spellCheck={false}
             autoComplete="off"
             autoCorrect="off"

@@ -350,9 +350,9 @@ func (ts *TerminalService) UpdateWorkPath(sessionID, newPwd string) {
 	session.SetWorkPath(newPwd)
 }
 
-// ListExecutableCommands 获取当前 PATH 中的可执行命令，并返回对应终端的默认命令
+// ListExecutableCommands 获取终端配置环境中的可执行命令，并返回对应终端的默认命令
 func (ts *TerminalService) ListExecutableCommands(shellType terminal.ShellType) *types.TerminalListExecutableCommandsResult {
-	resolvedShell, err := ts.pathScanner.ResolveShellType(shellType)
+	commands, resolvedShell, err := ts.pathScanner.ListExecutableCommandsForShell(shellType)
 	if err != nil {
 		ts.Logger().Warn("获取可执行命令失败：终端类型不支持", "shellType", shellType, "error", err)
 		return &types.TerminalListExecutableCommandsResult{
@@ -363,7 +363,6 @@ func (ts *TerminalService) ListExecutableCommands(shellType terminal.ShellType) 
 		}
 	}
 
-	commands := ts.pathScanner.ListExecutableCommandsFromPATH()
 	defaultCommands := ts.pathScanner.GetDefaultCommands(resolvedShell)
 	resultCommands := make([]*types.TerminalExecutableCommand, 0, len(commands))
 

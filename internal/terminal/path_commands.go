@@ -34,6 +34,7 @@ type ExecutableCommand struct {
 type PathCommandScanner struct {
 	logger        *slog.Logger
 	shellDetector *ShellDetector
+	envLoader     *ShellEnvironmentLoader
 }
 
 // NewPathCommandScanner 创建 PATH 命令扫描器。
@@ -48,6 +49,7 @@ func NewPathCommandScanner(logger *slog.Logger, shellDetector *ShellDetector) *P
 	return &PathCommandScanner{
 		logger:        logger,
 		shellDetector: shellDetector,
+		envLoader:     NewShellEnvironmentLoader(logger, runtime.GOOS),
 	}
 }
 
@@ -60,6 +62,29 @@ func (s *PathCommandScanner) ListExecutableCommandsFromPATH() []ExecutableComman
 	commands := listExecutableCommands(pathValue, pathExt, runtime.GOOS, s.logger)
 	s.logger.Info("PATH 可执行命令扫描完成", "count", len(commands))
 	return commands
+}
+
+// ListExecutableCommandsForShell 根据终端类型加载配置环境后扫描可执行命令。
+func (s *PathCommandScanner) ListExecutableCommandsForShell(shellType ShellType) ([]ExecutableCommand, ShellType, error) {
+	resolvedShell, err := s.ResolveShellType(shellType)
+	if err != nil {
+		return nil, "", err
+	}
+
+	env := s.envLoader.LoadForShell(resolvedShell)
+	pathValue := s.envLoader.GetEnv(env, "PATH")
+	pathExt := s.envLoader.GetEnv(env, "PATHEXT")
+
+	s.logger.Debug(
+		"开始扫描 shell 配置环境中的可执行命令",
+		"requestedShell", shellType,
+		"resolvedShell", resolvedShell,
+		"os", runtime.GOOS,
+	)
+
+	commands := listExecutableCommands(pathValue, pathExt, runtime.GOOS, s.logger)
+	s.logger.Info("shell 配置环境可执行命令扫描完成", "shellType", resolvedShell, "count", len(commands))
+	return commands, resolvedShell, nil
 }
 
 // ResolveShellType 解析 shell 类型，auto 或空值会解析为系统默认 shell 类型。
@@ -135,8 +160,9 @@ func listExecutableCommands(pathValue, pathExt, goos string, logger *slog.Logger
 	return results
 }
 
-// collectUnixCommands 扫描 Unix 目录中的可执行常规文件（带执行位）。
+// collectUnixCommands 扫描 Unix 目录中的可执行文件（支持符号链接）。
 func collectUnixCommands(dir string, results []ExecutableCommand, seen map[string]struct{}, logger *slog.Logger) []ExecutableCommand {
+	logger.Info("开始读取 PATH 目录", "dir", dir)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		logger.Warn("读取 PATH 目录失败，已跳过", "dir", dir, "error", err)
@@ -148,8 +174,13 @@ func collectUnixCommands(dir string, results []ExecutableCommand, seen map[strin
 			continue
 		}
 
-		info, err := entry.Info()
-		if err != nil || !info.Mode().IsRegular() || info.Mode()&0o111 == 0 {
+		fullPath := filepath.Join(dir, entry.Name())
+		executable, err := isUnixExecutableEntry(entry, fullPath)
+		if err != nil {
+			logger.Debug("读取文件信息失败，已跳过", "path", fullPath, "error", err)
+			continue
+		}
+		if !executable {
 			continue
 		}
 
@@ -161,14 +192,38 @@ func collectUnixCommands(dir string, results []ExecutableCommand, seen map[strin
 		seen[name] = struct{}{}
 		results = append(results, ExecutableCommand{
 			Name: name,
-			Path: filepath.Join(dir, name),
+			Path: fullPath,
 		})
 	}
 	return results
 }
 
+// isUnixExecutableEntry 判断目录项是否可执行（支持符号链接指向可执行常规文件）。
+func isUnixExecutableEntry(entry os.DirEntry, fullPath string) (bool, error) {
+	if entry.Type()&os.ModeSymlink != 0 {
+		info, err := os.Stat(fullPath)
+		if err != nil {
+			return false, err
+		}
+		if !info.Mode().IsRegular() {
+			return false, nil
+		}
+		return info.Mode()&0o111 != 0, nil
+	}
+
+	info, err := entry.Info()
+	if err != nil {
+		return false, err
+	}
+	if !info.Mode().IsRegular() {
+		return false, nil
+	}
+	return info.Mode()&0o111 != 0, nil
+}
+
 // collectWindowsCommands 扫描 Windows 目录中的可执行文件（由 PATHEXT 决定）。
 func collectWindowsCommands(dir, pathExt string, results []ExecutableCommand, seen map[string]struct{}, logger *slog.Logger) []ExecutableCommand {
+	logger.Info("开始读取 PATH 目录", "dir", dir)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		logger.Warn("读取 PATH 目录失败，已跳过", "dir", dir, "error", err)
