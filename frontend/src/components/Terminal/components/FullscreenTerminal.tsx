@@ -25,6 +25,26 @@ interface FullscreenTerminalProps {
   sessionId: string;
 }
 
+// 读取全局主题变量，供 xterm 同步应用当前 Tailwind 主题配色。
+function resolveCssVar(name: string, fallback: string): string {
+  const value = getComputedStyle(document.documentElement)
+    .getPropertyValue(name)
+    .trim();
+  return value || fallback;
+}
+
+// 将应用主题 token 转换为 xterm 可识别的主题配置。
+function createXtermTheme() {
+  return {
+    background: resolveCssVar("--background", "#0f172a"),
+    foreground: resolveCssVar("--foreground", "#c9d1d9"),
+    cursor: resolveCssVar("--primary", "#56d364"),
+    cursorAccent: resolveCssVar("--background", "#0f172a"),
+    selectionBackground: resolveCssVar("--accent", "#334155"),
+    selectionForeground: resolveCssVar("--accent-foreground", "#e2e8f0"),
+  };
+}
+
 // 解码后端 Base64 编码输出，保留 UTF-8 多字节字符。
 function decodeOutput(encodedData: string): string {
   const binaryString = atob(encodedData);
@@ -47,9 +67,7 @@ export function FullscreenTerminal({ sessionId }: FullscreenTerminalProps) {
       lineHeight: 1.35,
       scrollback: 5000,
       allowTransparency: true,
-      theme: {
-        background: "#00000000",
-      },
+      theme: createXtermTheme(),
     });
 
     const fitAddon = new FitAddon();
@@ -76,6 +94,15 @@ export function FullscreenTerminal({ sessionId }: FullscreenTerminalProps) {
       syncTerminalSize();
     });
     observer.observe(hostRef.current);
+
+    // 跟随应用主题切换，实时刷新 xterm 配色。
+    const themeObserver = new MutationObserver(() => {
+      term.options.theme = createXtermTheme();
+    });
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class", "style"],
+    });
 
     const dataDisposable = term.onData((data) => {
       terminalSessionManager.write(sessionId, data);
@@ -107,6 +134,7 @@ export function FullscreenTerminal({ sessionId }: FullscreenTerminalProps) {
       unbindOutput();
       unbindError();
       dataDisposable.dispose();
+      themeObserver.disconnect();
       observer.disconnect();
       term.dispose();
     };
