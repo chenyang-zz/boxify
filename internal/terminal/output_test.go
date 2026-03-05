@@ -431,27 +431,27 @@ func TestOutputHandler_emitPwdUpdate_VariousPaths(t *testing.T) {
 	}
 }
 
-func TestOutputHandler_emitFullscreenChange(t *testing.T) {
+func TestOutputHandler_emitInteractionModeChange(t *testing.T) {
 	emitter := &mockEventEmitter{}
 	handler := NewOutputHandler(emitter, testLogger)
 
-	handler.emitFullscreenChange("session-1", true)
+	handler.emitInteractionModeChange("session-1", true)
 
 	if len(emitter.events) != 1 {
 		t.Fatalf("expected 1 event, got %d", len(emitter.events))
 	}
 
 	event := emitter.events[0]
-	if event.name != "terminal:fullscreen_change" {
-		t.Fatalf("event name = %s, want terminal:fullscreen_change", event.name)
+	if event.name != "terminal:interaction_mode_change" {
+		t.Fatalf("event name = %s, want terminal:interaction_mode_change", event.name)
 	}
 	payload, ok := event.data.(map[string]interface{})
 	if ok {
 		if payload["sessionId"] != "session-1" {
 			t.Fatalf("sessionId = %v, want session-1", payload["sessionId"])
 		}
-		if payload["inFullscreen"] != true {
-			t.Fatalf("inFullscreen = %v, want true", payload["inFullscreen"])
+		if payload["inInteractive"] != true {
+			t.Fatalf("inInteractive = %v, want true", payload["inInteractive"])
 		}
 		if _, ok := payload["changedAtUnix"].(int64); !ok {
 			t.Fatalf("changedAtUnix should be int64, got %T", payload["changedAtUnix"])
@@ -459,22 +459,22 @@ func TestOutputHandler_emitFullscreenChange(t *testing.T) {
 		return
 	}
 
-	typed, ok := event.data.(boxtypes.TerminalFullscreenChangedEvent)
+	typed, ok := event.data.(boxtypes.TerminalInteractionModeChangedEvent)
 	if !ok {
-		t.Fatalf("unexpected fullscreen payload type: %T", event.data)
+		t.Fatalf("unexpected interaction payload type: %T", event.data)
 	}
 	if typed.SessionID != "session-1" {
 		t.Fatalf("sessionId = %v, want session-1", typed.SessionID)
 	}
-	if !typed.InFullscreen {
-		t.Fatalf("inFullscreen = %v, want true", typed.InFullscreen)
+	if !typed.InInteractive {
+		t.Fatalf("inInteractive = %v, want true", typed.InInteractive)
 	}
 	if typed.ChangedAtUnix <= 0 {
 		t.Fatalf("changedAtUnix should be positive, got %d", typed.ChangedAtUnix)
 	}
 }
 
-func TestOutputHandler_emitFullscreenChange_NilEmitter(t *testing.T) {
+func TestOutputHandler_emitInteractionModeChange_NilEmitter(t *testing.T) {
 	handler := NewOutputHandler(nil, testLogger)
-	handler.emitFullscreenChange("session-1", false)
+	handler.emitInteractionModeChange("session-1", false)
 }

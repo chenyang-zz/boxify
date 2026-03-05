@@ -86,16 +86,16 @@ func (h *OutputHandler) StartOutputLoop(session *Session) {
 				h.emitPwdUpdate(session.ID, result.Pwd)
 			}
 
-			// 全屏交互模式切换时发送事件
-			if result.FullscreenChanged {
+			// 交互模式切换时发送事件
+			if result.InteractionModeChanged {
 				h.logger.Info(
-					"检测到终端全屏交互模式切换",
+					"检测到终端交互模式切换",
 					"sessionId",
 					session.ID,
-					"inFullscreen",
-					result.InFullscreen,
+					"inInteractive",
+					result.InInteractive,
 				)
-				h.emitFullscreenChange(session.ID, result.InFullscreen)
+				h.emitInteractionModeChange(session.ID, result.InInteractive)
 			}
 
 			// 命令结束时发送事件
@@ -164,16 +164,16 @@ func (h *OutputHandler) emitPwdUpdate(sessionID, pwd string) {
 	})
 }
 
-// emitFullscreenChange 发送全屏交互模式切换事件
-func (h *OutputHandler) emitFullscreenChange(sessionID string, inFullscreen bool) {
+// emitInteractionModeChange 发送交互模式切换事件
+func (h *OutputHandler) emitInteractionModeChange(sessionID string, inInteractive bool) {
 	if h.emitter == nil {
 		return
 	}
 	h.emitter.Emit(
-		string(events.EventTypeTerminalFullscreenChanged),
-		boxtypes.TerminalFullscreenChangedEvent{
+		string(events.EventTypeTerminalInteractionModeChanged),
+		boxtypes.TerminalInteractionModeChangedEvent{
 			SessionID:     sessionID,
-			InFullscreen:  inFullscreen,
+			InInteractive: inInteractive,
 			ChangedAtUnix: time.Now().UnixMilli(),
 		},
 	)

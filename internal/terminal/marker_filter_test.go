@@ -696,11 +696,11 @@ func TestMarkerFilter_splitIncompleteMarkerTail(t *testing.T) {
 	filter := NewMarkerFilter(testLogger)
 
 	tests := []struct {
-		name              string
-		input             string
-		expectedPrefix    string
-		expectedTail      string
-		expectedHasTail   bool
+		name            string
+		input           string
+		expectedPrefix  string
+		expectedTail    string
+		expectedHasTail bool
 	}{
 		{
 			name:            "single ESC should be buffered",
@@ -849,19 +849,19 @@ func TestMarkerFilter_Process_FullscreenToggle(t *testing.T) {
 	filter := NewMarkerFilter(testLogger)
 
 	enter := filter.Process([]byte("\x1b[?1049h"))
-	if !enter.FullscreenChanged {
-		t.Fatal("expected fullscreen changed on enter")
+	if !enter.InteractionModeChanged {
+		t.Fatal("expected interaction mode changed on enter")
 	}
-	if !enter.InFullscreen {
-		t.Fatal("expected in fullscreen after enter")
+	if !enter.InInteractive {
+		t.Fatal("expected in interactive after enter")
 	}
 
 	leave := filter.Process([]byte("\x1b[?1049l"))
-	if !leave.FullscreenChanged {
-		t.Fatal("expected fullscreen changed on leave")
+	if !leave.InteractionModeChanged {
+		t.Fatal("expected interaction mode changed on leave")
 	}
-	if leave.InFullscreen {
-		t.Fatal("expected not in fullscreen after leave")
+	if leave.InInteractive {
+		t.Fatal("expected not in interactive after leave")
 	}
 }
 
@@ -869,15 +869,119 @@ func TestMarkerFilter_Process_FullscreenToggleSplitAcrossChunks(t *testing.T) {
 	filter := NewMarkerFilter(testLogger)
 
 	partial := filter.Process([]byte("\x1b[?10"))
-	if partial.FullscreenChanged {
+	if partial.InteractionModeChanged {
 		t.Fatal("unexpected fullscreen change for partial sequence")
 	}
 
 	merged := filter.Process([]byte("49h"))
-	if !merged.FullscreenChanged {
+	if !merged.InteractionModeChanged {
 		t.Fatal("expected fullscreen change after merged sequence")
 	}
-	if !merged.InFullscreen {
-		t.Fatal("expected fullscreen state true")
+	if !merged.InInteractive {
+		t.Fatal("expected interaction mode state true")
+	}
+}
+
+func TestMarkerFilter_Process_TUIHintEnterInteractive(t *testing.T) {
+	filter := NewMarkerFilter(testLogger)
+
+	// 进入命令输出阶段
+	filter.Process([]byte("\x1b]133;A\x1b\\"))
+
+	// 非 alternate screen 的 TUI 控制序列（如 claude 常见的光标隐藏）
+	result := filter.Process([]byte("\x1b[?25l"))
+	if !result.InteractionModeChanged {
+		t.Fatal("expected interaction mode changed on tui hint")
+	}
+	if !result.InInteractive {
+		t.Fatal("expected in interactive after tui hint")
+	}
+}
+
+func TestMarkerFilter_Process_CommandEndForcesLeaveInteractive(t *testing.T) {
+	filter := NewMarkerFilter(testLogger)
+
+	filter.Process([]byte("\x1b]133;A\x1b\\"))
+	filter.Process([]byte("\x1b[?25l"))
+
+	// 命令结束时即便没有 alternate screen leave 序列，也应退出交互模式。
+	result := filter.Process([]byte("\x1b]133;D;0\x1b\\"))
+	if !result.CommandEnded {
+		t.Fatal("expected command ended")
+	}
+	if !result.InteractionModeChanged {
+		t.Fatal("expected interaction mode changed on command end")
+	}
+	if result.InInteractive {
+		t.Fatal("expected not interactive after command end")
+	}
+}
+
+func TestMarkerFilter_Process_MouseModeToggleInteractive(t *testing.T) {
+	filter := NewMarkerFilter(testLogger)
+	filter.Process([]byte("\x1b]133;A\x1b\\"))
+
+	enter := filter.Process([]byte("\x1b[?1000h"))
+	if !enter.InteractionModeChanged {
+		t.Fatal("expected interaction mode changed on mouse mode enter")
+	}
+	if !enter.InInteractive {
+		t.Fatal("expected in interactive after mouse mode enter")
+	}
+
+	leave := filter.Process([]byte("\x1b[?1000l"))
+	if !leave.InteractionModeChanged {
+		t.Fatal("expected interaction mode changed on mouse mode leave")
+	}
+	if leave.InInteractive {
+		t.Fatal("expected not interactive after mouse mode leave")
+	}
+}
+
+func TestMarkerFilter_Process_ClearScreenDoesNotEnterInteractive(t *testing.T) {
+	filter := NewMarkerFilter(testLogger)
+	filter.Process([]byte("\x1b]133;A\x1b\\"))
+
+	result := filter.Process([]byte("\x1b[2J\x1b[H"))
+	if result.InteractionModeChanged {
+		t.Fatal("clear screen should not switch interactive mode")
+	}
+	if result.InInteractive {
+		t.Fatal("clear screen should not enter interactive mode")
+	}
+}
+
+func TestMarkerFilter_Process_CursorHideOutsideCommandShouldNotEnterInteractive(t *testing.T) {
+	filter := NewMarkerFilter(testLogger)
+
+	// 未进入命令执行窗口（无 133;A）时，?25l 不应切入交互模式。
+	result := filter.Process([]byte("\x1b[?25l"))
+	if result.InteractionModeChanged {
+		t.Fatal("cursor hide outside command should not switch interactive mode")
+	}
+	if result.InInteractive {
+		t.Fatal("cursor hide outside command should not enter interactive mode")
+	}
+}
+
+func TestMarkerFilter_Process_MouseModeOutsideCommandShouldNotEnterInteractive(t *testing.T) {
+	filter := NewMarkerFilter(testLogger)
+
+	// 未进入命令执行窗口（无 133;A）时，?1006h 不应切入交互模式。
+	enter := filter.Process([]byte("\x1b[?1006h"))
+	if enter.InteractionModeChanged {
+		t.Fatal("mouse mode enter outside command should not switch interactive mode")
+	}
+	if enter.InInteractive {
+		t.Fatal("mouse mode enter outside command should not enter interactive mode")
+	}
+
+	// 退出序列不应导致异常切换。
+	leave := filter.Process([]byte("\x1b[?1006l"))
+	if leave.InteractionModeChanged {
+		t.Fatal("mouse mode leave outside command should not switch interactive mode")
+	}
+	if leave.InInteractive {
+		t.Fatal("mouse mode leave outside command should not enter interactive mode")
 	}
 }

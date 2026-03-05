@@ -30,7 +30,7 @@ func init() {
 	application.RegisterEvent[map[string]interface{}]("terminal:error")
 	application.RegisterEvent[map[string]interface{}]("terminal:command_end")
 	application.RegisterEvent[map[string]interface{}]("terminal:pwd_update")
-	application.RegisterEvent[boxtypes.TerminalFullscreenChangedEvent](string(events.EventTypeTerminalFullscreenChanged))
+	application.RegisterEvent[boxtypes.TerminalInteractionModeChangedEvent](string(events.EventTypeTerminalInteractionModeChanged))
 
 	// git事件
 	application.RegisterEvent[boxtypes.GitStatusChangedEvent](string(events.EventTypeGitStatusChanged))

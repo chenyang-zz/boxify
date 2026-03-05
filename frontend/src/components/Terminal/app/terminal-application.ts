@@ -98,12 +98,15 @@ class TerminalApplication {
       case "command_end":
         store.finalizeBlock(event.sessionId, event.blockId, event.exitCode);
         break;
+      case "interactive_placeholder":
+        store.replaceBlockOutput(event.sessionId, event.blockId, event.chunk);
+        break;
       case "session_destroyed":
         store.clearSession(event.sessionId);
         this.unbindSession(event.sessionId);
         break;
-      case "fullscreen_changed":
-        store.setFullscreenMode(event.sessionId, event.inFullscreen);
+      case "interaction_mode_changed":
+        store.setInteractiveMode(event.sessionId, event.inInteractive);
         break;
     }
   }

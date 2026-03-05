@@ -22,7 +22,7 @@ declare module "@wailsio/runtime" {
             "menu:clicked": service$0.MenuClickEvent;
             "terminal:command_end": { [_ in string]?: any };
             "terminal:error": { [_ in string]?: any };
-            "terminal:fullscreen_change": types$0.TerminalFullscreenChangedEvent;
+            "terminal:interaction_mode_change": types$0.TerminalInteractionModeChangedEvent;
             "terminal:output": { [_ in string]?: any };
             "terminal:pwd_update": { [_ in string]?: any };
             "window:closed": { [_ in string]?: any };

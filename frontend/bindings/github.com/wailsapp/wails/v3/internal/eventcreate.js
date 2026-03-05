@@ -22,7 +22,7 @@ function configure() {
         "menu:clicked": $$createType3,
         "terminal:command_end": $$createType4,
         "terminal:error": $$createType4,
-        "terminal:fullscreen_change": $$createType5,
+        "terminal:interaction_mode_change": $$createType5,
         "terminal:output": $$createType4,
         "terminal:pwd_update": $$createType4,
         "window:closed": $$createType4,
@@ -36,6 +36,6 @@ const $$createType1 = types$0.GitStatusChangedEvent.createFrom;
 const $$createType2 = service$0.InitialDataEntry.createFrom;
 const $$createType3 = service$0.MenuClickEvent.createFrom;
 const $$createType4 = $Create.Map($Create.Any, $Create.Any);
-const $$createType5 = types$0.TerminalFullscreenChangedEvent.createFrom;
+const $$createType5 = types$0.TerminalInteractionModeChangedEvent.createFrom;
 
 configure();

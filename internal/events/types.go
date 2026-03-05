@@ -17,6 +17,6 @@ package events
 type EventType string
 
 const (
-	EventTypeGitStatusChanged          EventType = "git:status-changed"
-	EventTypeTerminalFullscreenChanged EventType = "terminal:fullscreen_change"
+	EventTypeGitStatusChanged               EventType = "git:status-changed"
+	EventTypeTerminalInteractionModeChanged EventType = "terminal:interaction_mode_change"
 )

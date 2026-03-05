@@ -15,7 +15,7 @@
 import { useRef, useCallback } from "react";
 import { terminalApplication, useTerminalController } from "./app";
 import {
-  useFullscreenMode,
+  useInteractiveMode,
   useSessionBlocks,
   useSelectedBlockId,
   useTerminalStore,
@@ -32,11 +32,11 @@ interface TerminalCoreProps {
 
 export function TerminalCore({ sessionId, config }: TerminalCoreProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const inFullscreen = useFullscreenMode(sessionId);
+  const inInteractive = useInteractiveMode(sessionId);
   const { containerRef, envInfo } = useTerminalController({
     sessionId,
     config,
-    autoResize: !inFullscreen,
+    autoResize: !inInteractive,
   });
 
   const blocks = useSessionBlocks(sessionId);
@@ -68,7 +68,7 @@ export function TerminalCore({ sessionId, config }: TerminalCoreProps) {
     [sessionId, scrollToBottom, envInfo],
   );
 
-  if (inFullscreen) {
+  if (inInteractive) {
     return (
       <div
         ref={containerRef}
@@ -111,7 +111,7 @@ export function TerminalCore({ sessionId, config }: TerminalCoreProps) {
             onSubmit={handleCommandSubmit}
             onResize={scrollToBottom}
             envInfo={envInfo}
-            inFullscreen={inFullscreen}
+            inInteractive={inInteractive}
           />
         </div>
       )}

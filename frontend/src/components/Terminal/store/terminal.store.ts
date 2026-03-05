@@ -19,10 +19,11 @@ import {
   appendBatchToBlockLastLine,
   createRunningBlock,
   finalizeBlock as finalizeBlockReducer,
+  replaceBlockOutputWithSingleLine,
   updateBlockStatus as updateBlockStatusReducer,
 } from "../domain/block-reducer";
 import {
-  selectFullscreenMode,
+  selectInteractiveMode,
   selectReviewPanelOpen,
   selectSelectedBlockId,
   selectSessionBlocks,
@@ -40,7 +41,7 @@ interface TerminalState {
   // 每个会话的代码审查面板开关
   reviewPanelOpenBySession: Record<string, boolean>;
   selectedBlockBySession: Record<string, string | undefined>;
-  fullscreenBySession: Record<string, boolean>;
+  interactiveBySession: Record<string, boolean>;
 
   // === Block 操作 ===
   createBlock: (
@@ -58,6 +59,14 @@ interface TerminalState {
     }>,
   ) => void;
   finalizeBlock: (sessionId: string, blockId: string, exitCode: number) => void;
+  replaceBlockOutput: (
+    sessionId: string,
+    blockId: string,
+    chunk: {
+      content: string;
+      formattedContent: OutputLine["formattedContent"];
+    },
+  ) => void;
   updateBlockStatus: (
     sessionId: string,
     blockId: string,
@@ -77,7 +86,7 @@ interface TerminalState {
   // === 审查面板 ===
   openReviewPanel: (sessionId: string) => void;
   closeReviewPanel: (sessionId: string) => void;
-  setFullscreenMode: (sessionId: string, inFullscreen: boolean) => void;
+  setInteractiveMode: (sessionId: string, inInteractive: boolean) => void;
 
   // === 会话管理 ===
   clearSession: (sessionId: string) => void;
@@ -89,7 +98,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   historyIndexes: {},
   reviewPanelOpenBySession: {},
   selectedBlockBySession: {},
-  fullscreenBySession: {},
+  interactiveBySession: {},
 
   createBlock: (
     sessionId: string,
@@ -140,6 +149,32 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       const nextBlocks = finalizeBlockReducer(blocks, blockId, exitCode, {
         now: Date.now,
       });
+      if (!nextBlocks) return state;
+
+      return {
+        sessionBlocks: {
+          ...state.sessionBlocks,
+          [sessionId]: nextBlocks,
+        },
+      };
+    });
+  },
+
+  replaceBlockOutput: (sessionId, blockId, chunk) => {
+    // 用单条输出替换 block 内容，避免交互命令输出回灌。
+    set((state) => {
+      const blocks = state.sessionBlocks[sessionId];
+      if (!blocks) return state;
+      const nextBlocks = replaceBlockOutputWithSingleLine(
+        blocks,
+        blockId,
+        chunk.content,
+        chunk.formattedContent,
+        {
+          now: Date.now,
+          createLineId: uuid,
+        },
+      );
       if (!nextBlocks) return state;
 
       return {
@@ -260,11 +295,11 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     }));
   },
 
-  setFullscreenMode: (sessionId: string, inFullscreen: boolean) => {
+  setInteractiveMode: (sessionId: string, inInteractive: boolean) => {
     set((state) => ({
-      fullscreenBySession: {
-        ...state.fullscreenBySession,
-        [sessionId]: inFullscreen,
+      interactiveBySession: {
+        ...state.interactiveBySession,
+        [sessionId]: inInteractive,
       },
     }));
   },
@@ -282,7 +317,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { [sessionId]: ______, ...restSelectedBlock } = state.selectedBlockBySession;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { [sessionId]: _______, ...restFullscreen } = state.fullscreenBySession;
+      const { [sessionId]: _______, ...restInteractive } = state.interactiveBySession;
 
       return {
         sessionBlocks: restBlocks,
@@ -290,7 +325,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
         historyIndexes: restIndexes,
         reviewPanelOpenBySession: restReviewOpen,
         selectedBlockBySession: restSelectedBlock,
-        fullscreenBySession: restFullscreen,
+        interactiveBySession: restInteractive,
       };
     });
   },
@@ -309,6 +344,6 @@ export function useSelectedBlockId(sessionId: string): string | undefined {
   return useTerminalStore(selectSelectedBlockId(sessionId));
 }
 
-export function useFullscreenMode(sessionId: string): boolean {
-  return useTerminalStore(selectFullscreenMode(sessionId));
+export function useInteractiveMode(sessionId: string): boolean {
+  return useTerminalStore(selectInteractiveMode(sessionId));
 }

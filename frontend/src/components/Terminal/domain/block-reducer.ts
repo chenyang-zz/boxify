@@ -236,3 +236,24 @@ export function updateBlockStatus(
     status,
   }));
 }
+
+// 用单行占位内容覆盖 block 输出，用于交互命令结束后的结果收敛展示。
+export function replaceBlockOutputWithSingleLine(
+  blocks: TerminalBlock[],
+  blockId: string,
+  content: string,
+  formattedContent: OutputLine["formattedContent"],
+  factory: LineFactory,
+): TerminalBlock[] | null {
+  return updateBlocksById(blocks, blockId, (block) => ({
+    ...block,
+    output: [
+      {
+        id: factory.createLineId(),
+        content,
+        formattedContent,
+        timestamp: factory.now(),
+      },
+    ],
+  }));
+}

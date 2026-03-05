@@ -21,7 +21,7 @@ import { AnsiParser } from "./ansi-parser";
 import { callWails } from "@/lib/utils";
 import {
   TerminalEnvironmentInfo,
-  TerminalFullscreenChangedEvent,
+  TerminalInteractionModeChangedEvent,
   TerminalListExecutableCommandsData,
 } from "@wails/types/models";
 import { useEventStore } from "@/store/event.store";
@@ -45,13 +45,15 @@ interface CachedSession {
   parser: AnsiParser;
   unbindCallbacks: (() => void)[];
   environmentInfo?: SessionEnvironmentInfo;
-  inFullscreen?: boolean;
+  inInteractive?: boolean;
   executableCommands?: TerminalListExecutableCommandsData;
   onEnvChange?: (env: SessionEnvironmentInfo) => void;
   onEvent?: (event: TerminalSessionEvent) => void;
   currentGitRepoKey?: string;
   currentBlockId?: string;
-  fullscreenInteractionBlockId?: string;
+  interactiveModeBlockId?: string;
+  // 记录“本次命令曾进入交互态”的 block，命令结束后强制收敛为 "%"。
+  interactiveBlockIds: Set<string>;
 }
 
 interface OutputChunk {
@@ -81,13 +83,19 @@ export type TerminalSessionEvent =
       exitCode: number;
     }
   | {
+      type: "interactive_placeholder";
+      sessionId: string;
+      blockId: string;
+      chunk: OutputChunk;
+    }
+  | {
       type: "session_destroyed";
       sessionId: string;
     }
   | {
-      type: "fullscreen_changed";
+      type: "interaction_mode_changed";
       sessionId: string;
-      inFullscreen: boolean;
+      inInteractive: boolean;
       changedAtUnix: number;
     };
 
@@ -112,6 +120,7 @@ class TerminalSessionManager {
         isInitialized: false,
         parser: new AnsiParser(),
         unbindCallbacks: [],
+        interactiveBlockIds: new Set<string>(),
       };
       this.sessions.set(sessionId, session);
       this.setupEventListeners(sessionId);
@@ -195,13 +204,13 @@ class TerminalSessionManager {
       },
     );
 
-    // 全屏交互模式切换事件
-    const unbindFullscreenChange = Events.On(
-      "terminal:fullscreen_change",
-      (event: { data: TerminalFullscreenChangedEvent }) => {
+    // 交互模式切换事件
+    const unbindInteractionModeChange = Events.On(
+      "terminal:interaction_mode_change",
+      (event: { data: TerminalInteractionModeChangedEvent }) => {
         if (event.data.sessionId === sessionId) {
-          console.log("[terminal:fullscreen_change]:", event.data);
-          this.handleFullscreenChange(sessionId, event.data);
+          console.log("[terminal:interaction_mode_change]:", event.data);
+          this.handleInteractionModeChange(sessionId, event.data);
         }
       },
     );
@@ -233,7 +242,7 @@ class TerminalSessionManager {
       unbindError,
       unbindCommandEnd,
       unbindPwdUpdate,
-      unbindFullscreenChange,
+      unbindInteractionModeChange,
       unbindGitUpdate,
     ];
   }
@@ -255,16 +264,18 @@ class TerminalSessionManager {
       // 仅消费带 blockId 的输出，避免初始化阶段输出误挂到用户命令 block。
       const targetBlockId = blockId ?? null;
 
-      // 全屏交互期间产生的 block 输出在结束后只保留一个 "%" 占位，避免回灌大段交互内容。
-      if (targetBlockId && session.inFullscreen) {
-        session.fullscreenInteractionBlockId = targetBlockId;
+      // 交互模式期间产生的 block 输出在结束后只保留一个 "%" 占位，避免回灌大段交互内容。
+      if (targetBlockId && session.inInteractive) {
+        session.interactiveBlockIds.add(targetBlockId);
+        session.interactiveModeBlockId = targetBlockId;
         return;
       }
 
-      // 全屏交互结束后，到命令结束前仍可能有尾部输出，继续丢弃该 block 的原始内容。
+      // 交互模式结束后，到命令结束前仍可能有尾部输出，继续丢弃该 block 的原始内容。
       if (
         targetBlockId &&
-        session.fullscreenInteractionBlockId === targetBlockId
+        (session.interactiveModeBlockId === targetBlockId ||
+          session.interactiveBlockIds.has(targetBlockId))
       ) {
         return;
       }
@@ -354,19 +365,21 @@ class TerminalSessionManager {
     const session = this.sessions.get(sessionId);
     if (!session) return;
 
-    if (session.fullscreenInteractionBlockId === blockId) {
+    // 交互命令结束后统一覆盖输出，保证 block 只展示一个 "%".
+    if (session.interactiveBlockIds.has(blockId)) {
       this.emitEvent(sessionId, {
-        type: "output_batch",
+        type: "interactive_placeholder",
         sessionId,
         blockId,
-        chunks: [
-          {
-            content: "%",
-            formattedContent: session.parser.parse("%"),
-          },
-        ],
+        chunk: {
+          content: "%",
+          formattedContent: session.parser.parse("%"),
+        },
       });
-      session.fullscreenInteractionBlockId = undefined;
+      session.interactiveBlockIds.delete(blockId);
+      if (session.interactiveModeBlockId === blockId) {
+        session.interactiveModeBlockId = undefined;
+      }
     }
 
     if (session?.currentBlockId === blockId) {
@@ -437,18 +450,22 @@ class TerminalSessionManager {
     }));
   }
 
-  // 处理全屏交互模式切换，通知应用层切换输入策略。
-  private handleFullscreenChange(
+  // 处理交互模式切换，通知应用层切换输入策略。
+  private handleInteractionModeChange(
     sessionId: string,
-    event: TerminalFullscreenChangedEvent,
+    event: TerminalInteractionModeChangedEvent,
   ): void {
     const session = this.sessions.get(sessionId);
     if (!session) return;
-    session.inFullscreen = event.inFullscreen;
+    session.inInteractive = event.inInteractive;
+    if (event.inInteractive && session.currentBlockId) {
+      session.interactiveModeBlockId = session.currentBlockId;
+      session.interactiveBlockIds.add(session.currentBlockId);
+    }
     this.emitEvent(sessionId, {
-      type: "fullscreen_changed",
+      type: "interaction_mode_changed",
       sessionId,
-      inFullscreen: event.inFullscreen,
+      inInteractive: event.inInteractive,
       changedAtUnix: event.changedAtUnix,
     });
   }
@@ -624,6 +641,10 @@ class TerminalSessionManager {
       }
 
       session.currentBlockId = resolvedBlockId || undefined;
+      if (resolvedBlockId) {
+        session.interactiveModeBlockId = undefined;
+        session.interactiveBlockIds.delete(resolvedBlockId);
+      }
       return resolvedBlockId || "";
     } catch (err) {
       console.error("写入命令失败:", err);
@@ -681,9 +702,9 @@ class TerminalSessionManager {
     return session?.isInitialized ?? false;
   }
 
-  // 查询当前会话是否处于全屏交互模式。
-  isInFullscreen(sessionId: string): boolean {
-    return this.sessions.get(sessionId)?.inFullscreen ?? false;
+  // 查询当前会话是否处于交互模式。
+  isInInteractive(sessionId: string): boolean {
+    return this.sessions.get(sessionId)?.inInteractive ?? false;
   }
 
   getExecutableCommandCache(

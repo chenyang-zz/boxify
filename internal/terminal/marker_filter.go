@@ -30,19 +30,20 @@ type MarkerFilter struct {
 	mu               sync.Mutex
 	buffer           bytes.Buffer
 	inCommandOutput  bool   // 是否在命令输出区域内
-	inFullscreen     bool   // 是否处于 alternate screen 全屏交互模式
+	inInteractive    bool   // 是否处于 alternate screen 交互模式
 	currentPwd       string // 当前工作路径
 	startMarkerRegex *regexp.Regexp
 	endMarkerRegex   *regexp.Regexp
 	pwdMarkerRegex   *regexp.Regexp // OSC 1337;Pwd 序列
 	oscGenericFilter *regexp.Regexp // 通用 OSC 序列过滤 (0, 1, 2, 7)
 	osc1337Filter    *regexp.Regexp // OSC 1337 序列过滤（在代码中排除 Pwd）
-	altScreenRegex   *regexp.Regexp // CSI ?1049/?1047/?47 h/l 序列
+	privateModeRegex *regexp.Regexp // CSI ? Ps h/l 序列（DEC 私有模式）
 	createdAt        time.Time      // 过滤器创建时间
 	markerDetected   bool           // 是否已检测到标记
 	fallbackDelay    time.Duration  // 降级延迟时间
 	inFallbackMode   bool           // 是否处于降级模式（透传所有输出）
-	altScreenTail    string         // 处理跨 chunk 的不完整 alternate screen 序列
+	privateModeTail  string         // 处理跨 chunk 的不完整私有模式序列
+	activeModes      map[string]struct{}
 	logger           *slog.Logger
 }
 
@@ -61,57 +62,67 @@ func NewMarkerFilter(logger *slog.Logger) *MarkerFilter {
 		oscGenericFilter: regexp.MustCompile(`\x1b\](?:0|1|2|7);[^\x07\x1b]*(?:\x1b\\|\x07)`),
 		// 匹配 OSC 1337 序列（在代码中排除 Pwd）
 		osc1337Filter: regexp.MustCompile(`\x1b\]1337;[^\x07\x1b]*(?:\x1b\\|\x07)`),
-		// 匹配 alternate screen 进入/退出序列：ESC[?1049h/l、ESC[?1047h/l、ESC[?47h/l
-		altScreenRegex: regexp.MustCompile(`\x1b\[\?(?:1049|1047|47)([hl])`),
-		createdAt:     time.Now(),
-		fallbackDelay: 3 * time.Second, // 3秒后如果没检测到标记，进入降级模式
+		// 匹配 DEC 私有模式切换：ESC[?Ps h/l
+		privateModeRegex: regexp.MustCompile(`\x1b\[\?(\d+)([hl])`),
+		createdAt:        time.Now(),
+		fallbackDelay:    3 * time.Second, // 3秒后如果没检测到标记，进入降级模式
+		activeModes:      make(map[string]struct{}),
 	}
 }
 
 // ProcessResult 处理结果
 type ProcessResult struct {
-	Output            []byte // 过滤后的输出
-	CommandEnded      bool   // 命令是否结束
-	ExitCode          int    // 命令退出码（仅在 CommandEnded 为 true 时有效）
-	PwdChanged        bool   // 工作路径是否变化
-	Pwd               string // 新的工作路径（仅在 PwdChanged 为 true 时有效）
-	FullscreenChanged bool   // 全屏交互模式是否切换
-	InFullscreen      bool   // 当前是否处于全屏交互模式
+	Output                 []byte // 过滤后的输出
+	CommandEnded           bool   // 命令是否结束
+	ExitCode               int    // 命令退出码（仅在 CommandEnded 为 true 时有效）
+	PwdChanged             bool   // 工作路径是否变化
+	Pwd                    string // 新的工作路径（仅在 PwdChanged 为 true 时有效）
+	InteractionModeChanged bool   // 交互模式是否切换
+	InInteractive          bool   // 当前是否处于交互模式
 }
 
 // Process 处理输出数据
 func (f *MarkerFilter) Process(data []byte) ProcessResult {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-
-	fullscreenChanged, inFullscreen := f.detectFullscreenTransition(data)
+	wasInCommandOutput := f.inCommandOutput
 
 	// 检查是否需要进入降级模式
 	if !f.markerDetected && !f.inFallbackMode {
 		if time.Since(f.createdAt) > f.fallbackDelay {
+			interactionModeChanged, inInteractive := f.detectInteractionModeTransition(
+				data,
+				wasInCommandOutput,
+				false,
+			)
 			f.inFallbackMode = true
 			// 输出之前缓冲的内容
 			f.buffer.Write(data)
 			output := f.buffer.Bytes()
 			f.buffer.Reset()
 			return ProcessResult{
-				Output:            output,
-				CommandEnded:      false,
-				ExitCode:          0,
-				FullscreenChanged: fullscreenChanged,
-				InFullscreen:      inFullscreen,
+				Output:                 output,
+				CommandEnded:           false,
+				ExitCode:               0,
+				InteractionModeChanged: interactionModeChanged,
+				InInteractive:          inInteractive,
 			}
 		}
 	}
 
 	// 降级模式：透传所有输出
 	if f.inFallbackMode {
+		interactionModeChanged, inInteractive := f.detectInteractionModeTransition(
+			data,
+			wasInCommandOutput,
+			false,
+		)
 		return ProcessResult{
-			Output:            data,
-			CommandEnded:      false,
-			ExitCode:          0,
-			FullscreenChanged: fullscreenChanged,
-			InFullscreen:      inFullscreen,
+			Output:                 data,
+			CommandEnded:           false,
+			ExitCode:               0,
+			InteractionModeChanged: interactionModeChanged,
+			InInteractive:          inInteractive,
 		}
 	}
 
@@ -234,43 +245,89 @@ func (f *MarkerFilter) Process(data []byte) ProcessResult {
 		f.buffer.Reset()
 	}
 
+	allowHintEnter := wasInCommandOutput || f.inCommandOutput || f.startMarkerRegex.Match(data)
+	interactionModeChanged, inInteractive := f.detectInteractionModeTransition(
+		data,
+		allowHintEnter,
+		commandEnded,
+	)
+
 	return ProcessResult{
-		Output:            result.Bytes(),
-		CommandEnded:      commandEnded,
-		ExitCode:          exitCode,
-		PwdChanged:        pwdChanged,
-		Pwd:               pwd,
-		FullscreenChanged: fullscreenChanged,
-		InFullscreen:      inFullscreen,
+		Output:                 result.Bytes(),
+		CommandEnded:           commandEnded,
+		ExitCode:               exitCode,
+		PwdChanged:             pwdChanged,
+		Pwd:                    pwd,
+		InteractionModeChanged: interactionModeChanged,
+		InInteractive:          inInteractive,
 	}
 }
 
-// detectFullscreenTransition 检测 alternate screen（全屏交互）切换。
-func (f *MarkerFilter) detectFullscreenTransition(data []byte) (changed bool, inFullscreen bool) {
-	combined := f.altScreenTail + string(data)
-	matches := f.altScreenRegex.FindAllStringSubmatchIndex(combined, -1)
+// detectInteractionModeTransition 检测交互模式切换。
+// 规则参考 Warp/FinalTerm 类终端常见做法：
+// - 优先依赖 DEC 私有模式切换（alt-screen、鼠标追踪等）而非宽泛控制序列启发式；
+// - 命令结束时强制退出交互模式，防止缺少 leave 序列导致状态悬挂。
+func (f *MarkerFilter) detectInteractionModeTransition(
+	data []byte,
+	allowHintEnter bool,
+	commandEnded bool,
+) (changed bool, inInteractive bool) {
+	_ = allowHintEnter // 仅保留参数兼容，当前策略不使用弱启发式。
+	prev := f.inInteractive
 
+	combined := f.privateModeTail + string(data)
+	matches := f.privateModeRegex.FindAllStringSubmatchIndex(combined, -1)
 	for _, match := range matches {
-		if len(match) < 4 || match[2] == -1 || match[3] == -1 {
+		if len(match) < 6 || match[2] == -1 || match[3] == -1 || match[4] == -1 || match[5] == -1 {
 			continue
 		}
 
 		mode := combined[match[2]:match[3]]
-		next := mode == "h"
-		if next != f.inFullscreen {
-			changed = true
-			f.inFullscreen = next
+		action := combined[match[4]:match[5]]
+		if !isInteractiveMode(mode) {
+			continue
+		}
+
+		// 统一约束：进入交互态仅允许发生在命令执行窗口内。
+		// 退出交互态允许随时生效，用于清理可能的悬挂状态。
+		entersInteractive := action == "h"
+
+		// DECTCEM: ?25l 隐藏光标通常用于交互界面，?25h 为恢复。
+		if mode == "25" {
+			if action == "l" {
+				entersInteractive = true
+				f.activeModes[mode] = struct{}{}
+			} else {
+				entersInteractive = false
+				delete(f.activeModes, mode)
+			}
+		} else if action == "h" {
+			f.activeModes[mode] = struct{}{}
+		} else {
+			delete(f.activeModes, mode)
+		}
+
+		if entersInteractive && !allowHintEnter && !isAltScreenMode(mode) {
+			// 不允许在非命令执行窗口进入交互态，回滚刚刚写入的 mode。
+			delete(f.activeModes, mode)
 		}
 	}
 
-	// 保留末尾最多 16 个字节，用于处理跨 chunk 的 ESC[?1049h/l 序列。
-	if len(combined) > 16 {
-		f.altScreenTail = combined[len(combined)-16:]
+	// 保留末尾用于处理跨 chunk 的 ESC[?Ps h/l 序列。
+	if len(combined) > 32 {
+		f.privateModeTail = combined[len(combined)-32:]
 	} else {
-		f.altScreenTail = combined
+		f.privateModeTail = combined
 	}
 
-	return changed, f.inFullscreen
+	if commandEnded {
+		f.activeModes = make(map[string]struct{})
+	}
+
+	f.inInteractive = len(f.activeModes) > 0
+	changed = prev != f.inInteractive
+
+	return changed, f.inInteractive
 }
 
 // splitIncompleteMarkerTail 将内容拆分为“可立即输出前缀”和“需继续等待的未完成 OSC 尾部”。
@@ -309,6 +366,9 @@ func (f *MarkerFilter) Reset() {
 	defer f.mu.Unlock()
 	f.buffer.Reset()
 	f.inCommandOutput = false
+	f.inInteractive = false
+	f.privateModeTail = ""
+	f.activeModes = make(map[string]struct{})
 }
 
 // InCommandOutput 返回当前是否在命令输出区域
@@ -326,6 +386,36 @@ func parseInt(s string) int {
 		}
 	}
 	return result
+}
+
+// isInteractiveMode 判断 DEC 私有模式是否属于交互态信号。
+func isInteractiveMode(mode string) bool {
+	switch mode {
+	case
+		"1",    // DECCKM 应用光标键
+		"9",    // X10 鼠标
+		"25",   // DECTCEM 光标显示/隐藏（特殊处理）
+		"47",   // alt-screen
+		"1000", // VT200 鼠标
+		"1001", // 高亮跟踪
+		"1002", // Button-event 鼠标
+		"1003", // Any-event 鼠标
+		"1004", // FocusIn/Out
+		"1005", // UTF-8 鼠标编码
+		"1006", // SGR 鼠标编码
+		"1015", // urxvt 鼠标编码
+		"1016", // SGR 像素鼠标模式
+		"1047", // alt-screen
+		"1049": // alt-screen + cursor save/restore
+		return true
+	default:
+		return false
+	}
+}
+
+// isAltScreenMode 判断是否为 alternate screen 相关模式。
+func isAltScreenMode(mode string) bool {
+	return mode == "47" || mode == "1047" || mode == "1049"
 }
 
 // filterOSC1337 过滤 OSC 1337 序列，但保留 Pwd 序列

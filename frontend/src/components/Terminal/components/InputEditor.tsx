@@ -23,7 +23,7 @@ interface InputEditorProps {
   sessionId: string;
   envInfo: TerminalEnvironmentInfo;
   onSubmit: (command: string) => void;
-  inFullscreen?: boolean;
+  inInteractive?: boolean;
   onResize?: () => void;
 }
 
@@ -35,7 +35,7 @@ export function InputEditor({
   sessionId,
   envInfo,
   onSubmit,
-  inFullscreen = false,
+  inInteractive = false,
   onResize,
 }: InputEditorProps) {
   const {
@@ -55,13 +55,13 @@ export function InputEditor({
     sessionId,
     envInfo,
     onSubmit,
-    inFullscreen,
+    inInteractive,
     onResize,
   });
 
   return (
     <div className="input-editor-wrapper flex flex-col items-start px-3 py-2 w-full overflow-x-hidden">
-      {!inFullscreen && (
+      {!inInteractive && (
         <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
           {hasPythonEnv && (
             <Badge
@@ -115,9 +115,9 @@ export function InputEditor({
           )}
         </div>
       )}
-      {inFullscreen && (
+      {inInteractive && (
         <div className="w-full text-xs text-muted-foreground">
-          当前为全屏交互模式，输入将直接发送到终端。
+          当前为交互模式，输入将直接发送到终端。
         </div>
       )}
       <div
@@ -125,7 +125,7 @@ export function InputEditor({
         onClick={handleContainerClick}
       >
         <div className="input-field-wrapper relative flex-1 min-w-0 overflow-x-hidden">
-          {!inFullscreen && (
+          {!inInteractive && (
             <pre
               className={`pointer-events-none absolute inset-0 ${INPUT_TEXT_LAYOUT_CLASS}`}
               aria-hidden="true"
@@ -142,11 +142,11 @@ export function InputEditor({
           )}
           <textarea
             ref={inputRef}
-            value={inFullscreen ? "" : value}
+            value={inInteractive ? "" : value}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
-            className={`actual-input relative block border-0 bg-transparent outline-none resize-none ${inFullscreen ? "text-foreground caret-foreground" : "text-transparent caret-primary"} ${INPUT_TEXT_LAYOUT_CLASS}`}
+            className={`actual-input relative block border-0 bg-transparent outline-none resize-none ${inInteractive ? "text-foreground caret-foreground" : "text-transparent caret-primary"} ${INPUT_TEXT_LAYOUT_CLASS}`}
             spellCheck={false}
             autoComplete="off"
             autoCorrect="off"

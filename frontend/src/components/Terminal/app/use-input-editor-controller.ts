@@ -33,7 +33,7 @@ interface UseInputEditorControllerParams {
   sessionId: string;
   envInfo: TerminalEnvironmentInfo;
   onSubmit: (command: string) => void;
-  inFullscreen: boolean;
+  inInteractive: boolean;
   onResize?: () => void;
 }
 
@@ -80,7 +80,7 @@ function mapSpecialKeyToSequence(key: string): string | null {
   }
 }
 
-// 全屏交互模式：把按键转换为 PTY 输入并直通后端。
+// 交互模式：把按键转换为 PTY 输入并直通后端。
 function getInteractiveInput(
   e: Pick<KeyboardEvent, "key" | "ctrlKey" | "altKey" | "metaKey">,
 ): string | null {
@@ -99,7 +99,7 @@ export function useInputEditorController({
   sessionId,
   envInfo,
   onSubmit,
-  inFullscreen,
+  inInteractive,
   onResize,
 }: UseInputEditorControllerParams) {
   const [value, setValue] = useState("");
@@ -142,16 +142,16 @@ export function useInputEditorController({
   // 同步用户输入到本地状态。
   const handleChange = useCallback(
     (e: ChangeEvent<HTMLTextAreaElement>) => {
-      if (inFullscreen) return;
+      if (inInteractive) return;
       setValue(e.target.value);
     },
-    [inFullscreen],
+    [inInteractive],
   );
 
   // 处理终端常用快捷键与提交行为。
   const handleKeyDown = useCallback(
     (e: ReactKeyboardEvent<HTMLTextAreaElement>) => {
-      if (inFullscreen) {
+      if (inInteractive) {
         const data = getInteractiveInput({
           key: e.key,
           ctrlKey: e.ctrlKey,
@@ -253,19 +253,19 @@ export function useInputEditorController({
           break;
       }
     },
-    [sessionId, value, navigateHistory, onSubmit, inFullscreen],
+    [sessionId, value, navigateHistory, onSubmit, inInteractive],
   );
 
-  // 全屏交互模式下支持粘贴直通终端。
+  // 交互模式下支持粘贴直通终端。
   const handlePaste = useCallback(
     (e: ReactClipboardEvent<HTMLTextAreaElement>) => {
-      if (!inFullscreen) return;
+      if (!inInteractive) return;
       e.preventDefault();
       const text = e.clipboardData.getData("text");
       if (!text) return;
       terminalSessionManager.write(sessionId, text);
     },
-    [inFullscreen, sessionId],
+    [inInteractive, sessionId],
   );
 
   // 点击输入区域空白时聚焦 textarea。
@@ -303,8 +303,8 @@ export function useInputEditorController({
 
   // 对当前输入进行分词与分类，驱动彩色渲染层。
   const highlightedTokens = useMemo(
-    () => (inFullscreen ? [] : classifyCommandTokens(value, commandSet)),
-    [value, commandSet, inFullscreen],
+    () => (inInteractive ? [] : classifyCommandTokens(value, commandSet)),
+    [value, commandSet, inInteractive],
   );
 
   return {
