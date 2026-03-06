@@ -117,6 +117,32 @@ function getPrimaryKeys(
   }, {});
 }
 
+function getKeyColumns(columns: string[], primaryColumns: string[]): string[] {
+  return primaryColumns.length > 0 ? primaryColumns : columns;
+}
+
+function buildPrimaryKeysFromValues(
+  values: Record<string, any>,
+  columns: string[],
+  primaryColumns: string[],
+): Record<string, any> {
+  return getKeyColumns(columns, primaryColumns).reduce<Record<string, any>>((acc, key) => {
+    acc[key] = values[key];
+    return acc;
+  }, {});
+}
+
+function buildRowSignature(
+  values: Record<string, any>,
+  columns: string[],
+  primaryColumns: string[],
+): string {
+  const keyColumns = getKeyColumns(columns, primaryColumns);
+  return keyColumns
+    .map((key) => `${key}:${asComparableValue(values[key])}`)
+    .join("\u001f");
+}
+
 // 将草稿行转换为后端可消费的 ChangeSet。
 export function buildChangeSet(
   rows: DBTableDraftRow[],
@@ -158,6 +184,66 @@ export function buildChangeSet(
       keys: getPrimaryKeys(row, columns, primaryColumns),
       values: changedValues,
     });
+  }
+
+  return {
+    changes,
+    summary: {
+      inserts: changes.inserts.length,
+      updates: changes.updates.length,
+      deletes: changes.deletes.length,
+    },
+  };
+}
+
+// 比较两组行并生成从 fromRows 同步到 toRows 的变更集。
+export function buildChangeSetBetween(
+  fromRows: DBTableDraftRow[],
+  toRows: DBTableDraftRow[],
+  columns: string[],
+  primaryColumns: string[],
+): DBTableBuiltChangeSet {
+  const changes = ChangeSet.createFrom({
+    inserts: [],
+    updates: [],
+    deletes: [],
+  });
+
+  const fromMap = new Map<string, Record<string, any>>();
+  for (const row of fromRows) {
+    fromMap.set(buildRowSignature(row.values, columns, primaryColumns), { ...row.values });
+  }
+
+  const toMap = new Map<string, Record<string, any>>();
+  for (const row of toRows) {
+    toMap.set(buildRowSignature(row.values, columns, primaryColumns), { ...row.values });
+  }
+
+  for (const [signature, fromValues] of fromMap.entries()) {
+    const toValues = toMap.get(signature);
+    if (!toValues) {
+      changes.deletes.push(buildPrimaryKeysFromValues(fromValues, columns, primaryColumns));
+      continue;
+    }
+
+    const changedValues: Record<string, any> = {};
+    for (const column of columns) {
+      if (isValueChanged(fromValues[column], toValues[column])) {
+        changedValues[column] = toValues[column];
+      }
+    }
+    if (Object.keys(changedValues).length > 0) {
+      changes.updates.push({
+        keys: buildPrimaryKeysFromValues(fromValues, columns, primaryColumns),
+        values: changedValues,
+      });
+    }
+  }
+
+  for (const [signature, toValues] of toMap.entries()) {
+    if (!fromMap.has(signature)) {
+      changes.inserts.push({ ...toValues });
+    }
   }
 
   return {

@@ -43,10 +43,12 @@ export interface DBTableControllerResult {
   selectedColumn: string | null;
   actionState: DBTableActionState;
   load: () => Promise<void>;
-  toggleTransaction: () => void;
+  startTransaction: () => void;
+  saveTransaction: () => Promise<void>;
+  commitTransaction: () => Promise<void>;
+  rollbackTransaction: () => void;
   addRow: () => void;
   deleteSelectedRows: () => void;
-  save: () => Promise<void>;
   undo: () => void;
   redo: () => void;
   toggleFilterInput: () => void;

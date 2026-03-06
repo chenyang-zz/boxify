@@ -46,6 +46,10 @@ interface DBTableProps {
 const DBTable: FC<DBTableProps> = ({ sessionId: uuid }) => {
   const headerRefs = useRef<Array<HTMLTableCellElement | null>>([]);
   const [stickyLefts, setStickyLefts] = useState<number[]>([0, 0, 0]);
+  const [editingCell, setEditingCell] = useState<{
+    rowId: string;
+    column: string;
+  } | null>(null);
   const { ref: containerRef, size } = useResizeObserver<HTMLDivElement>();
   const tableScrollRef = useHorizontalScroll({ hideScrollbar: false });
 
@@ -98,13 +102,14 @@ const DBTable: FC<DBTableProps> = ({ sessionId: uuid }) => {
       <div className="h-full flex flex-col text-xs">
         <HeaderAction
           state={controller.actionState}
-          onToggleTransaction={controller.toggleTransaction}
+          onStartTransaction={controller.startTransaction}
+          onSaveTransaction={controller.saveTransaction}
+          onCommitTransaction={controller.commitTransaction}
+          onRollbackTransaction={controller.rollbackTransaction}
           onRefresh={controller.load}
           onAddRow={controller.addRow}
           onDeleteRows={controller.deleteSelectedRows}
-          onSave={controller.save}
           onUndo={controller.undo}
-          onRedo={controller.redo}
           onToggleFilter={controller.toggleFilterInput}
           onSort={controller.toggleSort}
           onImport={controller.importData}
@@ -174,6 +179,9 @@ const DBTable: FC<DBTableProps> = ({ sessionId: uuid }) => {
                       {controller.columns.map((col, index) => {
                         const colIndex = index;
                         const value = row.values[col];
+                        const isEditing =
+                          editingCell?.rowId === row.id &&
+                          editingCell.column === col;
                         const displayValue =
                           value === null || value === undefined
                             ? ""
@@ -183,7 +191,7 @@ const DBTable: FC<DBTableProps> = ({ sessionId: uuid }) => {
                           <TableCell
                             key={`${row.id}-${col}`}
                             className={cn(
-                              "px-2 py-0 max-w-150 truncate text-left outline outline-background",
+                              "p-0 h-8 max-w-150 truncate text-left outline outline-background",
                               stickyCellClass(colIndex),
                               row.deleted && "line-through",
                             )}
@@ -192,12 +200,20 @@ const DBTable: FC<DBTableProps> = ({ sessionId: uuid }) => {
                               event.stopPropagation();
                               controller.setSelectedColumn(col);
                             }}
+                            onDoubleClick={(event) => {
+                              event.stopPropagation();
+                              if (row.deleted) {
+                                return;
+                              }
+                              controller.setSelectedColumn(col);
+                              setEditingCell({ rowId: row.id, column: col });
+                            }}
                           >
-                            {controller.actionState.inTransaction &&
-                            !row.deleted ? (
+                            {!row.deleted && isEditing ? (
                               <Input
                                 value={displayValue}
-                                className="h-6 border-0 bg-transparent px-2 text-xs"
+                                className="h-full w-full rounded-none border-0 bg-transparent px-0 py-0 text-xs shadow-none focus-visible:border-0 focus-visible:ring-0"
+                                autoFocus
                                 onChange={(event) =>
                                   controller.setCellValue(
                                     row.id,
@@ -205,6 +221,16 @@ const DBTable: FC<DBTableProps> = ({ sessionId: uuid }) => {
                                     event.target.value,
                                   )
                                 }
+                                onBlur={() => setEditingCell(null)}
+                                onClick={(event) => event.stopPropagation()}
+                                onKeyDown={(event) => {
+                                  if (
+                                    event.key === "Enter" ||
+                                    event.key === "Escape"
+                                  ) {
+                                    setEditingCell(null);
+                                  }
+                                }}
                               />
                             ) : (
                               displayValue

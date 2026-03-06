@@ -119,17 +119,14 @@ export async function applyDBTableChangesByUUID(
     return null;
   }
 
-  try {
-    return await callWails(
-      DatabaseService.ApplyChanges,
-      ctx.config,
-      ctx.dbName,
-      ctx.tableName,
-      ChangeSet.createFrom(changes),
-    );
-  } catch {
-    return null;
-  }
+  return callWailsWithOptions(
+    DatabaseService.ApplyChanges,
+    [ctx.config, ctx.dbName, ctx.tableName, ChangeSet.createFrom(changes)],
+    {
+      timeoutMs: 30000,
+      timeoutMessage: "保存超时，请检查锁等待或连接状态后重试",
+    },
+  );
 }
 
 // 导入数据文件并写入目标表。

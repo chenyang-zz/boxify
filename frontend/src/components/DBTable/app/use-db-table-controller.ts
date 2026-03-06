@@ -11,6 +11,7 @@ import {
 } from "@/lib/db-table";
 import {
   buildChangeSet,
+  buildChangeSetBetween,
   cloneDraftRows,
   createDraftRows,
   createInsertedRow,
@@ -50,6 +51,7 @@ export function useDBTableController({
   const [insertCounter, setInsertCounter] = useState(0);
   const [undoStack, setUndoStack] = useState<DBTableDraftRow[][]>([]);
   const [redoStack, setRedoStack] = useState<DBTableDraftRow[][]>([]);
+  const [transactionSnapshot, setTransactionSnapshot] = useState<DBTableDraftRow[] | null>(null);
 
   const primaryColumns = useMemo(
     () => columnDefs.filter((col) => col.key === "PRI").map((col) => col.name),
@@ -61,7 +63,34 @@ export function useDBTableController({
     [rows, columns, primaryColumns],
   );
 
-  // 加载列定义和数据，并重置编辑状态。
+  // 刷新表格数据并按需决定是否保持在事务中。
+  const reloadWithTransactionState = useCallback(
+    async (keepTransaction: boolean) => {
+      if (!sessionId) {
+        return;
+      }
+
+      const [columnRes, valueRes] = await Promise.all([
+        getDBTableColumnsByUUID(sessionId),
+        getDBTableValuesByUUID(sessionId),
+      ]);
+      const nextRows = createDraftRows((valueRes?.data as Record<string, any>[]) ?? []);
+
+      setColumnDefs(columnRes);
+      setColumns(valueRes?.fields ?? []);
+      setRows(nextRows);
+      setSelectedRowIds(new Set());
+      setSelectedColumn(null);
+      setInTransaction(keepTransaction);
+      setTransactionSnapshot(keepTransaction ? transactionSnapshot ?? cloneDraftRows(nextRows) : null);
+      setUndoStack([]);
+      setRedoStack([]);
+      setInsertCounter(0);
+    },
+    [sessionId, transactionSnapshot],
+  );
+
+  // 加载列定义和数据，并保持当前事务开关状态。
   const load = useCallback(async () => {
     if (!sessionId) {
       return;
@@ -69,24 +98,11 @@ export function useDBTableController({
 
     setPending(true);
     try {
-      const [columnRes, valueRes] = await Promise.all([
-        getDBTableColumnsByUUID(sessionId),
-        getDBTableValuesByUUID(sessionId),
-      ]);
-
-      setColumnDefs(columnRes);
-      setColumns(valueRes?.fields ?? []);
-      setRows(createDraftRows((valueRes?.data as Record<string, any>[]) ?? []));
-      setSelectedRowIds(new Set());
-      setSelectedColumn(null);
-      setInTransaction(false);
-      setUndoStack([]);
-      setRedoStack([]);
-      setInsertCounter(0);
+      await reloadWithTransactionState(inTransaction);
     } finally {
       setPending(false);
     }
-  }, [sessionId]);
+  }, [inTransaction, reloadWithTransactionState, sessionId]);
 
   const pushHistory = useCallback((nextRows: DBTableDraftRow[]) => {
     setUndoStack((prev) => [...prev, cloneDraftRows(rows)]);
@@ -94,43 +110,101 @@ export function useDBTableController({
     setRows(nextRows);
   }, [rows]);
 
-  // 切换编辑事务状态；关闭时会丢弃未保存草稿。
-  const toggleTransaction = useCallback(() => {
-    if (!inTransaction) {
-      setInTransaction(true);
+  // 开启编辑事务并记录起始快照，用于后续回退。
+  const startTransaction = useCallback(() => {
+    if (inTransaction) {
       return;
     }
 
-    if (dirty) {
-      setRows((prev) =>
-        prev
-          .filter((row) => row.mode === "existing")
-          .map((row) => ({
-            ...row,
-            values: { ...(row.originalValues ?? row.values) },
-            deleted: false,
-          })),
-      );
-      setUndoStack([]);
-      setRedoStack([]);
-      toast.info("已放弃未保存更改");
+    setTransactionSnapshot(cloneDraftRows(rows));
+    setUndoStack([]);
+    setRedoStack([]);
+    setInTransaction(true);
+  }, [inTransaction, rows]);
+
+  // 执行保存：未开启事务时普通保存；开启事务时可选择是否结束事务。
+  const applyTransactionChanges = useCallback(async (closeTransaction: boolean) => {
+    const built = buildChangeSet(rows, columns, primaryColumns);
+    const total = built.summary.inserts + built.summary.updates + built.summary.deletes;
+    if (total === 0) {
+      if (inTransaction && closeTransaction) {
+        setInTransaction(false);
+        setTransactionSnapshot(null);
+        setUndoStack([]);
+        setRedoStack([]);
+        toast.info("事务内没有变更，已结束事务");
+      } else {
+        toast.info("没有可保存的变更");
+      }
+      return;
     }
 
-    setInTransaction(false);
-  }, [dirty, inTransaction]);
+    setPending(true);
+    try {
+      const applyResult = await applyDBTableChangesByUUID(sessionId, built.changes);
+      if (!applyResult?.success) {
+        return;
+      }
+      toast.success(
+        `保存成功：新增 ${built.summary.inserts}，更新 ${built.summary.updates}，删除 ${built.summary.deletes}`,
+      );
+      await reloadWithTransactionState(inTransaction && !closeTransaction);
+    } catch {
+      // 调用层已统一弹出错误提示；这里中断后续成功提示和刷新。
+    } finally {
+      setPending(false);
+    }
+  }, [columns, inTransaction, primaryColumns, reloadWithTransactionState, rows, sessionId]);
 
-  // 事务内新增一行空数据。
-  const addRow = useCallback(() => {
+  // 保存事务内草稿变更，但保持事务开启。
+  const saveTransaction = useCallback(async () => {
+    await applyTransactionChanges(false);
+  }, [applyTransactionChanges]);
+
+  // 提交事务内草稿变更到数据库并结束事务。
+  const commitTransaction = useCallback(async () => {
+    await applyTransactionChanges(true);
+  }, [applyTransactionChanges]);
+
+  // 回退事务：将数据库和界面恢复到开始事务前的快照状态。
+  const rollbackTransaction = useCallback(async () => {
     if (!inTransaction) {
       toast.warning("请先开始事务");
       return;
     }
 
+    const snapshot = transactionSnapshot ? cloneDraftRows(transactionSnapshot) : [];
+
+    setPending(true);
+    try {
+      const valueRes = await getDBTableValuesByUUID(sessionId);
+      const dbRows = createDraftRows((valueRes?.data as Record<string, any>[]) ?? []);
+      const built = buildChangeSetBetween(dbRows, snapshot, columns, primaryColumns);
+      const total = built.summary.inserts + built.summary.updates + built.summary.deletes;
+
+      if (total > 0) {
+        await applyDBTableChangesByUUID(sessionId, built.changes);
+      }
+
+      setRows(snapshot);
+      setSelectedRowIds(new Set());
+      setUndoStack([]);
+      setRedoStack([]);
+      setTransactionSnapshot(null);
+      setInTransaction(false);
+      toast.info("已回退事务更改");
+    } finally {
+      setPending(false);
+    }
+  }, [columns, inTransaction, primaryColumns, sessionId, transactionSnapshot]);
+
+  // 新增一行空数据；不自动切换事务状态。
+  const addRow = useCallback(() => {
     const nextRow = createInsertedRow(columns, insertCounter + 1);
     setInsertCounter((prev) => prev + 1);
     pushHistory([...rows, nextRow]);
     setSelectedRowIds(new Set([nextRow.id]));
-  }, [columns, inTransaction, insertCounter, pushHistory, rows]);
+  }, [columns, insertCounter, pushHistory, rows]);
 
   // 标记删除或恢复选中行。
   const deleteSelectedRows = useCallback(() => {
@@ -148,32 +222,6 @@ export function useDBTableController({
     pushHistory(nextRows);
     setSelectedRowIds(new Set());
   }, [inTransaction, pushHistory, rows, selectedRowIds]);
-
-  // 保存草稿变更并刷新数据。
-  const save = useCallback(async () => {
-    if (!inTransaction) {
-      toast.warning("请先开始事务");
-      return;
-    }
-
-    const built = buildChangeSet(rows, columns, primaryColumns);
-    const total = built.summary.inserts + built.summary.updates + built.summary.deletes;
-    if (total === 0) {
-      toast.info("没有可保存的变更");
-      return;
-    }
-
-    setPending(true);
-    try {
-      await applyDBTableChangesByUUID(sessionId, built.changes);
-      toast.success(
-        `保存成功：新增 ${built.summary.inserts}，更新 ${built.summary.updates}，删除 ${built.summary.deletes}`,
-      );
-      await load();
-    } finally {
-      setPending(false);
-    }
-  }, [columns, inTransaction, load, primaryColumns, rows, sessionId]);
 
   // 撤销最近一次草稿编辑。
   const undo = useCallback(() => {
@@ -240,13 +288,9 @@ export function useDBTableController({
   // 更新指定单元格值。
   const setCellValue = useCallback(
     (rowId: string, column: string, value: string) => {
-      if (!inTransaction) {
-        return;
-      }
-
       pushHistory(updateCellValue(rows, rowId, column, value));
     },
-    [inTransaction, pushHistory, rows],
+    [pushHistory, rows],
   );
 
   // 切换行选中状态。
@@ -308,10 +352,12 @@ export function useDBTableController({
       sortState,
     },
     load,
-    toggleTransaction,
+    startTransaction,
+    saveTransaction,
+    commitTransaction,
+    rollbackTransaction,
     addRow,
     deleteSelectedRows,
-    save,
     undo,
     redo,
     toggleFilterInput,
