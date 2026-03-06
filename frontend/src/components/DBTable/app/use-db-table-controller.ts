@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { ColumnDefinition } from "@wails/connection";
 import {
@@ -52,6 +52,7 @@ export function useDBTableController({
   const [undoStack, setUndoStack] = useState<DBTableDraftRow[][]>([]);
   const [redoStack, setRedoStack] = useState<DBTableDraftRow[][]>([]);
   const [transactionSnapshot, setTransactionSnapshot] = useState<DBTableDraftRow[] | null>(null);
+  const editingCellKeyRef = useRef<string | null>(null);
 
   const primaryColumns = useMemo(
     () => columnDefs.filter((col) => col.key === "PRI").map((col) => col.name),
@@ -267,10 +268,23 @@ export function useDBTableController({
   // 更新指定单元格值。
   const setCellValue = useCallback(
     (rowId: string, column: string, value: string) => {
+      const cellKey = `${rowId}::${column}`;
+      if (editingCellKeyRef.current === cellKey) {
+        setRedoStack([]);
+        setRows((prev) => updateCellValue(prev, rowId, column, value));
+        return;
+      }
+
+      editingCellKeyRef.current = cellKey;
       pushHistory(updateCellValue(rows, rowId, column, value));
     },
     [pushHistory, rows],
   );
+
+  // 结束当前单元格编辑会话，使后续编辑重新计入一条撤销记录。
+  const endCellEditSession = useCallback(() => {
+    editingCellKeyRef.current = null;
+  }, []);
 
   // 切换行选中状态。
   const toggleRowSelection = useCallback((rowId: string) => {
@@ -331,6 +345,7 @@ export function useDBTableController({
     deleteSelectedRows,
     undo,
     redo,
+    endCellEditSession,
     toggleFilterInput,
     setFilterKeyword,
     toggleSort,

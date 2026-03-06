@@ -259,13 +259,17 @@ const DBTable: FC<DBTableProps> = ({ sessionId: uuid }) => {
                                     event.target.value,
                                   )
                                 }
-                                onBlur={() => setEditingCell(null)}
+                                onBlur={() => {
+                                  controller.endCellEditSession();
+                                  setEditingCell(null);
+                                }}
                                 onClick={(event) => event.stopPropagation()}
                                 onKeyDown={(event) => {
                                   if (
                                     event.key === "Enter" ||
                                     event.key === "Escape"
                                   ) {
+                                    controller.endCellEditSession();
                                     setEditingCell(null);
                                   }
                                 }}

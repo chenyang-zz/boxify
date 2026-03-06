@@ -51,6 +51,7 @@ export interface DBTableControllerResult {
   deleteSelectedRows: () => void;
   undo: () => void;
   redo: () => void;
+  endCellEditSession: () => void;
   toggleFilterInput: () => void;
   setFilterKeyword: (keyword: string) => void;
   toggleSort: () => void;
