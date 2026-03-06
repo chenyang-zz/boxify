@@ -45,6 +45,7 @@ html {
 body {
   margin: 0;
   color: white;
+  background: transparent;
   font-family:
     "Nunito",
     -apple-system,

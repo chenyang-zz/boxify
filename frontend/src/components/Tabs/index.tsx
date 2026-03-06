@@ -13,12 +13,12 @@
 // limitations under the License.
 
 import { FC } from "react";
-import { tabStoreMethods, useTabsStore } from "@/store/tabs.store";
-import TabBar from "./TabBar";
+import { useTabsStore } from "@/store/tabs.store";
 import TabContent from "./TabContent";
 import { useShallow } from "zustand/react/shallow";
 
 const Tabs: FC = () => {
+  // 内容区只依赖标签数据和激活项，标题栏中的 TabBar 负责交互控制。
   const { tabs, activeTabId } = useTabsStore(
     useShallow((state) => ({
       tabs: state.tabs,
@@ -26,36 +26,12 @@ const Tabs: FC = () => {
     })),
   );
 
-  const handleTabClose = (tabId: string) => {
-    tabStoreMethods.closeTab(tabId);
-  };
-
-  const handleTabPin = (tabId: string) => {
-    tabStoreMethods.pinTab(tabId);
-  };
-
-  const handleTabUnpin = (tabId: string) => {
-    tabStoreMethods.unpinTab(tabId);
-  };
-
-  const handleTabSelect = (tabId: string) => {
-    tabStoreMethods.setActiveTab(tabId);
-  };
-
   return (
-    <div className="h-full w-full flex flex-col rounded-lg border overflow-hidden">
-      {/* 标签栏 */}
-      <TabBar
-        tabs={tabs}
-        activeTabId={activeTabId}
-        onTabClose={handleTabClose}
-        onTabPin={handleTabPin}
-        onTabUnpin={handleTabUnpin}
-        onTabSelect={handleTabSelect}
-      />
-
+    <div className="h-full w-full flex flex-col overflow-hidden">
       {/* 标签内容区 */}
-      <TabContent tabs={tabs} activeTabId={activeTabId} />
+      <div className="mx-3 mt-1 mb-3 flex-1 overflow-hidden rounded-xl border border-border/70 bg-background shadow-sm">
+        <TabContent tabs={tabs} activeTabId={activeTabId} />
+      </div>
     </div>
   );
 };

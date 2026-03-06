@@ -23,12 +23,13 @@
         "alwaysOnTop": false,
         "hidden": false,
         "center": true,
+        "frameless": true,
         "mac": {
           "titleBar": {
-            "appearsTransparent": true,
-            "fullSizeContent": true
+            "hide": true
           }
-        }
+        },
+        "devToolsEnabled": true
       }
     },
     {

@@ -178,6 +178,7 @@ func (wr *WindowRegistry) createWindow(config *config.PageConfig) *application.W
 	}
 
 	opts.URL = config.Window.URL
+	opts.BackgroundType = application.BackgroundTypeTranslucent
 
 	window := wr.app.Window.NewWithOptions(opts)
 

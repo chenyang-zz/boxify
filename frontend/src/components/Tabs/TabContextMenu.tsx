@@ -20,7 +20,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "../ui/context-menu";
-import { Pin, PinOff, X, XCircle, RotateCcw, Edit2 } from "lucide-react";
+import { X, XCircle, RotateCcw, Edit2 } from "lucide-react";
 import { TabContextMenuProps } from "./types";
 import { tabStoreMethods } from "@/store/tabs.store";
 
@@ -44,16 +44,6 @@ const TabContextMenu: FC<TabContextMenuProps> = ({ tab, children }) => {
 
   const onCloseToRight = () => {
     tabStoreMethods.closeTabsToRight(id);
-  };
-
-  // 固定标签的逻辑
-  const onPin = () => {
-    tabStoreMethods.pinTab(id);
-  };
-
-  // 取消固定标签的逻辑
-  const onUnpin = () => {
-    tabStoreMethods.unpinTab(id);
   };
 
   // 重命名标签的逻辑
@@ -82,18 +72,7 @@ const TabContextMenu: FC<TabContextMenuProps> = ({ tab, children }) => {
           关闭所有标签
         </ContextMenuItem>
         <ContextMenuSeparator />
-        {tab.isPinned ? (
-          <ContextMenuItem onClick={onUnpin}>
-            <PinOff className="size-4 " />
-            取消固定
-          </ContextMenuItem>
-        ) : (
-          <ContextMenuItem onClick={onPin}>
-            <Pin className="size-4 " />
-            固定标签
-          </ContextMenuItem>
-        )}
-        <ContextMenuItem onClick={onRename}>
+        <ContextMenuItem onClick={onRename} disabled>
           <Edit2 className="size-4 " />
           重命名
         </ContextMenuItem>

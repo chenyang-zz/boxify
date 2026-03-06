@@ -12,45 +12,70 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { DBFileType } from "@/common/constrains";
 import { DatabaseService } from "@wails/service";
-import { callWails } from "./utils";
 import {
+  ChangeSet,
   ColumnDefinition,
   ConnectionConfig,
   QueryResult,
 } from "@wails/connection";
 import { getPropertyItemByUUID } from "./property";
 import { getConnectionConfigByUUID, getDatabaseNameByUUID } from "./connection";
-import { DBFileType } from "@/common/constrains";
+import { callWails, callWailsWithOptions } from "./utils";
 import { selectAllFrom } from "./sql";
 
-// 根据表的 UUID 获取列信息
-export async function getDBTableColumnsByUUID(
-  uuid: string,
-): Promise<ColumnDefinition[]> {
+export type DBTableExportFormat = "csv" | "json" | "md";
+
+interface DBTableContext {
+  config: ConnectionConfig;
+  dbName: string;
+  tableName: string;
+}
+
+// 解析并校验表操作所需上下文。
+function resolveDBTableContext(uuid: string): DBTableContext | null {
   const item = getPropertyItemByUUID(uuid);
   const config = getConnectionConfigByUUID(uuid);
   if (!item || !config) {
-    return [];
+    return null;
   }
 
   if (item.type !== DBFileType.TABLE) {
-    console.warn(`尝试获取非表类型的列信息，uuid: ${uuid}, type: ${item.type}`);
-    return [];
+    console.warn(`尝试操作非表类型节点，uuid: ${uuid}, type: ${item.type}`);
+    return null;
   }
 
   const dbName = getDatabaseNameByUUID(uuid);
   if (!dbName) {
-    console.warn(`无法获取表所属的数据库名称，uuid: ${uuid}`);
+    console.warn(`无法获取表所属数据库名称，uuid: ${uuid}`);
+    return null;
+  }
+
+  return {
+    config: ConnectionConfig.createFrom(config),
+    dbName,
+    tableName: item.label,
+  };
+}
+
+// 根据表的 UUID 获取列信息。
+export async function getDBTableColumnsByUUID(
+  uuid: string,
+): Promise<ColumnDefinition[]> {
+  const ctx = resolveDBTableContext(uuid);
+  if (!ctx) {
     return [];
   }
 
   try {
-    const res = await callWails(
+    const res = await callWailsWithOptions(
       DatabaseService.DBGetColumns,
-      ConnectionConfig.createFrom(config),
-      dbName,
-      item.label,
+      [ctx.config, ctx.dbName, ctx.tableName],
+      {
+        timeoutMs: 30000,
+        timeoutMessage: "加载字段超时，请检查连接状态后重试",
+      },
     );
 
     return res.data as ColumnDefinition[];
@@ -59,39 +84,91 @@ export async function getDBTableColumnsByUUID(
   }
 }
 
-// 根据表的 UUID 获取表数据
+// 根据表的 UUID 获取表数据。
 export async function getDBTableValuesByUUID(
   uuid: string,
 ): Promise<QueryResult | null> {
-  const item = getPropertyItemByUUID(uuid);
-  const config = getConnectionConfigByUUID(uuid);
-  if (!item || !config) {
+  const ctx = resolveDBTableContext(uuid);
+  if (!ctx) {
     return null;
   }
 
-  if (item.type !== DBFileType.TABLE) {
-    console.warn(`尝试获取非表类型的列信息，uuid: ${uuid}, type: ${item.type}`);
-    return null;
-  }
-
-  const dbName = getDatabaseNameByUUID(uuid);
-  if (!dbName) {
-    console.warn(`无法获取表所属的数据库名称，uuid: ${uuid}`);
-    return null;
-  }
-
-  const compile = selectAllFrom(item.label);
+  const compile = selectAllFrom(ctx.tableName);
 
   try {
-    const res = await callWails(
+    return await callWailsWithOptions(
       DatabaseService.DBQuery,
-      ConnectionConfig.createFrom(config),
-      dbName,
-      compile.sql,
-      compile.parameters,
+      [ctx.config, ctx.dbName, compile.sql, compile.parameters],
+      {
+        timeoutMs: 60000,
+        timeoutMessage: "加载表数据超时，请缩小数据范围或调整连接超时",
+      },
     );
+  } catch {
+    return null;
+  }
+}
 
-    return res;
+// 将前端编辑变更集应用到目标表。
+export async function applyDBTableChangesByUUID(
+  uuid: string,
+  changes: ChangeSet,
+): Promise<QueryResult | null> {
+  const ctx = resolveDBTableContext(uuid);
+  if (!ctx) {
+    return null;
+  }
+
+  try {
+    return await callWails(
+      DatabaseService.ApplyChanges,
+      ctx.config,
+      ctx.dbName,
+      ctx.tableName,
+      ChangeSet.createFrom(changes),
+    );
+  } catch {
+    return null;
+  }
+}
+
+// 导入数据文件并写入目标表。
+export async function importDBTableByUUID(uuid: string): Promise<QueryResult | null> {
+  const ctx = resolveDBTableContext(uuid);
+  if (!ctx) {
+    return null;
+  }
+
+  try {
+    return await callWails(
+      DatabaseService.ImportData,
+      ctx.config,
+      ctx.dbName,
+      ctx.tableName,
+    );
+  } catch {
+    return null;
+  }
+}
+
+// 按指定格式导出目标表。
+export async function exportDBTableByUUID(
+  uuid: string,
+  format: DBTableExportFormat,
+): Promise<QueryResult | null> {
+  const ctx = resolveDBTableContext(uuid);
+  if (!ctx) {
+    return null;
+  }
+
+  try {
+    return await callWails(
+      DatabaseService.ExportTable,
+      ctx.config,
+      ctx.dbName,
+      ctx.tableName,
+      format,
+    );
   } catch {
     return null;
   }

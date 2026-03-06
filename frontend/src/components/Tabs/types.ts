@@ -17,19 +17,14 @@ import { TabState } from "@/store/tabs.store";
 export interface TabProps {
   tab: TabState;
   isActive: boolean;
-  onClose: (tabId: string) => void;
-  onPin: (tabId: string) => void;
-  onUnpin: (tabId: string) => void;
   onSelect: (tabId: string) => void;
+  onClose: (tabId: string) => void;
 }
 
 export interface TabBarProps {
   tabs: TabState[];
   activeTabId: string | null;
   onTabSelect: (tabId: string) => void;
-  onTabClose: (tabId: string) => void;
-  onTabPin: (tabId: string) => void;
-  onTabUnpin: (tabId: string) => void;
   onTabMove?: (fromIndex: number, toIndex: number) => void;
 }
 

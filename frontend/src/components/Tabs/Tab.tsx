@@ -12,83 +12,80 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { FC } from "react";
-import { X, Pin, PinOff } from "lucide-react";
+import { FC, useEffect, useRef, useState } from "react";
+import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TabProps } from "./types";
-import { Button } from "../ui/button";
 import TabContextMenu from "./TabContextMenu";
 
-const Tab: FC<TabProps> = ({
-  tab,
-  isActive,
-  onClose,
-  onPin,
-  onUnpin,
-  onSelect,
-}) => {
-  const handleClose = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onClose(tab.id);
-  };
+const Tab: FC<TabProps> = ({ tab, isActive, onSelect, onClose }) => {
+  const labelRef = useRef<HTMLSpanElement>(null);
+  const [isLabelOverflow, setIsLabelOverflow] = useState(false);
 
-  const handlePin = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (tab.isPinned) {
-      onUnpin(tab.id);
-    } else {
-      onPin(tab.id);
-    }
-  };
+  // 标签名溢出时启用左侧渐变，优先保留尾部关键信息可见。
+  useEffect(() => {
+    const element = labelRef.current;
+    if (!element) return;
+
+    const checkOverflow = () => {
+      setIsLabelOverflow(element.scrollWidth > element.clientWidth);
+    };
+
+    checkOverflow();
+
+    const resizeObserver = new ResizeObserver(checkOverflow);
+    resizeObserver.observe(element);
+
+    return () => resizeObserver.disconnect();
+  }, [tab.label]);
 
   return (
     <TabContextMenu tab={tab}>
       <div
+        style={{ "--wails-draggable": "no-drag" } as React.CSSProperties}
         className={cn(
-          "group flex items-center pl-3 pr-2 py-1.5 text-sm",
-          "hover:bg-accent hover:text-accent-foreground",
-          "transition-colors duration-150",
-          "min-w-30 max-w-50 select-none",
-          isActive && "bg-secondary border-b-2 border-b-primary",
+          "group relative flex h-full select-none items-center",
+          "border-l border-border/30 cursor-default flex-1 max-w-50 px-3 justify-center overflow-hidden",
+          isActive
+            ? "bg-background text-foreground"
+            : "bg-transparent text-muted-foreground  hover:bg-muted hover:text-foreground",
         )}
         onClick={() => onSelect(tab.id)}
       >
-        {/* 固定图标 */}
-        {tab.isPinned && (
-          <Pin className="size-3 text-muted-foreground shrink-0 mr-2" />
-        )}
-
-        {/* 标签标题 */}
-        <span className="flex-1 truncate text-left mr-2">{tab.label}</span>
-
-        {/* 固定按钮（悬停时显示，固定标签常显） */}
-        <Button
-          size="icon-sm"
-          variant="ghost"
+        <span
           className={cn(
-            "hidden group-hover:block size-4 p-0 shrink-0",
-            tab.isPinned && "opacity-100",
+            " absolute left-3 w-4 h-full bg-linear-to-r ",
+            isActive
+              ? "from-background to-transparent"
+              : "group-hover:from-muted from-card to-transparent",
           )}
-          onClick={handlePin}
+        />
+        <span
+          ref={labelRef}
+          className={cn(
+            "overflow-hidden whitespace-nowrap text-xs",
+            "max-w-full text-right ",
+          )}
         >
-          {tab.isPinned ? (
-            <PinOff className="size-3 " />
-          ) : (
-            <Pin className="size-3" />
+          {tab.label}
+        </span>
+        <button
+          type="button"
+          aria-label={`关闭 ${tab.label}`}
+          title="关闭标签"
+          className={cn(
+            "absolute right-2 top-1/2 -translate-y-1/2 inline-flex size-7 items-center justify-center rounded-md",
+            "opacity-0 pointer-events-none transition-all duration-150",
+            "text-muted-foreground group-hover:text-foreground",
+            "group-hover:opacity-100 group-hover:pointer-events-auto group-hover:bg-muted/45",
           )}
-        </Button>
-
-        {/* 关闭按钮（悬停时显示，固定标签隐藏） */}
-        {!tab.isPinned && (
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            className="hidden group-hover:block size-4 p-0 shrink-0"
-            onClick={handleClose}
-          >
-            <X className="size-3" />
-          </Button>
-        )}
+          onClick={(event) => {
+            event.stopPropagation();
+            onClose(tab.id);
+          }}
+        >
+          <X className="size-4" />
+        </button>
       </div>
     </TabContextMenu>
   );

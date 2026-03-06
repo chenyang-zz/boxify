@@ -12,18 +12,37 @@ interface BaseResult {
   message: string;
 }
 
-// 封装一个函数用于调用Wails后端函数，并统一处理错误
+interface CallWailsOptions {
+  timeoutMs?: number;
+  timeoutMessage?: string;
+}
+
+const DEFAULT_WAILS_TIMEOUT_MS = 30000;
+
+// 使用默认超时调用 Wails 后端函数，并统一处理错误。
 export async function callWails<T extends BaseResult | null>(
   fn: (...args: any[]) => Promise<T>,
   ...args: Parameters<typeof fn>
 ) {
+  return callWailsWithOptions(fn, args);
+}
+
+// 按选项调用 Wails 后端函数，允许按场景覆盖超时。
+export async function callWailsWithOptions<T extends BaseResult | null>(
+  fn: (...args: any[]) => Promise<T>,
+  args: Parameters<typeof fn>,
+  options: CallWailsOptions = {},
+) {
   let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_WAILS_TIMEOUT_MS;
+  const timeoutMessage =
+    options.timeoutMessage ?? `请求超时（>${Math.ceil(timeoutMs / 1000)}秒）`;
 
   try {
     const res = await Promise.race([
       fn(...args),
       new Promise<T>((_, reject) => {
-        timer = setTimeout(() => reject(new Error("请求超时")), 10000);
+        timer = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
       }),
     ]);
 

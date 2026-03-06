@@ -72,3 +72,9 @@ Boxify/frontend/
 终端组件详细分层、数据流和扩展规范请查看：
 
 - `docs/terminal-component-architecture.md`
+
+## DBTable 详细架构文档
+
+DBTable 组件详细分层、编辑事务与变更提交流程请查看：
+
+- `docs/dbtable-component-architecture.md`

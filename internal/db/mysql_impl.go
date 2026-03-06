@@ -67,6 +67,12 @@ func (m *MySQLDB) Connect(config *connection.ConnectionConfig) error {
 		return fmt.Errorf("打开数据库连接失败：%w", err)
 	}
 
+	// 配置连接池参数，防止连接数超限
+	db.SetMaxOpenConns(10)             // 最大打开连接数
+	db.SetMaxIdleConns(5)              // 最大空闲连接数
+	db.SetConnMaxLifetime(30 * time.Minute) // 连接最大存活时间，防止长时间占用
+	db.SetConnMaxIdleTime(5 * time.Minute)  // 空闲连接超时时间
+
 	m.conn = db
 	m.pintTimeout = getConnectTimeout(config)
 
