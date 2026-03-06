@@ -14,26 +14,12 @@
 
 import { FC } from "react";
 import TreeHeader from "./TreeHeader";
-import { useResizeObserver } from "@/hooks/use-resize-observer";
-import { useAppStore } from "@/store/app.store";
 import FileTree from "../FileTree";
 
-const MIN_WIDTH = 100;
-
 const PropertyTree: FC = () => {
-  const { ref } = useResizeObserver<HTMLDivElement>({
-    onResize: ({ width }) => {
-      if (width < MIN_WIDTH) {
-        useAppStore.getState().setIsPropertyOpen(false);
-      }
-    },
-    delay: 0,
-  });
-
   return (
     <>
-      <div ref={ref} className="h-0"></div>
-      <div className="h-full w-full rounded-lg bg-card p-0.5 flex flex-col">
+      <div className="h-full w-full p-0.5 flex flex-col">
         <TreeHeader />
         <FileTree />
       </div>

@@ -1,4 +1,3 @@
-import UtilBar from "@/components/UtilBar";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -21,24 +20,26 @@ function MainApp() {
         className="h-screen w-screen bg-background flex flex-col overflow-hidden text-foreground"
       >
         <TitleBar />
-        <div className="flex-1 flex overflow-hidden">
-          <UtilBar />
-          <main className="h-full flex flex-1 overflow-hidden">
-            <ResizablePanelGroup orientation="horizontal">
-              {isOpen && (
-                <>
-                  <ResizablePanel defaultSize="250px" maxSize="400px">
-                    <PropertyTree />
-                  </ResizablePanel>
-                  <ResizableHandle className=" opacity-0" />
-                </>
-              )}
-              <ResizablePanel>
-                <Tabs />
-              </ResizablePanel>
-            </ResizablePanelGroup>
-          </main>
-        </div>
+        <main className="h-full flex flex-1 overflow-hidden">
+          <ResizablePanelGroup orientation="horizontal">
+            {isOpen && (
+              <>
+                <ResizablePanel
+                  defaultSize="250px"
+                  minSize="250px"
+                  maxSize="70%"
+                  className="border-r"
+                >
+                  <PropertyTree />
+                </ResizablePanel>
+                <ResizableHandle className=" opacity-0" />
+              </>
+            )}
+            <ResizablePanel>
+              <Tabs />
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </main>
       </div>
     </TooltipProvider>
   );

@@ -14,6 +14,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { StoreMethods } from "./common";
 
 interface AppState {
   isPropertyOpen: boolean;
@@ -37,3 +38,5 @@ export const useAppStore = create<AppState>()(
     },
   ),
 );
+
+export const appStoreMethods = StoreMethods(useAppStore);

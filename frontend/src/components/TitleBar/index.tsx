@@ -19,6 +19,8 @@ import { tabStoreMethods, useTabsStore } from "@/store/tabs.store";
 import TabBar from "../Tabs/TabBar";
 import { Button } from "../ui/button";
 import { LayoutGrid, PanelLeftIcon } from "lucide-react";
+import { appStoreMethods, useAppStore } from "@/store/app.store";
+import { cn } from "@/lib/utils";
 
 const macControlButtonClass =
   "h-3 w-3 rounded-full transition-opacity hover:opacity-85";
@@ -26,6 +28,7 @@ const macControlButtonClass =
 const TitleBar: FC = () => {
   // 仅在 macOS 渲染窗口控制按钮，保持各平台原生习惯一致。
   const isMac = System.IsMac();
+  const isOpen = useAppStore(useShallow((state) => state.isPropertyOpen));
 
   // 标题栏托管标签状态，保证 TabBar 放在窗口顶部时仍可完整操作标签。
   const { tabs, activeTabId } = useTabsStore(
@@ -54,18 +57,6 @@ const TitleBar: FC = () => {
     Window.ToggleMaximise().catch((err) => {
       console.error("切换窗口最大化失败:", err);
     });
-  };
-
-  const handleTabClose = (tabId: string) => {
-    tabStoreMethods.closeTab(tabId);
-  };
-
-  const handleTabPin = (tabId: string) => {
-    tabStoreMethods.pinTab(tabId);
-  };
-
-  const handleTabUnpin = (tabId: string) => {
-    tabStoreMethods.unpinTab(tabId);
   };
 
   const handleTabSelect = (tabId: string) => {
@@ -105,7 +96,14 @@ const TitleBar: FC = () => {
           />
         </div>
       )}
-      <Button size="icon-xs" variant="ghost" className="text-foreground mr-1">
+      <Button
+        size="icon-xs"
+        variant="ghost"
+        className={cn("text-foreground mr-1", isOpen && "bg-accent")}
+        onClick={() => {
+          appStoreMethods.setIsPropertyOpen(!isOpen);
+        }}
+      >
         <PanelLeftIcon className="size-4" />
       </Button>
       <Button size="icon-xs" variant="ghost" className="text-foreground mr-1">
