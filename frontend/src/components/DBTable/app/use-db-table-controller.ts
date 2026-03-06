@@ -132,9 +132,6 @@ export function useDBTableController({
         setTransactionSnapshot(null);
         setUndoStack([]);
         setRedoStack([]);
-        toast.info("事务内没有变更，已结束事务");
-      } else {
-        toast.info("没有可保存的变更");
       }
       return;
     }
@@ -168,11 +165,6 @@ export function useDBTableController({
 
   // 回退事务：将数据库和界面恢复到开始事务前的快照状态。
   const rollbackTransaction = useCallback(async () => {
-    if (!inTransaction) {
-      toast.warning("请先开始事务");
-      return;
-    }
-
     const snapshot = transactionSnapshot ? cloneDraftRows(transactionSnapshot) : [];
 
     setPending(true);
@@ -196,7 +188,7 @@ export function useDBTableController({
     } finally {
       setPending(false);
     }
-  }, [columns, inTransaction, primaryColumns, sessionId, transactionSnapshot]);
+  }, [columns, primaryColumns, sessionId, transactionSnapshot]);
 
   // 新增一行空数据；不自动切换事务状态。
   const addRow = useCallback(() => {
@@ -208,11 +200,6 @@ export function useDBTableController({
 
   // 标记删除或恢复选中行。
   const deleteSelectedRows = useCallback(() => {
-    if (!inTransaction) {
-      toast.warning("请先开始事务");
-      return;
-    }
-
     if (selectedRowIds.size === 0) {
       toast.warning("请先选择要删除的行");
       return;
@@ -221,14 +208,10 @@ export function useDBTableController({
     const nextRows = toggleRowsDeleted(rows, selectedRowIds);
     pushHistory(nextRows);
     setSelectedRowIds(new Set());
-  }, [inTransaction, pushHistory, rows, selectedRowIds]);
+  }, [pushHistory, rows, selectedRowIds]);
 
   // 撤销最近一次草稿编辑。
   const undo = useCallback(() => {
-    if (!inTransaction) {
-      toast.warning("请先开始事务");
-      return;
-    }
     if (undoStack.length === 0) {
       return;
     }
@@ -237,14 +220,10 @@ export function useDBTableController({
     setUndoStack((prev) => prev.slice(0, -1));
     setRedoStack((prev) => [...prev, cloneDraftRows(rows)]);
     setRows(cloneDraftRows(previous));
-  }, [inTransaction, rows, undoStack]);
+  }, [rows, undoStack]);
 
   // 重做最近一次被撤销的草稿编辑。
   const redo = useCallback(() => {
-    if (!inTransaction) {
-      toast.warning("请先开始事务");
-      return;
-    }
     if (redoStack.length === 0) {
       return;
     }
@@ -253,7 +232,7 @@ export function useDBTableController({
     setRedoStack((prev) => prev.slice(0, -1));
     setUndoStack((prev) => [...prev, cloneDraftRows(rows)]);
     setRows(cloneDraftRows(next));
-  }, [inTransaction, redoStack, rows]);
+  }, [redoStack, rows]);
 
   // 切换筛选输入框显示状态。
   const toggleFilterInput = useCallback(() => {
@@ -295,15 +274,7 @@ export function useDBTableController({
 
   // 切换行选中状态。
   const toggleRowSelection = useCallback((rowId: string) => {
-    setSelectedRowIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(rowId)) {
-        next.delete(rowId);
-      } else {
-        next.add(rowId);
-      }
-      return next;
-    });
+    setSelectedRowIds(new Set([rowId]));
   }, []);
 
   // 导入数据文件并刷新。

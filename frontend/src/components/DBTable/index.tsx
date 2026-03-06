@@ -44,9 +44,16 @@ interface DBTableProps {
 
 // DBTable 组件：负责表格渲染与交互绑定。
 const DBTable: FC<DBTableProps> = ({ sessionId: uuid }) => {
+  type HighlightMode = "row" | "cell";
+
   const headerRefs = useRef<Array<HTMLTableCellElement | null>>([]);
   const [stickyLefts, setStickyLefts] = useState<number[]>([0, 0, 0]);
   const [editingCell, setEditingCell] = useState<{
+    rowId: string;
+    column: string;
+  } | null>(null);
+  const [highlightMode, setHighlightMode] = useState<HighlightMode>("row");
+  const [selectedCell, setSelectedCell] = useState<{
     rowId: string;
     column: string;
   } | null>(null);
@@ -97,6 +104,14 @@ const DBTable: FC<DBTableProps> = ({ sessionId: uuid }) => {
 
   const sql = `SELECT * FROM ${propertyItem.label} LIMIT 0,500`;
 
+  // 处理左侧行标点击，切换对应数据行选中状态。
+  const handleSidebarRowClick = (rowId: string) => {
+    setHighlightMode("row");
+    setSelectedCell(null);
+    controller.setSelectedColumn(null);
+    controller.toggleRowSelection(rowId);
+  };
+
   return (
     <div ref={containerRef} className="bg-card h-full flex flex-col">
       <div className="h-full flex flex-col text-xs">
@@ -129,14 +144,23 @@ const DBTable: FC<DBTableProps> = ({ sessionId: uuid }) => {
         )}
         <main className="flex-1 flex outline outline-background min-h-0">
           <aside className="shrink-0 flex flex-col h-full outline outline-background bg-muted/20">
-            {new Array(controller.rows.length + 1).fill(0).map((_, index) => (
-              <span
-                key={index}
-                className="h-8 flex px-2 justify-center items-center outline outline-background first:bg-muted"
-              >
-                {index === 0 ? "" : index}
-              </span>
-            ))}
+            <div className="h-8 w-14 outline outline-background bg-muted" />
+            {controller.rows.map(({ row }, index) => {
+              const selected = controller.selectedRowIds.has(row.id);
+              return (
+                <button
+                  key={row.id}
+                  type="button"
+                  className={cn(
+                    "h-8 w-14 flex items-center justify-center outline outline-background cursor-pointer",
+                    selected && "bg-accent",
+                  )}
+                  onClick={() => handleSidebarRowClick(row.id)}
+                >
+                  {selected ? "●" : index + 1}
+                </button>
+              );
+            })}
           </aside>
           <section ref={tableScrollRef} className="flex-1 overflow-auto">
             <Table className="w-full">
@@ -166,19 +190,25 @@ const DBTable: FC<DBTableProps> = ({ sessionId: uuid }) => {
               <TableBody className="shadow">
                 {controller.rows.map(({ row }) => {
                   const selected = controller.selectedRowIds.has(row.id);
+                  const rowHighlighted = selected && highlightMode === "row";
                   return (
                     <TableRow
                       key={row.id}
                       className={cn(
                         "h-8 border-0",
-                        selected && "bg-accent/40",
+                        rowHighlighted && "bg-accent/40",
                         row.deleted && "opacity-55",
                       )}
-                      onClick={() => controller.toggleRowSelection(row.id)}
+                      onClick={() => handleSidebarRowClick(row.id)}
                     >
                       {controller.columns.map((col, index) => {
                         const colIndex = index;
                         const value = row.values[col];
+                        const cellHighlighted =
+                          selected &&
+                          highlightMode === "cell" &&
+                          selectedCell?.rowId === row.id &&
+                          selectedCell?.column === col;
                         const isEditing =
                           editingCell?.rowId === row.id &&
                           editingCell.column === col;
@@ -193,11 +223,16 @@ const DBTable: FC<DBTableProps> = ({ sessionId: uuid }) => {
                             className={cn(
                               "p-0 h-8 max-w-150 truncate text-left outline outline-background",
                               stickyCellClass(colIndex),
+                              (rowHighlighted || cellHighlighted) &&
+                                "bg-primary/30 ",
                               row.deleted && "line-through",
                             )}
                             style={stickyStyle(colIndex)}
                             onClick={(event) => {
                               event.stopPropagation();
+                              setHighlightMode("cell");
+                              setSelectedCell({ rowId: row.id, column: col });
+                              controller.toggleRowSelection(row.id);
                               controller.setSelectedColumn(col);
                             }}
                             onDoubleClick={(event) => {
@@ -205,6 +240,9 @@ const DBTable: FC<DBTableProps> = ({ sessionId: uuid }) => {
                               if (row.deleted) {
                                 return;
                               }
+                              setHighlightMode("cell");
+                              setSelectedCell({ rowId: row.id, column: col });
+                              controller.toggleRowSelection(row.id);
                               controller.setSelectedColumn(col);
                               setEditingCell({ rowId: row.id, column: col });
                             }}

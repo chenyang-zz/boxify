@@ -149,7 +149,7 @@ const HeaderAction: FC<HeaderActionProps> = ({
           variant="ghost"
           onClick={onDeleteRows}
           disabled={state.pending || !state.hasSelection}
-          title="删除/恢复选中行"
+          title="删除行"
         >
           <MinusIcon />
         </Button>
@@ -232,7 +232,10 @@ const HeaderAction: FC<HeaderActionProps> = ({
         </DropdownMenu>
       </header>
 
-      <AlertDialog open={refreshConfirmOpen} onOpenChange={setRefreshConfirmOpen}>
+      <AlertDialog
+        open={refreshConfirmOpen}
+        onOpenChange={setRefreshConfirmOpen}
+      >
         <AlertDialogContent className="text-foreground">
           <AlertDialogHeader className="place-items-start text-left">
             <AlertDialogTitle>确认要刷新吗</AlertDialogTitle>
@@ -242,7 +245,10 @@ const HeaderAction: FC<HeaderActionProps> = ({
           </AlertDialogHeader>
           <AlertDialogFooter className="justify-end">
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={handleConfirmRefresh}>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={handleConfirmRefresh}
+            >
               确认刷新
             </AlertDialogAction>
           </AlertDialogFooter>

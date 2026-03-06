@@ -58,7 +58,7 @@ export interface DBTableControllerResult {
   exportData: (format: DBTableExportFormat) => Promise<void>;
   setCellValue: (rowId: string, column: string, value: string) => void;
   toggleRowSelection: (rowId: string) => void;
-  setSelectedColumn: (column: string) => void;
+  setSelectedColumn: (column: string | null) => void;
 }
 
 export interface DBTableChangeSummary {
