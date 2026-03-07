@@ -99,6 +99,456 @@ function asComparableValue(value: any): string {
   return String(value);
 }
 
+type FilterTokenType =
+  | "identifier"
+  | "string"
+  | "number"
+  | "operator"
+  | "keyword"
+  | "paren";
+
+interface FilterToken {
+  type: FilterTokenType;
+  value: string;
+}
+
+type FilterComparator =
+  | "="
+  | "!="
+  | "<>"
+  | ">"
+  | ">="
+  | "<"
+  | "<="
+  | "LIKE"
+  | "NOT LIKE"
+  | "IS NULL"
+  | "IS NOT NULL";
+
+interface FilterComparisonNode {
+  type: "comparison";
+  column: string;
+  comparator: FilterComparator;
+  value?: any;
+}
+
+interface FilterBinaryNode {
+  type: "binary";
+  operator: "AND" | "OR";
+  left: FilterNode;
+  right: FilterNode;
+}
+
+type FilterNode = FilterComparisonNode | FilterBinaryNode;
+
+interface ParsedFilterExpression {
+  valid: boolean;
+  message?: string;
+  ast?: FilterNode;
+}
+
+function tokenizeFilterExpression(expression: string): FilterToken[] {
+  const tokens: FilterToken[] = [];
+  let index = 0;
+
+  while (index < expression.length) {
+    const char = expression[index];
+
+    if (/\s/.test(char)) {
+      index += 1;
+      continue;
+    }
+
+    if (char === "(" || char === ")") {
+      tokens.push({ type: "paren", value: char });
+      index += 1;
+      continue;
+    }
+
+    if (char === "'" || char === "\"") {
+      const quote = char;
+      let cursor = index + 1;
+      let text = "";
+      while (cursor < expression.length) {
+        const current = expression[cursor];
+        if (current === quote) {
+          break;
+        }
+        text += current;
+        cursor += 1;
+      }
+      tokens.push({ type: "string", value: text });
+      index = cursor < expression.length ? cursor + 1 : cursor;
+      continue;
+    }
+
+    const threeCharOp = expression.slice(index, index + 3);
+    const twoCharOp = expression.slice(index, index + 2);
+    if (threeCharOp === "<=>") {
+      tokens.push({ type: "operator", value: "=" });
+      index += 3;
+      continue;
+    }
+    if ([">=", "<=", "!=", "<>"].includes(twoCharOp)) {
+      tokens.push({ type: "operator", value: twoCharOp });
+      index += 2;
+      continue;
+    }
+    if (["=", ">", "<"].includes(char)) {
+      tokens.push({ type: "operator", value: char });
+      index += 1;
+      continue;
+    }
+
+    if (/[0-9]/.test(char)) {
+      let cursor = index + 1;
+      while (cursor < expression.length && /[0-9.]/.test(expression[cursor])) {
+        cursor += 1;
+      }
+      tokens.push({ type: "number", value: expression.slice(index, cursor) });
+      index = cursor;
+      continue;
+    }
+
+    let cursor = index + 1;
+    while (cursor < expression.length && /[A-Za-z0-9_]/.test(expression[cursor])) {
+      cursor += 1;
+    }
+    const rawWord = expression.slice(index, cursor);
+    const upper = rawWord.toUpperCase();
+    if (["AND", "OR", "LIKE", "NOT", "IS", "NULL"].includes(upper)) {
+      tokens.push({ type: "keyword", value: upper });
+    } else {
+      tokens.push({ type: "identifier", value: rawWord });
+    }
+    index = cursor;
+  }
+
+  return tokens;
+}
+
+function parseFilterExpression(expression: string): ParsedFilterExpression {
+  const tokens = tokenizeFilterExpression(expression);
+  let cursor = 0;
+
+  const peek = () => tokens[cursor];
+  const consume = () => {
+    const token = tokens[cursor];
+    cursor += 1;
+    return token;
+  };
+
+  const parseValue = (): any => {
+    const token = peek();
+    if (!token) {
+      return undefined;
+    }
+
+    if (token.type === "string") {
+      consume();
+      return token.value;
+    }
+    if (token.type === "number") {
+      consume();
+      const parsed = Number(token.value);
+      return Number.isNaN(parsed) ? token.value : parsed;
+    }
+    if (token.type === "keyword" && token.value === "NULL") {
+      consume();
+      return null;
+    }
+    if (token.type === "identifier" || token.type === "keyword") {
+      consume();
+      return token.value;
+    }
+    return undefined;
+  };
+
+  const parseComparison = (): FilterNode | null => {
+    const columnToken = consume();
+    if (!columnToken || columnToken.type !== "identifier") {
+      return null;
+    }
+
+    const first = peek();
+    if (!first) {
+      return null;
+    }
+
+    if (first.type === "keyword" && first.value === "IS") {
+      consume();
+      const maybeNot = peek();
+      if (maybeNot?.type === "keyword" && maybeNot.value === "NOT") {
+        consume();
+        const nil = peek();
+        if (nil?.type === "keyword" && nil.value === "NULL") {
+          consume();
+          return {
+            type: "comparison",
+            column: columnToken.value,
+            comparator: "IS NOT NULL",
+          };
+        }
+        return null;
+      }
+      const nil = peek();
+      if (nil?.type === "keyword" && nil.value === "NULL") {
+        consume();
+        return {
+          type: "comparison",
+          column: columnToken.value,
+          comparator: "IS NULL",
+        };
+      }
+      return null;
+    }
+
+    if (first.type === "keyword" && first.value === "NOT") {
+      consume();
+      const like = peek();
+      if (!(like?.type === "keyword" && like.value === "LIKE")) {
+        return null;
+      }
+      consume();
+      const value = parseValue();
+      if (value === undefined) {
+        return null;
+      }
+      return {
+        type: "comparison",
+        column: columnToken.value,
+        comparator: "NOT LIKE",
+        value,
+      };
+    }
+
+    if (first.type === "keyword" && first.value === "LIKE") {
+      consume();
+      const value = parseValue();
+      if (value === undefined) {
+        return null;
+      }
+      return {
+        type: "comparison",
+        column: columnToken.value,
+        comparator: "LIKE",
+        value,
+      };
+    }
+
+    if (first.type === "operator") {
+      consume();
+      const value = parseValue();
+      if (value === undefined) {
+        return null;
+      }
+      return {
+        type: "comparison",
+        column: columnToken.value,
+        comparator: first.value as FilterComparator,
+        value,
+      };
+    }
+
+    return null;
+  };
+
+  const parsePrimary = (): FilterNode | null => {
+    const token = peek();
+    if (!token) {
+      return null;
+    }
+    if (token.type === "paren" && token.value === "(") {
+      consume();
+      const expr = parseOrExpression();
+      const tail = peek();
+      if (!expr || !(tail?.type === "paren" && tail.value === ")")) {
+        return null;
+      }
+      consume();
+      return expr;
+    }
+    return parseComparison();
+  };
+
+  const parseAndExpression = (): FilterNode | null => {
+    let node = parsePrimary();
+    if (!node) {
+      return null;
+    }
+
+    while (peek()?.type === "keyword" && peek()?.value === "AND") {
+      consume();
+      const right = parsePrimary();
+      if (!right) {
+        return null;
+      }
+      node = {
+        type: "binary",
+        operator: "AND",
+        left: node,
+        right,
+      };
+    }
+
+    return node;
+  };
+
+  const parseOrExpression = (): FilterNode | null => {
+    let node = parseAndExpression();
+    if (!node) {
+      return null;
+    }
+
+    while (peek()?.type === "keyword" && peek()?.value === "OR") {
+      consume();
+      const right = parseAndExpression();
+      if (!right) {
+        return null;
+      }
+      node = {
+        type: "binary",
+        operator: "OR",
+        left: node,
+        right,
+      };
+    }
+
+    return node;
+  };
+
+  if (tokens.length === 0) {
+    return { valid: true };
+  }
+
+  const ast = parseOrExpression();
+  if (!ast || cursor < tokens.length) {
+    return {
+      valid: false,
+      message: "筛选语法无效，请检查字段名、操作符或括号",
+    };
+  }
+
+  return {
+    valid: true,
+    ast,
+  };
+}
+
+function toComparablePair(left: any, right: any): { left: any; right: any } {
+  const numericLeft = Number(left);
+  const numericRight = Number(right);
+  if (!Number.isNaN(numericLeft) && !Number.isNaN(numericRight)) {
+    return { left: numericLeft, right: numericRight };
+  }
+  return {
+    left: asComparableValue(left).toLowerCase(),
+    right: asComparableValue(right).toLowerCase(),
+  };
+}
+
+function escapeRegExp(input: string): string {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function evaluateComparison(node: FilterComparisonNode, rowValues: Record<string, any>): boolean {
+  const left = rowValues[node.column];
+  const right = node.value;
+
+  switch (node.comparator) {
+    case "IS NULL":
+      return left === null || left === undefined || left === "";
+    case "IS NOT NULL":
+      return !(left === null || left === undefined || left === "");
+    case "LIKE":
+    case "NOT LIKE": {
+      const source = asComparableValue(left);
+      const pattern = asComparableValue(right);
+      const regex = new RegExp(
+        `^${escapeRegExp(pattern).replace(/%/g, ".*").replace(/_/g, ".")}$`,
+        "i",
+      );
+      const matched = regex.test(source);
+      return node.comparator === "LIKE" ? matched : !matched;
+    }
+    case "=":
+      return asComparableValue(left) === asComparableValue(right);
+    case "!=":
+    case "<>":
+      return asComparableValue(left) !== asComparableValue(right);
+    case ">": {
+      const pair = toComparablePair(left, right);
+      return pair.left > pair.right;
+    }
+    case ">=": {
+      const pair = toComparablePair(left, right);
+      return pair.left >= pair.right;
+    }
+    case "<": {
+      const pair = toComparablePair(left, right);
+      return pair.left < pair.right;
+    }
+    case "<=": {
+      const pair = toComparablePair(left, right);
+      return pair.left <= pair.right;
+    }
+    default:
+      return false;
+  }
+}
+
+function evaluateFilterNode(node: FilterNode, rowValues: Record<string, any>): boolean {
+  if (node.type === "comparison") {
+    return evaluateComparison(node, rowValues);
+  }
+  if (node.operator === "AND") {
+    return evaluateFilterNode(node.left, rowValues) && evaluateFilterNode(node.right, rowValues);
+  }
+  return evaluateFilterNode(node.left, rowValues) || evaluateFilterNode(node.right, rowValues);
+}
+
+function collectColumnsFromNode(node: FilterNode): string[] {
+  if (node.type === "comparison") {
+    return [node.column];
+  }
+  return [...collectColumnsFromNode(node.left), ...collectColumnsFromNode(node.right)];
+}
+
+function validateFilterAstColumns(ast: FilterNode, columns: string[]): {
+  valid: boolean;
+  message?: string;
+} {
+  const allowed = new Set(columns.map((column) => column.toLowerCase()));
+  const unknown = collectColumnsFromNode(ast).find(
+    (column) => !allowed.has(column.toLowerCase()),
+  );
+  if (unknown) {
+    return {
+      valid: false,
+      message: `筛选字段不存在: ${unknown}`,
+    };
+  }
+  return { valid: true };
+}
+
+// 校验筛选表达式语法，供输入框提交前提示错误。
+export function validateFilterExpression(
+  expression: string,
+  columns?: string[],
+): {
+  valid: boolean;
+  message?: string;
+} {
+  const parsed = parseFilterExpression(expression);
+  if (!parsed.valid || !parsed.ast) {
+    return parsed;
+  }
+  if (!columns || columns.length === 0) {
+    return parsed;
+  }
+  return validateFilterAstColumns(parsed.ast, columns);
+}
+
 function isValueChanged(before: any, after: any): boolean {
   return asComparableValue(before) !== asComparableValue(after);
 }
@@ -275,15 +725,15 @@ export function toRenderRows(
   filterKeyword: string,
   sortState: DBTableSortState,
 ): DBTableRenderRow[] {
-  const keyword = filterKeyword.trim().toLowerCase();
+  const keyword = filterKeyword.trim();
+  const parsed = parseFilterExpression(keyword);
+  const columnCheck =
+    parsed.valid && parsed.ast ? validateFilterAstColumns(parsed.ast, columns) : { valid: false };
   const filtered = rows.filter((row) => {
-    if (!keyword) {
+    if (!keyword || !parsed.valid || !parsed.ast || !columnCheck.valid) {
       return true;
     }
-
-    return columns.some((column) =>
-      asComparableValue(row.values[column]).toLowerCase().includes(keyword),
-    );
+    return evaluateFilterNode(parsed.ast, row.values);
   });
 
   const sorted = [...filtered];

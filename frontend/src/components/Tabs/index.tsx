@@ -29,7 +29,7 @@ const Tabs: FC = () => {
   return (
     <div className="h-full w-full flex flex-col overflow-hidden ">
       {/* 标签内容区 */}
-      <div className="flex-1 overflow-hidden bg-background shadow-sm">
+      <div className="flex-1 h-full overflow-hidden bg-background shadow-sm">
         <TabContent tabs={tabs} activeTabId={activeTabId} />
       </div>
     </div>

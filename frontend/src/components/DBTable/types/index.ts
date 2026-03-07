@@ -32,6 +32,7 @@ export interface DBTableActionState {
   hasSelection: boolean;
   showFilterInput: boolean;
   filterKeyword: string;
+  filterError: string | null;
   sortState: DBTableSortState;
 }
 
@@ -54,6 +55,7 @@ export interface DBTableControllerResult {
   endCellEditSession: () => void;
   toggleFilterInput: () => void;
   setFilterKeyword: (keyword: string) => void;
+  applyFilter: () => void;
   toggleSort: () => void;
   importData: () => Promise<void>;
   exportData: (format: DBTableExportFormat) => Promise<void>;

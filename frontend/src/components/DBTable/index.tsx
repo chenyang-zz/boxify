@@ -36,6 +36,7 @@ import { getPropertyItemByUUID } from "@/lib/property";
 import { useHorizontalScroll } from "@/hooks/useHorizontalScroll";
 import { Input } from "../ui/input";
 import HeaderAction from "./components/HeaderAction";
+import FilterExpressionInput from "./components/FilterExpressionInput";
 import { useDBTableController } from "./app/use-db-table-controller";
 
 interface DBTableProps {
@@ -97,10 +98,10 @@ const DBTable: FC<DBTableProps> = ({ sessionId: uuid }) => {
   };
 
   const stickyHeadClass = (colIndex: number) =>
-    colIndex <= 2 ? "sticky z-20 bg-muted" : "";
+    colIndex <= 2 ? "sticky z-20" : "";
 
   const stickyCellClass = (colIndex: number) =>
-    colIndex <= 2 ? "sticky z-10 bg-card" : "";
+    colIndex <= 2 ? "sticky z-10" : "";
 
   const sql = `SELECT * FROM ${propertyItem.label} LIMIT 0,500`;
 
@@ -113,7 +114,7 @@ const DBTable: FC<DBTableProps> = ({ sessionId: uuid }) => {
   };
 
   return (
-    <div ref={containerRef} className="bg-card h-full flex flex-col">
+    <div ref={containerRef} className="h-full bg-card flex flex-col">
       <div className="h-full flex flex-col text-xs">
         <HeaderAction
           state={controller.actionState}
@@ -132,19 +133,19 @@ const DBTable: FC<DBTableProps> = ({ sessionId: uuid }) => {
         />
         {controller.actionState.showFilterInput && (
           <div className="px-2 py-1 border-b border-border">
-            <Input
+            <FilterExpressionInput
               value={controller.actionState.filterKeyword}
-              onChange={(event) =>
-                controller.setFilterKeyword(event.target.value)
-              }
-              placeholder="输入关键字筛选当前结果"
-              className="h-7 text-xs"
+              columns={controller.columns}
+              pending={controller.actionState.pending}
+              error={controller.actionState.filterError ?? undefined}
+              onChange={controller.setFilterKeyword}
+              onApply={controller.applyFilter}
             />
           </div>
         )}
         <main className="flex-1 flex outline outline-background min-h-0">
-          <aside className="shrink-0 flex flex-col h-full outline outline-background bg-muted/20">
-            <div className="h-8 w-14 outline outline-background bg-muted" />
+          <aside className="shrink-0 flex flex-col h-full outline outline-background bg-background">
+            <div className="h-8 w-14 outline outline-background bg-card" />
             {controller.rows.map(({ row }, index) => {
               const selected = controller.selectedRowIds.has(row.id);
               return (
@@ -162,9 +163,12 @@ const DBTable: FC<DBTableProps> = ({ sessionId: uuid }) => {
               );
             })}
           </aside>
-          <section ref={tableScrollRef} className="flex-1 overflow-auto">
+          <section
+            ref={tableScrollRef}
+            className="flex-1 overflow-auto bg-background"
+          >
             <Table className="w-full">
-              <TableHeader className="bg-muted">
+              <TableHeader>
                 <TableRow className="border-0">
                   {controller.columns.map((col, index) => {
                     const colIndex = index;
@@ -174,7 +178,7 @@ const DBTable: FC<DBTableProps> = ({ sessionId: uuid }) => {
                         key={col}
                         ref={isSticky ? setHeaderRef(colIndex) : undefined}
                         className={cn(
-                          "px-4 py-0 h-8 text-center truncate outline outline-background cursor-pointer",
+                          "px-4 py-0 h-8 text-center truncate outline outline-background cursor-pointer bg-card",
                           stickyHeadClass(colIndex),
                           controller.selectedColumn === col && "bg-accent",
                         )}
@@ -187,7 +191,7 @@ const DBTable: FC<DBTableProps> = ({ sessionId: uuid }) => {
                   })}
                 </TableRow>
               </TableHeader>
-              <TableBody className="shadow">
+              <TableBody className="shadow bg-background">
                 {controller.rows.map(({ row }) => {
                   const selected = controller.selectedRowIds.has(row.id);
                   const rowHighlighted = selected && highlightMode === "row";
@@ -287,7 +291,7 @@ const DBTable: FC<DBTableProps> = ({ sessionId: uuid }) => {
             </Table>
           </section>
         </main>
-        <footer className="shrink-0 text-left px-0.5 flex items-center text-[10px]">
+        <footer className="shrink-0 text-left px-0.5 bg-card flex items-center text-[10px]">
           <Button
             size="icon"
             variant="ghost"

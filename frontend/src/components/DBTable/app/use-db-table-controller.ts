@@ -19,6 +19,7 @@ import {
   toRenderRows,
   toggleRowsDeleted,
   updateCellValue,
+  validateFilterExpression,
 } from "../domain/draft";
 import type {
   DBTableControllerResult,
@@ -44,6 +45,8 @@ export function useDBTableController({
   const [selectedColumn, setSelectedColumn] = useState<string | null>(null);
   const [showFilterInput, setShowFilterInput] = useState(false);
   const [filterKeyword, setFilterKeyword] = useState("");
+  const [appliedFilterKeyword, setAppliedFilterKeyword] = useState("");
+  const [filterError, setFilterError] = useState<string | null>(null);
   const [sortState, setSortState] = useState<DBTableSortState>({
     column: null,
     direction: "none",
@@ -240,8 +243,30 @@ export function useDBTableController({
     setShowFilterInput((prev) => !prev);
     if (showFilterInput) {
       setFilterKeyword("");
+      setAppliedFilterKeyword("");
+      setFilterError(null);
     }
   }, [showFilterInput]);
+
+  // 应用筛选表达式：校验通过后才更新渲染条件。
+  const applyFilter = useCallback(() => {
+    const expression = filterKeyword.trim();
+    if (!expression) {
+      setAppliedFilterKeyword("");
+      setFilterError(null);
+      return;
+    }
+
+    const result = validateFilterExpression(expression, columns);
+    if (!result.valid) {
+      setFilterError(result.message ?? "筛选语法无效");
+      toast.warning(result.message ?? "筛选语法无效");
+      return;
+    }
+
+    setFilterError(null);
+    setAppliedFilterKeyword(expression);
+  }, [columns, filterKeyword]);
 
   // 按当前选中列切换排序方向。
   const toggleSort = useCallback(() => {
@@ -315,8 +340,8 @@ export function useDBTableController({
   }, [sessionId]);
 
   const renderRows = useMemo(
-    () => toRenderRows(rows, columns, filterKeyword, sortState),
-    [columns, filterKeyword, rows, sortState],
+    () => toRenderRows(rows, columns, appliedFilterKeyword, sortState),
+    [appliedFilterKeyword, columns, rows, sortState],
   );
 
   return {
@@ -334,6 +359,7 @@ export function useDBTableController({
       hasSelection: selectedRowIds.size > 0,
       showFilterInput,
       filterKeyword,
+      filterError,
       sortState,
     },
     load,
@@ -348,6 +374,7 @@ export function useDBTableController({
     endCellEditSession,
     toggleFilterInput,
     setFilterKeyword,
+    applyFilter,
     toggleSort,
     importData,
     exportData,
