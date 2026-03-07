@@ -31,7 +31,7 @@ export const OverviewPanel: FC = () => {
       {/* 标题区域 */}
       <div className="flex items-start justify-between mb-6">
         <div className="flex flex-col gap-1 text-left">
-          <h1 className="text-2xl font-bold">仪表盘</h1>
+          <h1 className="text-xl font-bold">仪表盘</h1>
           <p className="text-sm text-muted-foreground">OpenClaw 运行状态总览</p>
         </div>
         <div className="flex items-center gap-2">

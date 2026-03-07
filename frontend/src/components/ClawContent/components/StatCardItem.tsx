@@ -34,7 +34,7 @@ export const StatCardItem: FC<StatCardItemProps> = ({
   iconBgColor,
   iconColor,
 }) => (
-  <div className="flex flex-1 items-center gap-3  p-4 bg-card rounded-xl min-w-50">
+  <div className="flex flex-1 items-center gap-3  p-4 bg-card rounded-lg  min-w-50">
     <div
       className={cn(
         "flex items-center justify-center size-10 rounded-lg shrink-0",

@@ -37,7 +37,7 @@ export const ChannelCardItem: FC<ChannelCardItemProps> = ({
   const typeLabel = getChannelTypeLabel(type);
 
   return (
-    <div className="flex items-center flex-1 gap-4 p-4 bg-card rounded-xl min-w-80">
+    <div className="flex items-center flex-1 gap-4 p-4 bg-card rounded-lg  min-w-80">
       <div className="flex items-center justify-center size-12 bg-background rounded-lg border">
         <span className="text-sm font-medium">
           {name.charAt(0).toUpperCase()}
