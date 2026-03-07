@@ -75,6 +75,9 @@ func main() {
 		func(app *application.App) application.Service {
 			return application.NewService(service.NewGitService(deps))
 		},
+		func(app *application.App) application.Service {
+			return application.NewService(service.NewClawService(deps))
+		},
 	}
 
 	am.RegisterService(services...)
