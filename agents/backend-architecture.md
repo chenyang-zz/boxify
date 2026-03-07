@@ -9,7 +9,7 @@ Boxify/
 ├── internal/
 │   ├── config/                     # 配置加载与解析（page config）
 │   ├── connection/                 # 连接相关类型定义
-│   ├── claw/                       # OpenClaw 相关能力（process 生命周期、monitor 监控）
+│   ├── claw/                       # OpenClaw 相关能力（process/monitor/update/updater/taskman/plugin）
 │   ├── db/                         # 数据库抽象、连接管理与 MySQL 实现
 │   ├── events/                     # 事件类型定义
 │   ├── git/                        # Git 管理、解析、监听
