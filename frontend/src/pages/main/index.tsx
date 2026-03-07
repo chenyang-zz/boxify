@@ -9,9 +9,12 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useShallow } from "zustand/react/shallow";
 import { useAppStore } from "@/store/app.store";
 import Tabs from "@/components/Tabs";
+import Sidebar, { useActiveView } from "@/components/Sidebar";
+import ClawContent from "@/components/ClawContent";
 
 function MainApp() {
   const isOpen = useAppStore(useShallow((state) => state.isPropertyOpen));
+  const activeView = useActiveView();
 
   return (
     <TooltipProvider>
@@ -30,13 +33,13 @@ function MainApp() {
                   maxSize="70%"
                   className="border-r"
                 >
-                  <PropertyTree />
+                  <Sidebar />
                 </ResizablePanel>
                 <ResizableHandle className=" opacity-0" />
               </>
             )}
             <ResizablePanel>
-              <Tabs />
+              {activeView === "control" ? <ClawContent /> : <Tabs />}
             </ResizablePanel>
           </ResizablePanelGroup>
         </main>
