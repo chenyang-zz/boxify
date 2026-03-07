@@ -38,9 +38,28 @@ import { Input } from "../ui/input";
 import HeaderAction from "./components/HeaderAction";
 import FilterExpressionInput from "./components/FilterExpressionInput";
 import { useDBTableController } from "./app/use-db-table-controller";
+import { ConnectionEnum } from "@/common/constrains";
+import type { PropertyItemType } from "@/types/property";
 
 interface DBTableProps {
   sessionId: string;
+}
+
+// 从当前属性节点向上追溯连接节点，解析数据库类型。
+function resolveDatabaseTypeFromProperty(
+  item: PropertyItemType | null,
+): ConnectionEnum.MYSQL | ConnectionEnum.POSTGRESQL | null {
+  let cursor = item;
+  while (cursor) {
+    if (
+      cursor.type === ConnectionEnum.MYSQL ||
+      cursor.type === ConnectionEnum.POSTGRESQL
+    ) {
+      return cursor.type;
+    }
+    cursor = cursor.parent ?? null;
+  }
+  return null;
 }
 
 // DBTable 组件：负责表格渲染与交互绑定。
@@ -62,6 +81,10 @@ const DBTable: FC<DBTableProps> = ({ sessionId: uuid }) => {
   const tableScrollRef = useHorizontalScroll({ hideScrollbar: false });
 
   const propertyItem = useMemo(() => getPropertyItemByUUID(uuid), [uuid]);
+  const databaseType = useMemo(
+    () => resolveDatabaseTypeFromProperty(propertyItem),
+    [propertyItem],
+  );
   const controller = useDBTableController({ sessionId: uuid });
 
   useEffect(() => {
@@ -132,16 +155,15 @@ const DBTable: FC<DBTableProps> = ({ sessionId: uuid }) => {
           onExport={controller.exportData}
         />
         {controller.actionState.showFilterInput && (
-          <div className="px-2 py-1 border-b border-border">
-            <FilterExpressionInput
-              value={controller.actionState.filterKeyword}
-              columns={controller.columns}
-              pending={controller.actionState.pending}
-              error={controller.actionState.filterError ?? undefined}
-              onChange={controller.setFilterKeyword}
-              onApply={controller.applyFilter}
-            />
-          </div>
+          <FilterExpressionInput
+            value={controller.actionState.filterKeyword}
+            columns={controller.columns}
+            databaseType={databaseType}
+            pending={controller.actionState.pending}
+            error={controller.actionState.filterError ?? undefined}
+            onChange={controller.setFilterKeyword}
+            onApply={controller.applyFilter}
+          />
         )}
         <main className="flex-1 flex outline outline-background min-h-0">
           <aside className="shrink-0 flex flex-col h-full outline outline-background bg-background">

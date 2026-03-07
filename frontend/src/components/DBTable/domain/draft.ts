@@ -105,12 +105,32 @@ type FilterTokenType =
   | "number"
   | "operator"
   | "keyword"
-  | "paren";
+  | "paren"
+  | "comma";
 
 interface FilterToken {
   type: FilterTokenType;
   value: string;
 }
+
+interface FilterColumnOperand {
+  type: "column";
+  column: string;
+}
+
+interface FilterFunctionOperand {
+  type: "function";
+  name: string;
+  args: FilterOperandArg[];
+}
+
+interface FilterLiteralOperand {
+  type: "literal";
+  value: any;
+}
+
+type FilterOperand = FilterColumnOperand | FilterFunctionOperand;
+type FilterOperandArg = FilterOperand | FilterLiteralOperand;
 
 type FilterComparator =
   | "="
@@ -121,13 +141,15 @@ type FilterComparator =
   | "<"
   | "<="
   | "LIKE"
+  | "ILIKE"
   | "NOT LIKE"
+  | "NOT ILIKE"
   | "IS NULL"
   | "IS NOT NULL";
 
 interface FilterComparisonNode {
   type: "comparison";
-  column: string;
+  leftOperand: FilterOperand;
   comparator: FilterComparator;
   value?: any;
 }
@@ -161,6 +183,12 @@ function tokenizeFilterExpression(expression: string): FilterToken[] {
 
     if (char === "(" || char === ")") {
       tokens.push({ type: "paren", value: char });
+      index += 1;
+      continue;
+    }
+
+    if (char === ",") {
+      tokens.push({ type: "comma", value: char });
       index += 1;
       continue;
     }
@@ -216,7 +244,7 @@ function tokenizeFilterExpression(expression: string): FilterToken[] {
     }
     const rawWord = expression.slice(index, cursor);
     const upper = rawWord.toUpperCase();
-    if (["AND", "OR", "LIKE", "NOT", "IS", "NULL"].includes(upper)) {
+    if (["AND", "OR", "LIKE", "ILIKE", "NOT", "IS", "NULL", "TRUE", "FALSE"].includes(upper)) {
       tokens.push({ type: "keyword", value: upper });
     } else {
       tokens.push({ type: "identifier", value: rawWord });
@@ -257,6 +285,14 @@ function parseFilterExpression(expression: string): ParsedFilterExpression {
       consume();
       return null;
     }
+    if (token.type === "keyword" && token.value === "TRUE") {
+      consume();
+      return true;
+    }
+    if (token.type === "keyword" && token.value === "FALSE") {
+      consume();
+      return false;
+    }
     if (token.type === "identifier" || token.type === "keyword") {
       consume();
       return token.value;
@@ -264,9 +300,77 @@ function parseFilterExpression(expression: string): ParsedFilterExpression {
     return undefined;
   };
 
+  const parseOperandFromIdentifier = (identifier: string): FilterOperand | null => {
+    const maybeOpen = peek();
+    if (!(maybeOpen?.type === "paren" && maybeOpen.value === "(")) {
+      return {
+        type: "column",
+        column: identifier,
+      };
+    }
+
+    consume();
+    const args: FilterOperandArg[] = [];
+    while (true) {
+      const tail = peek();
+      if (!tail) {
+        return null;
+      }
+      if (tail.type === "paren" && tail.value === ")") {
+        consume();
+        break;
+      }
+
+      const argToken = peek();
+      if (!argToken) {
+        return null;
+      }
+
+      if (argToken.type === "identifier") {
+        consume();
+        const operand = parseOperandFromIdentifier(argToken.value);
+        if (!operand) {
+          return null;
+        }
+        args.push(operand);
+      } else {
+        const literal = parseValue();
+        if (literal === undefined) {
+          return null;
+        }
+        args.push({ type: "literal", value: literal });
+      }
+
+      const separator = peek();
+      if (separator?.type === "comma") {
+        consume();
+        continue;
+      }
+      if (separator?.type === "paren" && separator.value === ")") {
+        consume();
+        break;
+      }
+      return null;
+    }
+
+    return {
+      type: "function",
+      name: identifier.toUpperCase(),
+      args,
+    };
+  };
+
+  const parseLeftOperand = (): FilterOperand | null => {
+    const token = consume();
+    if (!token || token.type !== "identifier") {
+      return null;
+    }
+    return parseOperandFromIdentifier(token.value);
+  };
+
   const parseComparison = (): FilterNode | null => {
-    const columnToken = consume();
-    if (!columnToken || columnToken.type !== "identifier") {
+    const leftOperand = parseLeftOperand();
+    if (!leftOperand) {
       return null;
     }
 
@@ -285,7 +389,7 @@ function parseFilterExpression(expression: string): ParsedFilterExpression {
           consume();
           return {
             type: "comparison",
-            column: columnToken.value,
+            leftOperand,
             comparator: "IS NOT NULL",
           };
         }
@@ -296,7 +400,7 @@ function parseFilterExpression(expression: string): ParsedFilterExpression {
         consume();
         return {
           type: "comparison",
-          column: columnToken.value,
+          leftOperand,
           comparator: "IS NULL",
         };
       }
@@ -305,8 +409,8 @@ function parseFilterExpression(expression: string): ParsedFilterExpression {
 
     if (first.type === "keyword" && first.value === "NOT") {
       consume();
-      const like = peek();
-      if (!(like?.type === "keyword" && like.value === "LIKE")) {
+      const keyword = peek();
+      if (!(keyword?.type === "keyword" && (keyword.value === "LIKE" || keyword.value === "ILIKE"))) {
         return null;
       }
       consume();
@@ -316,13 +420,13 @@ function parseFilterExpression(expression: string): ParsedFilterExpression {
       }
       return {
         type: "comparison",
-        column: columnToken.value,
-        comparator: "NOT LIKE",
+        leftOperand,
+        comparator: keyword.value === "ILIKE" ? "NOT ILIKE" : "NOT LIKE",
         value,
       };
     }
 
-    if (first.type === "keyword" && first.value === "LIKE") {
+    if (first.type === "keyword" && (first.value === "LIKE" || first.value === "ILIKE")) {
       consume();
       const value = parseValue();
       if (value === undefined) {
@@ -330,8 +434,8 @@ function parseFilterExpression(expression: string): ParsedFilterExpression {
       }
       return {
         type: "comparison",
-        column: columnToken.value,
-        comparator: "LIKE",
+        leftOperand,
+        comparator: first.value as FilterComparator,
         value,
       };
     }
@@ -344,7 +448,7 @@ function parseFilterExpression(expression: string): ParsedFilterExpression {
       }
       return {
         type: "comparison",
-        column: columnToken.value,
+        leftOperand,
         comparator: first.value as FilterComparator,
         value,
       };
@@ -451,8 +555,67 @@ function escapeRegExp(input: string): string {
   return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function evaluateOperand(
+  operand: FilterOperandArg,
+  rowValues: Record<string, any>,
+): any {
+  if (operand.type === "literal") {
+    return operand.value;
+  }
+  if (operand.type === "column") {
+    return rowValues[operand.column];
+  }
+
+  const args = operand.args.map((arg) => evaluateOperand(arg, rowValues));
+  switch (operand.name) {
+    case "LOWER":
+      return asComparableValue(args[0]).toLowerCase();
+    case "UPPER":
+      return asComparableValue(args[0]).toUpperCase();
+    case "TRIM":
+    case "BTRIM":
+      return asComparableValue(args[0]).trim();
+    case "LENGTH":
+      return asComparableValue(args[0]).length;
+    case "ABS":
+      return Math.abs(Number(args[0]));
+    case "ROUND": {
+      const value = Number(args[0]);
+      const digits = args[1] === undefined ? 0 : Number(args[1]);
+      if (Number.isNaN(value) || Number.isNaN(digits)) {
+        return NaN;
+      }
+      const factor = 10 ** digits;
+      return Math.round(value * factor) / factor;
+    }
+    case "CONCAT":
+      return args.map((arg) => asComparableValue(arg)).join("");
+    case "SUBSTRING": {
+      const source = asComparableValue(args[0]);
+      const start = Math.max(0, Number(args[1]) - 1);
+      if (Number.isNaN(start)) {
+        return "";
+      }
+      if (args[2] === undefined) {
+        return source.slice(start);
+      }
+      const len = Number(args[2]);
+      if (Number.isNaN(len)) {
+        return "";
+      }
+      return source.slice(start, start + len);
+    }
+    case "COALESCE":
+      return args.find((arg) => arg !== null && arg !== undefined && arg !== "");
+    case "NOW":
+      return new Date().toISOString();
+    default:
+      return undefined;
+  }
+}
+
 function evaluateComparison(node: FilterComparisonNode, rowValues: Record<string, any>): boolean {
-  const left = rowValues[node.column];
+  const left = evaluateOperand(node.leftOperand, rowValues);
   const right = node.value;
 
   switch (node.comparator) {
@@ -461,16 +624,22 @@ function evaluateComparison(node: FilterComparisonNode, rowValues: Record<string
     case "IS NOT NULL":
       return !(left === null || left === undefined || left === "");
     case "LIKE":
+    case "ILIKE":
     case "NOT LIKE": {
       const source = asComparableValue(left);
       const pattern = asComparableValue(right);
       const regex = new RegExp(
         `^${escapeRegExp(pattern).replace(/%/g, ".*").replace(/_/g, ".")}$`,
-        "i",
+        node.comparator === "ILIKE" ? "i" : "",
       );
       const matched = regex.test(source);
-      return node.comparator === "LIKE" ? matched : !matched;
+      return node.comparator === "LIKE" || node.comparator === "ILIKE" ? matched : !matched;
     }
+    case "NOT ILIKE":
+      return !new RegExp(
+        `^${escapeRegExp(asComparableValue(right)).replace(/%/g, ".*").replace(/_/g, ".")}$`,
+        "i",
+      ).test(asComparableValue(left));
     case "=":
       return asComparableValue(left) === asComparableValue(right);
     case "!=":
@@ -509,7 +678,16 @@ function evaluateFilterNode(node: FilterNode, rowValues: Record<string, any>): b
 
 function collectColumnsFromNode(node: FilterNode): string[] {
   if (node.type === "comparison") {
-    return [node.column];
+    const collectFromOperand = (operand: FilterOperandArg): string[] => {
+      if (operand.type === "literal") {
+        return [];
+      }
+      if (operand.type === "column") {
+        return [operand.column];
+      }
+      return operand.args.flatMap(collectFromOperand);
+    };
+    return collectFromOperand(node.leftOperand);
   }
   return [...collectColumnsFromNode(node.left), ...collectColumnsFromNode(node.right)];
 }

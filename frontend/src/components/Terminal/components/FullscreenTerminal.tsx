@@ -21,17 +21,10 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { terminalSessionManager } from "../lib/session-manager";
 import "@xterm/xterm/css/xterm.css";
 import "./FullscreenTerminal.css";
+import { resolveCssVar } from "@/lib/theme";
 
 interface FullscreenTerminalProps {
   sessionId: string;
-}
-
-// 读取全局主题变量，供 xterm 同步应用当前 Tailwind 主题配色。
-function resolveCssVar(name: string, fallback: string): string {
-  const value = getComputedStyle(document.documentElement)
-    .getPropertyValue(name)
-    .trim();
-  return value || fallback;
 }
 
 // 将应用主题 token 转换为 xterm 可识别的主题配置。
@@ -141,5 +134,10 @@ export function FullscreenTerminal({ sessionId }: FullscreenTerminalProps) {
     };
   }, [sessionId]);
 
-  return <div ref={hostRef} className="fullscreen-terminal h-full w-full overflow-hidden" />;
+  return (
+    <div
+      ref={hostRef}
+      className="fullscreen-terminal h-full w-full overflow-hidden"
+    />
+  );
 }

@@ -55,7 +55,7 @@ export interface DBTableControllerResult {
   endCellEditSession: () => void;
   toggleFilterInput: () => void;
   setFilterKeyword: (keyword: string) => void;
-  applyFilter: () => void;
+  applyFilter: (expression: string) => void;
   toggleSort: () => void;
   importData: () => Promise<void>;
   exportData: (format: DBTableExportFormat) => Promise<void>;

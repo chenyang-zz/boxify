@@ -23,7 +23,6 @@ import {
 import { getPropertyItemByUUID } from "./property";
 import { getConnectionConfigByUUID, getDatabaseNameByUUID } from "./connection";
 import { callWails, callWailsWithOptions } from "./utils";
-import { selectAllFrom } from "./sql";
 
 export type DBTableExportFormat = "csv" | "json" | "md";
 
@@ -31,6 +30,36 @@ interface DBTableContext {
   config: ConnectionConfig;
   dbName: string;
   tableName: string;
+}
+
+// 根据数据库类型包装标识符，避免表名包含特殊字符导致查询失败。
+function quoteIdentifierByType(
+  dbType: string | undefined,
+  identifier: string,
+): string {
+  if (dbType === "postgresql") {
+    return `"${identifier.replace(/"/g, `""`)}"`;
+  }
+  return `\`${identifier.replace(/`/g, "``")}\``;
+}
+
+// 生成表数据查询 SQL，支持可选筛选表达式。
+function buildTableQuerySQL(
+  dbType: string | undefined,
+  tableName: string,
+  filterExpression = "",
+  offset = 0,
+  limit = 500,
+): string {
+  const quotedTable = quoteIdentifierByType(dbType, tableName);
+  const whereClause = filterExpression.trim()
+    ? ` WHERE ${filterExpression.trim()}`
+    : "";
+
+  if (dbType === "postgresql") {
+    return `SELECT * FROM ${quotedTable}${whereClause} LIMIT ${limit} OFFSET ${offset}`;
+  }
+  return `SELECT * FROM ${quotedTable}${whereClause} LIMIT ${offset},${limit}`;
 }
 
 // 解析并校验表操作所需上下文。
@@ -87,18 +116,23 @@ export async function getDBTableColumnsByUUID(
 // 根据表的 UUID 获取表数据。
 export async function getDBTableValuesByUUID(
   uuid: string,
+  filterExpression = "",
 ): Promise<QueryResult | null> {
   const ctx = resolveDBTableContext(uuid);
   if (!ctx) {
     return null;
   }
 
-  const compile = selectAllFrom(ctx.tableName);
+  const querySQL = buildTableQuerySQL(
+    ctx.config.type,
+    ctx.tableName,
+    filterExpression,
+  );
 
   try {
     return await callWailsWithOptions(
       DatabaseService.DBQuery,
-      [ctx.config, ctx.dbName, compile.sql, compile.parameters],
+      [ctx.config, ctx.dbName, querySQL, []],
       {
         timeoutMs: 60000,
         timeoutMessage: "加载表数据超时，请缩小数据范围或调整连接超时",

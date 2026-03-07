@@ -19,6 +19,19 @@ interface CallWailsOptions {
 
 const DEFAULT_WAILS_TIMEOUT_MS = 30000;
 
+// 统一打印后端查询函数执行的 SQL，便于排查筛选与查询问题。
+function logBackendQuerySQL(fnName: string, args: unknown[]) {
+  const isQueryCall = fnName === "DBQuery" || fnName === "MySQLQuery" || fnName.endsWith("Query");
+  if (!isQueryCall) {
+    return;
+  }
+  const sql = args[2];
+  if (typeof sql !== "string" || !sql.trim()) {
+    return;
+  }
+  console.info(`[Wails:${fnName}] SQL => ${sql}`);
+}
+
 // 使用默认超时调用 Wails 后端函数，并统一处理错误。
 export async function callWails<T extends BaseResult | null>(
   fn: (...args: any[]) => Promise<T>,
@@ -37,6 +50,7 @@ export async function callWailsWithOptions<T extends BaseResult | null>(
   const timeoutMs = options.timeoutMs ?? DEFAULT_WAILS_TIMEOUT_MS;
   const timeoutMessage =
     options.timeoutMessage ?? `请求超时（>${Math.ceil(timeoutMs / 1000)}秒）`;
+  logBackendQuerySQL(fn.name, args as unknown[]);
 
   try {
     const res = await Promise.race([

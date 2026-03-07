@@ -69,14 +69,14 @@ export function useDBTableController({
 
   // 刷新表格数据并按需决定是否保持在事务中。
   const reloadWithTransactionState = useCallback(
-    async (keepTransaction: boolean) => {
+    async (keepTransaction: boolean, filterExpression = "") => {
       if (!sessionId) {
         return;
       }
 
       const [columnRes, valueRes] = await Promise.all([
         getDBTableColumnsByUUID(sessionId),
-        getDBTableValuesByUUID(sessionId),
+        getDBTableValuesByUUID(sessionId, filterExpression),
       ]);
       const nextRows = createDraftRows((valueRes?.data as Record<string, any>[]) ?? []);
 
@@ -102,11 +102,11 @@ export function useDBTableController({
 
     setPending(true);
     try {
-      await reloadWithTransactionState(inTransaction);
+      await reloadWithTransactionState(inTransaction, appliedFilterKeyword);
     } finally {
       setPending(false);
     }
-  }, [inTransaction, reloadWithTransactionState, sessionId]);
+  }, [appliedFilterKeyword, inTransaction, reloadWithTransactionState, sessionId]);
 
   const pushHistory = useCallback((nextRows: DBTableDraftRow[]) => {
     setUndoStack((prev) => [...prev, cloneDraftRows(rows)]);
@@ -149,13 +149,24 @@ export function useDBTableController({
       toast.success(
         `保存成功：新增 ${built.summary.inserts}，更新 ${built.summary.updates}，删除 ${built.summary.deletes}`,
       );
-      await reloadWithTransactionState(inTransaction && !closeTransaction);
+      await reloadWithTransactionState(
+        inTransaction && !closeTransaction,
+        appliedFilterKeyword,
+      );
     } catch {
       // 调用层已统一弹出错误提示；这里中断后续成功提示和刷新。
     } finally {
       setPending(false);
     }
-  }, [columns, inTransaction, primaryColumns, reloadWithTransactionState, rows, sessionId]);
+  }, [
+    appliedFilterKeyword,
+    columns,
+    inTransaction,
+    primaryColumns,
+    reloadWithTransactionState,
+    rows,
+    sessionId,
+  ]);
 
   // 保存事务内草稿变更，但保持事务开启。
   const saveTransaction = useCallback(async () => {
@@ -241,19 +252,21 @@ export function useDBTableController({
   // 切换筛选输入框显示状态。
   const toggleFilterInput = useCallback(() => {
     setShowFilterInput((prev) => !prev);
-    if (showFilterInput) {
-      setFilterKeyword("");
-      setAppliedFilterKeyword("");
-      setFilterError(null);
-    }
-  }, [showFilterInput]);
+  }, []);
 
   // 应用筛选表达式：校验通过后才更新渲染条件。
-  const applyFilter = useCallback(() => {
-    const expression = filterKeyword.trim();
+  const applyFilter = useCallback(async (expressionInput: string) => {
+    const expression = expressionInput.trim();
+    setFilterKeyword(expressionInput);
     if (!expression) {
       setAppliedFilterKeyword("");
       setFilterError(null);
+      setPending(true);
+      try {
+        await reloadWithTransactionState(inTransaction, "");
+      } finally {
+        setPending(false);
+      }
       return;
     }
 
@@ -266,7 +279,13 @@ export function useDBTableController({
 
     setFilterError(null);
     setAppliedFilterKeyword(expression);
-  }, [columns, filterKeyword]);
+    setPending(true);
+    try {
+      await reloadWithTransactionState(inTransaction, expression);
+    } finally {
+      setPending(false);
+    }
+  }, [columns, inTransaction, reloadWithTransactionState]);
 
   // 按当前选中列切换排序方向。
   const toggleSort = useCallback(() => {
