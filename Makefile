@@ -63,11 +63,19 @@ run-macos-app: ## 启动已打包的 macOS .app（自动移除隔离属性）
 
 build-release: ## 构建发布版本
 	@echo "$(COLOR_GREEN)📦 构建发布版本...$(COLOR_RESET)"
-	@if [ -f ./scripts/build-release.sh ]; then \
-		./scripts/build-release.sh; \
-	else \
-		$(WAILS) build; \
+	@rm -rf dist
+	@mkdir -p dist
+	@$(WAILS) build
+	@if [ -d "bin/$(APP_NAME).app" ]; then \
+		cp -R "bin/$(APP_NAME).app" "dist/$(APP_NAME).app"; \
 	fi
+	@if [ -f "bin/$(APP_NAME)" ]; then \
+		cp "bin/$(APP_NAME)" "dist/$(APP_NAME)"; \
+	fi
+	@if [ -f "bin/$(APP_NAME).exe" ]; then \
+		cp "bin/$(APP_NAME).exe" "dist/$(APP_NAME).exe"; \
+	fi
+	@ls -1 dist >/dev/null || (echo "$(COLOR_YELLOW)未生成发布产物$(COLOR_RESET)" && exit 1)
 
 release: ## 一条龙发布（用法: make release VERSION=0.0.1）
 	@if [ -z "$(VERSION)" ]; then \
@@ -91,7 +99,7 @@ bump-version: ## 自动递增版本号（用法: make bump-version PART=patch|mi
 		echo "$(COLOR_YELLOW)PART 仅支持 patch/minor/major$(COLOR_RESET)"; \
 		exit 1; \
 	fi; \
-	node -e 'const fs=require("fs"); const part=process.env.PART||"patch"; const file="frontend/package.json"; const pkg=JSON.parse(fs.readFileSync(file,"utf8")); const seg=(pkg.version||"0.0.0").split(".").map(n=>parseInt(n,10)||0); if(seg.length<3){while(seg.length<3) seg.push(0);} if(part==="major"){seg[0]++; seg[1]=0; seg[2]=0;} else if(part==="minor"){seg[1]++; seg[2]=0;} else {seg[2]++;} pkg.version=`${seg[0]}.${seg[1]}.${seg[2]}`; fs.writeFileSync(file, JSON.stringify(pkg,null,2)+"\n"); console.log(pkg.version);' PART="$$PART"
+	PART="$$PART" node -e 'const fs=require("fs"); const part=process.env.PART||"patch"; const file="frontend/package.json"; const pkg=JSON.parse(fs.readFileSync(file,"utf8")); const seg=(pkg.version||"0.0.0").split(".").map(n=>parseInt(n,10)||0); if(seg.length<3){while(seg.length<3) seg.push(0);} if(part==="major"){seg[0]++; seg[1]=0; seg[2]=0;} else if(part==="minor"){seg[1]++; seg[2]=0;} else {seg[2]++;} pkg.version=seg.join("."); fs.writeFileSync(file, JSON.stringify(pkg,null,2)+"\n"); console.log(pkg.version);'
 
 release-auto: ## 自动递增版本并发布（用法: make release-auto PART=patch|minor|major）
 	@PART="$(PART)"; \
