@@ -14,20 +14,22 @@
  limitations under the License.
 -->
 
-v0.0.21 - 版本回退功能增强
+v0.0.26 - 多平台发布流程重构
 
-本次更新增强了版本回退命令的功能，并优化了 CI 构建配置。
+重构 GitHub Actions 发布流程，支持完整的跨平台构建与签名验证。
 
 Improvements
-- release-undo-version 命令现在支持自动清空 RELEASE_NOTES.md
-- release-undo-version 命令现在支持自动移除 CHANGELOG.md 对应条目
-- CI 构建添加 CGO_ENABLED=0 环境变量解决交叉编译问题
-- 优化 CI 构建错误提示信息
-- 修复 checksums 生成命令
+- 重构 CI/CD workflow 支持并行构建（Linux/Windows/macOS）
+- 新增 Linux amd64 的 deb/rpm 打包格式
+- 新增 Windows arm64 安装包构建
+- 新增 macOS 多架构 DMG（x64/arm64/universal）
+- 添加发布产物完整性验证
+- 添加 checksums GPG 签名
+- 增强 release-undo-version 命令支持撤销远程版本
 
 Verification
 - Passed pnpm run build
 - Passed make dev
 - Passed make build
 
-Full Changelog: v0.0.20...v0.0.21
+Full Changelog: v0.0.25...v0.0.26
