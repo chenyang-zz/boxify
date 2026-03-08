@@ -13,8 +13,8 @@
 // limitations under the License.
 
 import { FC } from "react";
-import { ChannelListItem, Channel } from "./ChannelListItem";
-import { Card } from "@/components/ui/card";
+import { ChannelListItem } from "./ChannelListItem";
+import type { ManagedChannel as Channel } from "../types";
 
 /**
  * 频道列表组件属性
@@ -37,12 +37,26 @@ export const ChannelList: FC<ChannelListProps> = ({
   selectedChannelId,
   onChannelSelect,
 }) => {
+  const statusOrder: Record<Channel["status"], number> = {
+    enabled: 0,
+    configured: 1,
+    unconfigured: 2,
+  };
+  const sortByStatus = (a: Channel, b: Channel) =>
+    statusOrder[a.status] - statusOrder[b.status];
+  const builtInChannels = channels
+    .filter((channel) => channel.type === "built-in")
+    .sort(sortByStatus);
+  const pluginChannels = channels
+    .filter((channel) => channel.type === "plugin")
+    .sort(sortByStatus);
+
   return (
     <div className="w-62.5 max-h-[70vh]  overflow-auto bg-card rounded-lg flex flex-col">
       <h2 className="text-base font-semibold text-left p-4 pb-0 ">频道列表</h2>
       <div className="flex-1 overflow-auto p-2 space-y-1 text-left">
         <h3 className="text-xs px-2 text-muted-foreground py-1">内置频道</h3>
-        {channels.map((channel) => (
+        {builtInChannels.map((channel) => (
           <ChannelListItem
             key={channel.id}
             channel={channel}
@@ -51,7 +65,7 @@ export const ChannelList: FC<ChannelListProps> = ({
           />
         ))}
         <h3 className="text-xs px-2 text-muted-foreground py-1">插件频道</h3>
-        {channels.map((channel) => (
+        {pluginChannels.map((channel) => (
           <ChannelListItem
             key={channel.id}
             channel={channel}

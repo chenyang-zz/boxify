@@ -12,19 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { FC, ReactNode } from "react";
+import { FC } from "react";
 import { cn } from "@/lib/utils";
+import type { ManagedChannel } from "../types";
 
 /**
- * 频道数据类型
+ * 频道数据类型（兼容旧导出名）。
  */
-export interface Channel {
-  id: string;
-  name: string;
-  description?: string;
-  icon: ReactNode;
-  status: "configured" | "unconfigured";
-}
+export type Channel = ManagedChannel;
 
 export interface ChannelListItemProps {
   channel: Channel;
@@ -39,38 +34,47 @@ export const ChannelListItem: FC<ChannelListItemProps> = ({
   channel,
   isSelected,
   onClick,
-}) => (
-  <button
-    onClick={onClick}
-    className={cn(
-      "group w-full flex items-center gap-3 px-2 py-2 rounded-lg transition-colors text-left",
-      isSelected
-        ? "bg-primary/20 text-foreground"
-        : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
-    )}
-  >
-    <div
+}) => {
+  const statusClassName = cn(
+    "size-2 rounded-full",
+    channel.status === "enabled"
+      ? "bg-emerald-500"
+      : channel.status === "configured"
+        ? "bg-amber-500"
+        : "bg-muted-foreground/30",
+  );
+
+  return (
+    <button
+      onClick={onClick}
       className={cn(
-        "flex items-center justify-center size-8 p-1.5 rounded-lg bg-secondary group-hover:bg-foreground text-foreground group-hover:text-background text-sm font-medium",
-        isSelected && "bg-foreground text-background",
+        "group w-full flex items-center gap-3 px-2 py-2 rounded-lg border border-transparent transition-colors text-left",
+        isSelected
+          ? "bg-primary/20 text-foreground border-primary/40"
+          : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
       )}
     >
-      {channel.icon}
-    </div>
-    <div className="flex-1 min-w-0">
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-medium truncate">{channel.name}</span>
-        {channel.status === "configured" && (
-          <div className="size-2 rounded-full bg-emerald-500" />
+      <div
+        className={cn(
+          "flex items-center justify-center size-8 p-1.5 rounded-lg bg-secondary group-hover:bg-foreground text-foreground group-hover:text-background text-sm font-medium",
+          isSelected && "bg-foreground text-background",
+        )}
+      >
+        {channel.icon}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium truncate">{channel.name}</span>
+          <div className={statusClassName} />
+        </div>
+        {channel.description && (
+          <p className="text-[10px] text-muted-foreground/80 truncate">
+            {channel.description}
+          </p>
         )}
       </div>
-      {channel.description && (
-        <p className="text-[10px] text-muted-foreground/80 truncate">
-          {channel.description}
-        </p>
-      )}
-    </div>
-  </button>
-);
+    </button>
+  );
+};
 
 export default ChannelListItem;

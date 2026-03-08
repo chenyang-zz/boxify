@@ -116,7 +116,7 @@ export function getStatCardValue(
  * 获取通道类型标签文本
  */
 export function getChannelTypeLabel(type: ChannelCard["type"]): string {
-  return type === "built-in" ? "内置通道" : "插件通道";
+  return type === "built-in" ? "内置频道" : "插件频道";
 }
 
 /**
@@ -132,6 +132,11 @@ export function getStatusBadgeConfig(status: ChannelCard["status"]) {
     case "disabled":
       return {
         text: "已禁用",
+        className: "bg-gray-500/10 text-gray-500",
+      };
+    default:
+      return {
+        text: "未知状态",
         className: "bg-gray-500/10 text-gray-500",
       };
   }

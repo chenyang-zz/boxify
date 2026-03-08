@@ -146,18 +146,20 @@ func (s *ClawService) GetOverview() *types.ClawOverviewResult {
 		ocConfig = map[string]interface{}{}
 	}
 
-	channels := buildOverviewChannels(ocConfig)
+	pluginEnabledMap := buildInstalledPluginEnabledMap(s.pluginManager.ListInstalled())
+	channels := buildOverviewChannels(ocConfig, pluginEnabledMap)
+	connectedChannels := filterEnabledOverviewChannels(channels)
 	mem := &runtime.MemStats{}
 	runtime.ReadMemStats(mem)
 
 	data := &types.ClawOverviewData{
 		SystemStatus:   resolveOverviewSystemStatus(status),
-		ActiveChannels: countEnabledChannels(channels),
+		ActiveChannels: len(connectedChannels),
 		AIModel:        resolveOverviewModel(ocConfig),
 		Uptime:         formatOverviewUptime(status.Running, status.Uptime),
 		MemoryUsage:    formatOverviewMemory(mem.Alloc),
 		TodayMessages:  countTodayTasks(s.taskManager.GetRecentTasks()),
-		Channels:       channels,
+		Channels:       connectedChannels,
 	}
 	return &types.ClawOverviewResult{
 		BaseResult: types.BaseResult{Success: true, Message: "获取概览成功"},
@@ -234,37 +236,151 @@ func resolveOverviewModel(ocConfig map[string]interface{}) string {
 }
 
 // buildOverviewChannels 聚合 channels/plugins 配置为概览卡片列表。
-func buildOverviewChannels(ocConfig map[string]interface{}) []types.ClawOverviewChannel {
-	items := make([]types.ClawOverviewChannel, 0)
-
+func buildOverviewChannels(ocConfig map[string]interface{}, pluginEnabledMap map[string]bool) []types.ClawOverviewChannel {
 	channels, _ := ocConfig["channels"].(map[string]interface{})
 	channelKeys := sortedMapKeys(channels)
+	builtInByCanonicalID := make(map[string]types.ClawOverviewChannel, len(channelKeys))
 	for _, id := range channelKeys {
 		cfg, _ := channels[id].(map[string]interface{})
-		items = append(items, types.ClawOverviewChannel{
+		item := types.ClawOverviewChannel{
 			ID:        id,
 			Name:      resolveOverviewChannelName(id, cfg),
 			Type:      "built-in",
 			Status:    resolveOverviewChannelStatus(cfg),
 			ManagedBy: "由网关管理",
-		})
+		}
+		builtInByCanonicalID[normalizeOverviewChannelID(id)] = item
 	}
 
 	pluginsRoot, _ := ocConfig["plugins"].(map[string]interface{})
 	pluginEntries, _ := pluginsRoot["entries"].(map[string]interface{})
 	pluginKeys := sortedMapKeys(pluginEntries)
+	pluginByCanonicalID := make(map[string]types.ClawOverviewChannel, len(pluginKeys))
 	for _, id := range pluginKeys {
 		cfg, _ := pluginEntries[id].(map[string]interface{})
-		items = append(items, types.ClawOverviewChannel{
+		candidate := types.ClawOverviewChannel{
 			ID:        id,
 			Name:      resolveOverviewChannelName(id, cfg),
 			Type:      "plugin",
-			Status:    resolveOverviewChannelStatus(cfg),
-			ManagedBy: "由网关管理",
-		})
+			Status:    resolveOverviewPluginStatus(id, cfg, pluginEnabledMap),
+			ManagedBy: "由插件管理",
+		}
+		canonicalID := normalizeOverviewChannelID(id)
+		current, exists := pluginByCanonicalID[canonicalID]
+		if !exists || shouldReplacePluginChannel(current, candidate) {
+			pluginByCanonicalID[canonicalID] = candidate
+		}
+	}
+
+	canonicalIDs := make([]string, 0, len(builtInByCanonicalID)+len(pluginByCanonicalID))
+	seen := make(map[string]struct{}, len(builtInByCanonicalID)+len(pluginByCanonicalID))
+	for id := range builtInByCanonicalID {
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		canonicalIDs = append(canonicalIDs, id)
+	}
+	for id := range pluginByCanonicalID {
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		canonicalIDs = append(canonicalIDs, id)
+	}
+	sort.Strings(canonicalIDs)
+
+	items := make([]types.ClawOverviewChannel, 0, len(canonicalIDs))
+	for _, canonicalID := range canonicalIDs {
+		// 规则：只要 channel 中存在该频道，就视为内置频道，状态仅由 channel.enabled 控制。
+		if builtIn, exists := builtInByCanonicalID[canonicalID]; exists {
+			items = append(items, builtIn)
+			continue
+		}
+		// 规则：仅当不存在内置 channel 时，才将插件实现展示为插件频道，状态由插件配置控制。
+		if plugin, exists := pluginByCanonicalID[canonicalID]; exists {
+			items = append(items, plugin)
+		}
 	}
 
 	return items
+}
+
+// buildInstalledPluginEnabledMap 构建插件启用状态索引（key=pluginID）。
+func buildInstalledPluginEnabledMap(installed []*clawplugin.InstalledPlugin) map[string]bool {
+	if len(installed) == 0 {
+		return map[string]bool{}
+	}
+	statuses := make(map[string]bool, len(installed))
+	for _, plugin := range installed {
+		if plugin == nil {
+			continue
+		}
+		id := strings.TrimSpace(plugin.ID)
+		if id == "" {
+			continue
+		}
+		statuses[id] = plugin.Enabled
+	}
+	return statuses
+}
+
+// filterEnabledOverviewChannels 仅保留已启用的频道用于“已连接频道”展示。
+func filterEnabledOverviewChannels(channels []types.ClawOverviewChannel) []types.ClawOverviewChannel {
+	if len(channels) == 0 {
+		return channels
+	}
+	enabled := make([]types.ClawOverviewChannel, 0, len(channels))
+	for _, channel := range channels {
+		if channel.Status == "enabled" {
+			enabled = append(enabled, channel)
+		}
+	}
+	return enabled
+}
+
+// shouldReplacePluginChannel 判断插件候选是否应覆盖当前插件实现。
+func shouldReplacePluginChannel(current types.ClawOverviewChannel, candidate types.ClawOverviewChannel) bool {
+	currentEnabled := current.Status == "enabled"
+	candidateEnabled := candidate.Status == "enabled"
+	if currentEnabled != candidateEnabled {
+		return candidateEnabled
+	}
+	return false
+}
+
+// normalizeOverviewChannelID 将别名归并到同一规范通道 ID。
+func normalizeOverviewChannelID(id string) string {
+	normalized := strings.ToLower(strings.TrimSpace(id))
+	switch normalized {
+	case "lark", "feishu-openclaw-plugin":
+		return "feishu"
+	default:
+		return normalized
+	}
+}
+
+// resolveOverviewPluginStatus 将插件通道状态优先映射为插件管理器状态，再回退插件配置。
+func resolveOverviewPluginStatus(id string, cfg map[string]interface{}, pluginEnabledMap map[string]bool) string {
+	normalizedID := normalizeOverviewChannelID(id)
+	matched := false
+	hasEnabled := false
+	for pluginID, pluginEnabled := range pluginEnabledMap {
+		if normalizeOverviewChannelID(pluginID) != normalizedID {
+			continue
+		}
+		matched = true
+		if pluginEnabled {
+			hasEnabled = true
+		}
+	}
+	if matched {
+		if hasEnabled {
+			return "enabled"
+		}
+		return "disabled"
+	}
+	return resolveOverviewChannelStatus(cfg)
 }
 
 // resolveOverviewChannelName 优先读取通道配置中的名称字段。

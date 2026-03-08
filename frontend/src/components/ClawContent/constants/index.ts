@@ -17,3 +17,5 @@ export {
   isClawMenuItemId,
 } from "./claw-menu-panels";
 export type { ClawMenuItemId } from "./claw-menu-panels";
+export { channelDefinitions } from "./channel-definitions";
+export type { ChannelDefinition } from "./channel-definitions";

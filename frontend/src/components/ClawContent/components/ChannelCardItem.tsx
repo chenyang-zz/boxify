@@ -16,13 +16,12 @@ import { FC } from "react";
 import { Badge } from "@/components/ui/badge";
 import { getChannelTypeLabel, getStatusBadgeConfig } from "../domain";
 import CardItem from "./CardItem";
+import type { ChannelCard } from "../types";
 
-export interface ChannelCardItemProps {
-  name: string;
-  type: "built-in" | "plugin";
-  status: "enabled" | "disabled";
-  managedBy: string;
-}
+export type ChannelCardItemProps = Pick<
+  ChannelCard,
+  "name" | "type" | "status" | "managedBy"
+>;
 
 /**
  * 通道卡片组件

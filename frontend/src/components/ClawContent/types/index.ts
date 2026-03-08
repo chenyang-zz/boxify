@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import type { ClawOverviewChannel, ClawOverviewData } from "@wails/types/models";
+
 /**
  * 状态卡片数据类型
  */
@@ -25,26 +27,28 @@ export interface StatCard {
 }
 
 /**
- * 通道卡片数据类型
+ * 概览通道卡片类型（复用后端类型定义）。
  */
-export interface ChannelCard {
-  id: string;
-  name: string;
-  type: "built-in" | "plugin";
-  status: "enabled" | "disabled";
-  managedBy: string;
-  icon?: React.ComponentType<{ className?: string }>;
-}
+export type ChannelCard = ClawOverviewChannel;
 
 /**
- * 系统概览数据类型
+ * 系统概览数据类型（复用后端类型定义）。
  */
-export interface SystemOverview {
-  systemStatus: "normal" | "warning" | "error";
-  activeChannels: number;
-  aiModel: string;
-  uptime: string;
-  memoryUsage: string;
-  todayMessages: number;
-  channels: ChannelCard[];
+export type SystemOverview = ClawOverviewData;
+
+/**
+ * 频道管理面板的通道状态。
+ */
+export type ManagedChannelStatus = "enabled" | "configured" | "unconfigured";
+
+/**
+ * 频道管理面板通道类型：复用后端基础字段并扩展前端视图字段。
+ */
+export interface ManagedChannel extends Omit<ClawOverviewChannel, "status"> {
+  description?: string;
+  icon: React.ReactNode;
+  status: ManagedChannelStatus;
+  config?: Record<string, unknown>;
+  saveTargetId?: string;
+  feishuVariant?: "official" | "clawteam";
 }
