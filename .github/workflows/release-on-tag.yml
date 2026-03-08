@@ -65,6 +65,7 @@ jobs:
       - name: Build Linux amd64 packages
         run: |
           set -euo pipefail
+          export CGO_ENABLED=1
           VERSION="${GITHUB_REF_NAME#v}"
           rm -rf dist
           mkdir -p dist
@@ -134,6 +135,7 @@ jobs:
       - name: Build Linux arm64 AppImage
         run: |
           set -euo pipefail
+          export CGO_ENABLED=1
           VERSION="${GITHUB_REF_NAME#v}"
           rm -rf dist
           mkdir -p dist
@@ -179,8 +181,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             nsis zip \
-            gcc-mingw-w64-x86-64 \
-            gcc-mingw-w64-aarch64
+            pkg-config gcc \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libsoup-3.0-dev
 
       - name: Install Wails v3 CLI
         run: |
@@ -280,6 +284,7 @@ jobs:
       - name: Build macOS DMGs
         run: |
           set -euo pipefail
+          export CGO_ENABLED=1
           VERSION="${GITHUB_REF_NAME#v}"
           APP_BUNDLE="bin/${APP_NAME}.app"
           rm -rf dist

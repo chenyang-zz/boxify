@@ -2,21 +2,6 @@
 
 All notable changes to this project will be documented in this file.
 
-## [v0.0.26] - 2026-03-08
-
-### Added
-- CI/CD 新增 Linux amd64 的 deb/rpm 打包
-- CI/CD 新增 Windows arm64 安装包构建
-- CI/CD 新增 macOS 多架构 DMG（x64/arm64/universal）
-- CI/CD 添加发布产物完整性验证
-- CI/CD 添加 checksums GPG 签名
-
-### Changed
-- 重构 GitHub Actions workflow 支持并行构建
-- 增强 release-undo-version 命令支持撤销远程版本
-
----
-
 ## [v0.0.21] - 2026-03-08
 
 ### Changed

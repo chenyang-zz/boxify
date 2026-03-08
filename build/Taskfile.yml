@@ -96,8 +96,8 @@ tasks:
     cmds:
       - wails3 generate bindings -f '{{.BUILD_FLAGS}}' -clean=true
     env:
-      # 生成 bindings 不依赖桌面端 CGO，关闭可避免 CI 缺少 GTK/WebKit 开发库时产生噪音告警
-      CGO_ENABLED: "0"
+      # Wails v3 alpha.71 在 Linux 下生成 bindings 需要启用 cgo，否则会触发 pkg/application 的类型缺失告警并失败
+      CGO_ENABLED: "1"
 
   generate:icons:
     summary: Generates Windows `.ico` and Mac `.icns` from `appicon.png`.
