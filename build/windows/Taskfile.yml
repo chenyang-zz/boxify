@@ -96,6 +96,11 @@ tasks:
     summary: Packages the application
     cmds:
       - task: '{{if eq (.FORMAT | default "nsis") "msix"}}create:msix:package{{else}}create:nsis:installer{{end}}'
+        vars:
+          ARCH: '{{.ARCH}}'
+          CERT_PATH: '{{.CERT_PATH}}'
+          PUBLISHER: '{{.PUBLISHER}}'
+          USE_MSIX_TOOL: '{{.USE_MSIX_TOOL}}'
     vars:
       FORMAT: '{{.FORMAT | default "nsis"}}'
 
