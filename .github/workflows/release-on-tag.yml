@@ -34,14 +34,14 @@ jobs:
 
       - name: Install Wails v3 CLI
         run: |
-          go install github.com/wailsapp/wails/v3/cmd/wails3@latest
+          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.71
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - name: Install Frontend Dependencies
         run: pnpm -C frontend install --frozen-lockfile
 
       - name: Generate Wails Bindings
-        run: wails3 task common:generate:bindings BUILD_FLAGS='-tags production -trimpath -buildvcs=false -ldflags="-w -s"'
+        run: wails3 generate bindings -f '-tags production -trimpath -buildvcs=false -ldflags="-w -s"' -clean=true
 
       - name: Verification
         run: |
