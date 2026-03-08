@@ -11,9 +11,12 @@ permissions:
 jobs:
   build-linux-arm64:
     runs-on: ubuntu-24.04-arm
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -35,11 +38,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             pkg-config gcc \
-            libgtk-3-dev libwebkit2gtk-4.1-dev libsoup-3.0-dev
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libsoup-3.0-dev
 
       - name: Install Wails v3 CLI
         run: |
-          CGO_ENABLED=0 go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.71
+          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.71
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - name: Install Frontend Dependencies
@@ -59,9 +64,11 @@ jobs:
           path: dist/boxify-${{ github.ref_name }}-linux-arm64
           if-no-files-found: error
 
+
   release:
     needs: build-linux-arm64
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -85,14 +92,17 @@ jobs:
 
       - name: Install Wails v3 CLI
         run: |
-          CGO_ENABLED=0 go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.71
+          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.71
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - name: Install Frontend Dependencies
         run: pnpm -C frontend install --frozen-lockfile
 
       - name: Generate Wails Bindings
-        run: CGO_ENABLED=0 wails3 generate bindings -f '-tags production -trimpath -buildvcs=false -ldflags="-w -s"' -clean=true
+        run: |
+          wails3 generate bindings \
+            -f '-tags production -trimpath -buildvcs=false -ldflags="-w -s"' \
+            -clean=true
 
       - name: Verification
         run: |
@@ -108,26 +118,32 @@ jobs:
           set -euo pipefail
           mkdir -p dist
           VERSION="${GITHUB_REF_NAME}"
+
           wails3 task setup:docker
+
           wails3 task darwin:build ARCH=amd64 OUTPUT="dist/boxify-${VERSION}-darwin-amd64"
           wails3 task darwin:build ARCH=arm64 OUTPUT="dist/boxify-${VERSION}-darwin-arm64"
+
           wails3 task linux:build:docker ARCH=amd64 OUTPUT="dist/boxify-${VERSION}-linux-amd64"
-          wails3 task windows:build ARCH=amd64 CGO_ENABLED=0
-          wails3 task windows:package ARCH=amd64 FORMAT=nsis CGO_ENABLED=0
+
+          wails3 task windows:build ARCH=amd64
+          wails3 task windows:package ARCH=amd64 FORMAT=nsis
+
           if [ -f "bin/boxify.exe" ]; then
             mv "bin/boxify.exe" "dist/boxify-${VERSION}-windows-amd64.exe"
           elif [ -f "bin/boxify-windows-amd64.exe" ]; then
             mv "bin/boxify-windows-amd64.exe" "dist/boxify-${VERSION}-windows-amd64.exe"
           else
-            echo "未找到 Windows 构建产物（bin/boxify.exe 或 bin/boxify-windows-amd64.exe）"
+            echo "未找到 Windows 构建产物"
             exit 1
           fi
+
           if [ -f "bin/boxify-amd64-installer.exe" ]; then
             mv "bin/boxify-amd64-installer.exe" "dist/boxify-${VERSION}-windows-amd64-setup.exe"
           elif [ -f "bin/boxify-installer.exe" ]; then
             mv "bin/boxify-installer.exe" "dist/boxify-${VERSION}-windows-amd64-setup.exe"
           else
-            echo "未找到 Windows 安装包产物（bin/boxify-amd64-installer.exe 或 bin/boxify-installer.exe）"
+            echo "未找到 Windows 安装包"
             exit 1
           fi
 
@@ -141,17 +157,13 @@ jobs:
         run: |
           set -euo pipefail
           cd dist
-          sha256sum * > checksums.txt
-
-      - name: Generate Release Notes
-        run: |
-          TAG="${GITHUB_REF_NAME}"
-          ./scripts/generate-release-notes.sh "$TAG" "常规功能更新与稳定性优化" .release-notes.md
+          sha256sum boxify-* > checksums.txt
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.ref_name }}
           name: Boxify ${{ github.ref_name }}
-          body_path: .release-notes.md
+          body_path: ./RELEASE_NOTES.md
           files: dist/*
           fail_on_unmatched_files: true
