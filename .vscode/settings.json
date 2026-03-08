@@ -63,6 +63,7 @@
     "kysely",
     "LASTEXITCODE",
     "ldflags",
+    "libglib",
     "libsoup",
     "libwebkit",
     "lmittmann",

@@ -1,0 +1,160 @@
+name: Release On Tag
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux-arm64:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libglib2.0-dev
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install Linux Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pkg-config gcc \
+            libgtk-3-dev libwebkit2gtk-4.1-dev libsoup-3.0-dev
+
+      - name: Install Wails v3 CLI
+        run: |
+          CGO_ENABLED=0 go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.71
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Install Frontend Dependencies
+        run: pnpm -C frontend install --frozen-lockfile
+
+      - name: Build Linux arm64 Artifact
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          VERSION="${GITHUB_REF_NAME}"
+          wails3 task linux:build ARCH=arm64 OUTPUT="dist/boxify-${VERSION}-linux-arm64"
+
+      - name: Upload Linux arm64 Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-arm64-artifact
+          path: dist/boxify-${{ github.ref_name }}-linux-arm64
+          if-no-files-found: error
+
+  release:
+    needs: build-linux-arm64
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install Wails v3 CLI
+        run: |
+          CGO_ENABLED=0 go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.71
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Install Frontend Dependencies
+        run: pnpm -C frontend install --frozen-lockfile
+
+      - name: Generate Wails Bindings
+        run: CGO_ENABLED=0 wails3 generate bindings -f '-tags production -trimpath -buildvcs=false -ldflags="-w -s"' -clean=true
+
+      - name: Verification
+        run: |
+          pnpm -C frontend run build
+
+      - name: Install NSIS
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y nsis
+
+      - name: Build Release Artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          VERSION="${GITHUB_REF_NAME}"
+          wails3 task setup:docker
+          wails3 task darwin:build ARCH=amd64 OUTPUT="dist/boxify-${VERSION}-darwin-amd64"
+          wails3 task darwin:build ARCH=arm64 OUTPUT="dist/boxify-${VERSION}-darwin-arm64"
+          wails3 task linux:build:docker ARCH=amd64 OUTPUT="dist/boxify-${VERSION}-linux-amd64"
+          wails3 task windows:build ARCH=amd64 CGO_ENABLED=0
+          wails3 task windows:package ARCH=amd64 FORMAT=nsis CGO_ENABLED=0
+          if [ -f "bin/boxify.exe" ]; then
+            mv "bin/boxify.exe" "dist/boxify-${VERSION}-windows-amd64.exe"
+          elif [ -f "bin/boxify-windows-amd64.exe" ]; then
+            mv "bin/boxify-windows-amd64.exe" "dist/boxify-${VERSION}-windows-amd64.exe"
+          else
+            echo "未找到 Windows 构建产物（bin/boxify.exe 或 bin/boxify-windows-amd64.exe）"
+            exit 1
+          fi
+          if [ -f "bin/boxify-amd64-installer.exe" ]; then
+            mv "bin/boxify-amd64-installer.exe" "dist/boxify-${VERSION}-windows-amd64-setup.exe"
+          elif [ -f "bin/boxify-installer.exe" ]; then
+            mv "bin/boxify-installer.exe" "dist/boxify-${VERSION}-windows-amd64-setup.exe"
+          else
+            echo "未找到 Windows 安装包产物（bin/boxify-amd64-installer.exe 或 bin/boxify-installer.exe）"
+            exit 1
+          fi
+
+      - name: Download Linux arm64 Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-arm64-artifact
+          path: dist
+
+      - name: Generate Checksums
+        run: |
+          set -euo pipefail
+          cd dist
+          sha256sum * > checksums.txt
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Boxify ${{ github.ref_name }}
+          body_path: ./RELEASE_NOTES.md
+          files: dist/*
+          fail_on_unmatched_files: true
