@@ -308,6 +308,16 @@ jobs:
           fi
 
           [ -d "$APP_BUNDLE" ] || (echo "未找到 ${BUILD_ARCH} app bundle" && exit 1)
+
+          echo "DMG 打包前清理缓存，释放磁盘空间..."
+          rm -rf frontend/node_modules || true
+          rm -rf ~/.pnpm-store ~/.cache/pnpm || true
+          rm -rf ~/go/pkg/mod ~/.cache/go-build || true
+          rm -rf ~/Library/Caches/Homebrew ~/Library/Developer/Xcode/DerivedData || true
+
+          echo "清理后磁盘空间:"
+          df -h
+
           create_dmg "$APP_BUNDLE" "$DMG_PATH"
 
           echo "构建后磁盘空间:"
