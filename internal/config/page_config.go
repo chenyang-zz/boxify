@@ -165,5 +165,31 @@ func (pc *PageConfig) Validate() error {
 
 // GetPageConfigPath 获取页面配置文件的默认路径
 func GetPageConfigPath() string {
+	for _, candidate := range getPageConfigCandidates() {
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
 	return filepath.Join(".", "page.config.json")
+}
+
+// getPageConfigCandidates 返回页面配置文件的候选路径，按优先级排序。
+func getPageConfigCandidates() []string {
+	candidates := []string{
+		filepath.Join(".", "page.config.json"),
+	}
+
+	execPath, err := os.Executable()
+	if err != nil {
+		return candidates
+	}
+
+	execDir := filepath.Dir(execPath)
+	candidates = append(candidates,
+		filepath.Join(execDir, "page.config.json"),
+		filepath.Clean(filepath.Join(execDir, "..", "page.config.json")),
+		filepath.Clean(filepath.Join(execDir, "..", "Resources", "page.config.json")),
+	)
+
+	return candidates
 }

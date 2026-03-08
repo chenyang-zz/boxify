@@ -143,6 +143,28 @@ else
     echo -e "${YELLOW}   ⚠️  未找到 MinGW 工具 (x86_64-w64-mingw32-gcc)，跳过 Windows 构建。${NC}"
 fi
 
+# --- Linux AMD64 构建 ---
+echo -e "${GREEN}🐧 正在构建 Linux (amd64)...${NC}"
+wails build -platform linux/amd64 -clean
+if [ $? -eq 0 ]; then
+    LINUX_ARCHIVE_NAME="${APP_NAME}-${VERSION}-linux-amd64.tar.gz"
+    tar -czf "$DIST_DIR/$LINUX_ARCHIVE_NAME" -C "$BUILD_BIN_DIR" "$DEFAULT_BINARY_NAME"
+    echo "   ✅ 已生成 $LINUX_ARCHIVE_NAME"
+else
+    echo -e "${RED}   ❌ Linux amd64 构建失败。${NC}"
+fi
+
+# --- Linux ARM64 构建 ---
+echo -e "${GREEN}🐧 正在构建 Linux (arm64)...${NC}"
+wails build -platform linux/arm64 -clean
+if [ $? -eq 0 ]; then
+    LINUX_ARCHIVE_NAME="${APP_NAME}-${VERSION}-linux-arm64.tar.gz"
+    tar -czf "$DIST_DIR/$LINUX_ARCHIVE_NAME" -C "$BUILD_BIN_DIR" "$DEFAULT_BINARY_NAME"
+    echo "   ✅ 已生成 $LINUX_ARCHIVE_NAME"
+else
+    echo -e "${RED}   ❌ Linux arm64 构建失败。${NC}"
+fi
+
 # 清理中间构建目录
 rm -rf "build/bin"
 

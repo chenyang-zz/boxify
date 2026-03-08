@@ -1,7 +1,7 @@
 # Boxify Makefile
 # 基于 Wails v3 的跨平台数据库管理应用
 
-.PHONY: help dev build clean install frontend-install frontend-dev frontend-build test format tidy lint
+.PHONY: help dev build sync-build-assets build-macos-app build-macos-app-universal refresh-icons package-macos package-macos-universal run-macos-app clean install frontend-install frontend-dev frontend-build test format tidy lint release bump-version release-auto
 
 # 默认目标
 .DEFAULT_GOAL := help
@@ -35,13 +35,77 @@ build: ## 构建生产版本
 	@echo "$(COLOR_GREEN)🔨 构建生产版本...$(COLOR_RESET)"
 	@$(WAILS) build
 
+refresh-icons: ## 根据 build/appicon.png 重新生成图标资源
+	@echo "$(COLOR_GREEN)🖼️ 重新生成应用图标...$(COLOR_RESET)"
+	@$(WAILS) task common:generate:icons
+
+sync-build-assets: ## 同步构建资产（修正 Info.plist 可执行名等元数据）
+	@echo "$(COLOR_GREEN)🧩 同步构建资产...$(COLOR_RESET)"
+	@$(WAILS) task common:update:build-assets APP_NAME=$(APP_NAME)
+
+package-macos: sync-build-assets ## 打包 macOS .app（包含应用图标）
+	@echo "$(COLOR_GREEN)📦 打包 macOS 应用...$(COLOR_RESET)"
+	@$(WAILS) task darwin:package
+
+package-macos-universal: sync-build-assets ## 打包 macOS Universal .app（arm64 + amd64）
+	@echo "$(COLOR_GREEN)📦 打包 macOS Universal 应用...$(COLOR_RESET)"
+	@$(WAILS) task darwin:package:universal
+
+build-macos-app: refresh-icons package-macos ## 重新生成图标并打包 macOS .app
+
+build-macos-app-universal: refresh-icons package-macos-universal ## 重新生成图标并打包 Universal .app
+
+run-macos-app: ## 启动已打包的 macOS .app（自动移除隔离属性）
+	@echo "$(COLOR_GREEN)▶️ 启动 macOS 应用...$(COLOR_RESET)"
+	@test -d bin/boxify.app || (echo "$(COLOR_YELLOW)未找到 bin/boxify.app，请先执行 make build-macos-app$(COLOR_RESET)" && exit 1)
+	@xattr -dr com.apple.quarantine bin/boxify.app 2>/dev/null || true
+	@open bin/boxify.app
+
 build-release: ## 构建发布版本
 	@echo "$(COLOR_GREEN)📦 构建发布版本...$(COLOR_RESET)"
-	@if [ -f ./script/build-release.sh ]; then \
-		./script/build-release.sh; \
+	@if [ -f ./scripts/build-release.sh ]; then \
+		./scripts/build-release.sh; \
 	else \
 		$(WAILS) build; \
 	fi
+
+release: ## 一条龙发布（用法: make release VERSION=0.0.1）
+	@if [ -z "$(VERSION)" ]; then \
+		echo "$(COLOR_YELLOW)请提供版本号: make release VERSION=0.0.1$(COLOR_RESET)"; \
+		exit 1; \
+	fi
+	@command -v gh >/dev/null 2>&1 || (echo "$(COLOR_YELLOW)未安装 GitHub CLI (gh)，请先安装并执行 gh auth login$(COLOR_RESET)" && exit 1)
+	@git diff --quiet && git diff --cached --quiet || (echo "$(COLOR_YELLOW)工作区有未提交改动，请先提交后再发布$(COLOR_RESET)" && exit 1)
+	@git rev-parse -q --verify "refs/tags/v$(VERSION)" >/dev/null && (echo "$(COLOR_YELLOW)本地已存在 tag v$(VERSION)$(COLOR_RESET)" && exit 1) || true
+	@git ls-remote --tags origin "refs/tags/v$(VERSION)" | grep -q "refs/tags/v$(VERSION)$$" && (echo "$(COLOR_YELLOW)远端已存在 tag v$(VERSION)$(COLOR_RESET)" && exit 1) || true
+	@$(MAKE) build-release
+	@git tag -a "v$(VERSION)" -m "release v$(VERSION)"
+	@git push origin "v$(VERSION)"
+	@gh release create "v$(VERSION)" dist/* --title "v$(VERSION)" --generate-notes
+	@echo "$(COLOR_GREEN)✅ 发布完成: v$(VERSION)$(COLOR_RESET)"
+
+bump-version: ## 自动递增版本号（用法: make bump-version PART=patch|minor|major）
+	@PART="$(PART)"; \
+	if [ -z "$$PART" ]; then PART="patch"; fi; \
+	if [ "$$PART" != "patch" ] && [ "$$PART" != "minor" ] && [ "$$PART" != "major" ]; then \
+		echo "$(COLOR_YELLOW)PART 仅支持 patch/minor/major$(COLOR_RESET)"; \
+		exit 1; \
+	fi; \
+	node -e 'const fs=require("fs"); const part=process.env.PART||"patch"; const file="frontend/package.json"; const pkg=JSON.parse(fs.readFileSync(file,"utf8")); const seg=(pkg.version||"0.0.0").split(".").map(n=>parseInt(n,10)||0); if(seg.length<3){while(seg.length<3) seg.push(0);} if(part==="major"){seg[0]++; seg[1]=0; seg[2]=0;} else if(part==="minor"){seg[1]++; seg[2]=0;} else {seg[2]++;} pkg.version=`${seg[0]}.${seg[1]}.${seg[2]}`; fs.writeFileSync(file, JSON.stringify(pkg,null,2)+"\n"); console.log(pkg.version);' PART="$$PART"
+
+release-auto: ## 自动递增版本并发布（用法: make release-auto PART=patch|minor|major）
+	@PART="$(PART)"; \
+	if [ -z "$$PART" ]; then PART="patch"; fi; \
+	git diff --quiet && git diff --cached --quiet || (echo "$(COLOR_YELLOW)工作区有未提交改动，请先提交后再发布$(COLOR_RESET)" && exit 1); \
+	command -v node >/dev/null 2>&1 || (echo "$(COLOR_YELLOW)未安装 Node.js，无法自动递增 frontend/package.json 版本$(COLOR_RESET)" && exit 1); \
+	command -v gh >/dev/null 2>&1 || (echo "$(COLOR_YELLOW)未安装 GitHub CLI (gh)，请先安装并执行 gh auth login$(COLOR_RESET)" && exit 1); \
+	$(MAKE) bump-version PART="$$PART" >/dev/null; \
+	NEW_VERSION=$$(node -p "require('./frontend/package.json').version"); \
+	echo "$(COLOR_GREEN)版本已更新为: $$NEW_VERSION$(COLOR_RESET)"; \
+	git add frontend/package.json; \
+	git commit -m "🔧 chore(release): bump version to v$$NEW_VERSION"; \
+	git push origin HEAD; \
+	$(MAKE) release VERSION="$$NEW_VERSION"
 
 clean: ## 清理构建文件
 	@echo "$(COLOR_YELLOW)🧹 清理构建文件...$(COLOR_RESET)"

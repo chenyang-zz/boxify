@@ -42,13 +42,23 @@ make init
 make dev
 ```
 
+## 一键安装（Linux/macOS）
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/chenyang-zz/boxify/main/scripts/install.sh && sudo bash install.sh
+```
+
 ## 常用命令
 
 ```bash
 # 开发与构建
 make dev                # 启动开发模式
 make build              # 构建生产版本
-make build-release      # 构建发布版本（如存在 script/build-release.sh）
+make build-release      # 构建发布版本（如存在 scripts/build-release.sh）
+make release VERSION=0.0.1  # 一条龙发布（构建 + 打 tag + 创建 GitHub Release）
+make release-auto PART=patch  # 自动升版本并一条龙发布（默认 patch）
+make release-auto PART=minor  # 次版本 +1
+make release-auto PART=major  # 主版本 +1
 
 # 依赖与检查
 make install            # 安装所有依赖

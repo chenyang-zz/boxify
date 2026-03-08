@@ -57,14 +57,16 @@ func InitApplication(assets fs.FS) *AppManager {
 
 	// 初始化全局 logger
 	logger.Init(slog.LevelInfo)
+	defaultLogger := logger.GetDefaultLogger()
 
 	am := &AppManager{
 		app: app,
 		ctx: ctx,
+		logger: defaultLogger,
 	}
 
 	// 创建窗口注册表
-	am.registry = NewWindowRegistry(am.app, logger.GetDefaultLogger())
+	am.registry = NewWindowRegistry(am.app, defaultLogger)
 
 	// 加载页面配置
 	pageConfig, err := config.LoadPageConfig(config.GetPageConfigPath())
