@@ -1,15 +1,15 @@
-v0.0.23 - Linux 构建依赖优化
+v0.0.24 - 发布流程优化
 
-优化 GitHub Release 工作流中的 Linux 构建依赖配置。
+本次更新优化了发布流程和 CI 构建配置。
 
 Improvements
-- 简化 Linux 依赖安装步骤名称
-- 移除 pkg-config 和 gcc（Go 工具链已包含）
-- 使用 libglib2.0-dev 替代 libsoup-3.0-dev
+- 发布命令支持自动更新 CHANGELOG.md
+- 新增 release-undo-version 命令用于版本回退
+- 优化 Linux 构建依赖配置
 
 Verification
 - Passed pnpm run build
 - Passed make dev
 - Passed make build
 
-Full Changelog: v0.0.22...v0.0.23
+Full Changelog: v0.0.23...v0.0.24
