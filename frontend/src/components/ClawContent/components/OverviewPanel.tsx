@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { FC } from "react";
-import { CircleCheck } from "lucide-react";
+import { FC, useEffect } from "react";
+import { CircleAlert, CircleCheck, LoaderCircle } from "lucide-react";
 import { useClawContentStore } from "../store";
 import { statCardsConfig, getStatCardValue } from "../domain";
 import { StatCardItem } from "./StatCardItem";
@@ -26,18 +26,42 @@ import { PanelHeader } from "./PanelHeader";
  */
 export const OverviewPanel: FC = () => {
   const overview = useClawContentStore((state) => state.overview);
+  const isLoading = useClawContentStore((state) => state.isLoading);
+  const refreshOverview = useClawContentStore((state) => state.refreshOverview);
+
+  /**
+   * 面板挂载后拉取最新概览数据。
+   */
+  useEffect(() => {
+    void refreshOverview();
+  }, [refreshOverview]);
+
+  const systemStatusText =
+    overview.systemStatus === "normal" ? "系统运行正常" : "系统未运行";
+  const systemStatusColorClass =
+    overview.systemStatus === "normal" ? "text-emerald-500" : "text-amber-500";
+  const SystemStatusIcon =
+    overview.systemStatus === "normal" ? CircleCheck : CircleAlert;
 
   return (
     <div className="h-full w-full overflow-auto p-6">
       {/* 标题区域 */}
       <PanelHeader
         className="mb-6"
-        title="仪表盘"
+        title="概览"
         description="OpenClaw 运行状态总览"
         actions={
           <div className="flex items-center gap-2">
-            <CircleCheck className="size-3.5 text-emerald-500" />
-            <span className="text-sm text-emerald-500">系统运行正常</span>
+            {isLoading ? (
+              <LoaderCircle className="size-3.5 text-muted-foreground animate-spin" />
+            ) : (
+              <SystemStatusIcon
+                className={`size-3.5 ${systemStatusColorClass}`}
+              />
+            )}
+            <span className={`text-sm ${systemStatusColorClass}`}>
+              {isLoading ? "数据加载中..." : systemStatusText}
+            </span>
           </div>
         }
       />
@@ -58,7 +82,7 @@ export const OverviewPanel: FC = () => {
 
       {/* 已连接通道区域 */}
       <div className="flex flex-col gap-3">
-        <h2 className="text-base font-semibold text-left">已连接通道</h2>
+        <h2 className="text-base font-semibold text-left">已连接频道</h2>
         <div className="flex flex-wrap gap-4 ">
           {overview.channels.map((channel) => (
             <ChannelCardItem

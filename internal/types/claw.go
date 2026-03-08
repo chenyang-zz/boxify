@@ -41,6 +41,32 @@ type ClawOpenClawCheckResult struct {
 	ConfigPath string `json:"configPath,omitempty"` // openclaw.json 路径
 }
 
+// ClawOverviewChannel 概览页通道卡片数据。
+type ClawOverviewChannel struct {
+	ID        string `json:"id"`                  // 通道唯一标识
+	Name      string `json:"name"`                // 通道展示名称
+	Type      string `json:"type"`                // 通道类型：built-in/plugin
+	Status    string `json:"status"`              // 通道状态：enabled/disabled
+	ManagedBy string `json:"managedBy,omitempty"` // 管理描述
+}
+
+// ClawOverviewData 概览页数据。
+type ClawOverviewData struct {
+	SystemStatus   string                `json:"systemStatus"`   // 系统状态：normal/warning/error
+	ActiveChannels int                   `json:"activeChannels"` // 活跃通道数量
+	AIModel        string                `json:"aiModel"`        // 当前默认模型
+	Uptime         string                `json:"uptime"`         // 运行时长文案
+	MemoryUsage    string                `json:"memoryUsage"`    // 内存占用文案
+	TodayMessages  int                   `json:"todayMessages"`  // 今日消息量（当前以今日任务数近似）
+	Channels       []ClawOverviewChannel `json:"channels"`       // 通道卡片列表
+}
+
+// ClawOverviewResult 概览数据结果。
+type ClawOverviewResult struct {
+	BaseResult
+	Data *ClawOverviewData `json:"data,omitempty"` // 概览数据
+}
+
 // ClawLogsData Claw 日志数据。
 type ClawLogsData struct {
 	Lines []string `json:"lines"` // 日志行列表

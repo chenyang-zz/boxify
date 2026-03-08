@@ -2,10 +2,14 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
+	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	clawmonitor "github.com/chenyang-zz/boxify/internal/claw/monitor"
 	clawplugin "github.com/chenyang-zz/boxify/internal/claw/plugin"
@@ -134,6 +138,33 @@ func (s *ClawService) GetStatus() *types.ClawStatusResult {
 	}
 }
 
+// GetOverview 获取 OpenClaw 概览信息。
+func (s *ClawService) GetOverview() *types.ClawOverviewResult {
+	status := s.manager.GetStatus()
+	ocConfig, _ := s.pluginCfg.ReadOpenClawJSON()
+	if ocConfig == nil {
+		ocConfig = map[string]interface{}{}
+	}
+
+	channels := buildOverviewChannels(ocConfig)
+	mem := &runtime.MemStats{}
+	runtime.ReadMemStats(mem)
+
+	data := &types.ClawOverviewData{
+		SystemStatus:   resolveOverviewSystemStatus(status),
+		ActiveChannels: countEnabledChannels(channels),
+		AIModel:        resolveOverviewModel(ocConfig),
+		Uptime:         formatOverviewUptime(status.Running, status.Uptime),
+		MemoryUsage:    formatOverviewMemory(mem.Alloc),
+		TodayMessages:  countTodayTasks(s.taskManager.GetRecentTasks()),
+		Channels:       channels,
+	}
+	return &types.ClawOverviewResult{
+		BaseResult: types.BaseResult{Success: true, Message: "获取概览成功"},
+		Data:       data,
+	}
+}
+
 // CheckOpenClaw 检查 OpenClaw 是否已安装并完成基础配置。
 func (s *ClawService) CheckOpenClaw() *types.ClawOpenClawCheckResult {
 	bin := strings.TrimSpace(clawprocess.DetectOpenClawBinaryPath())
@@ -153,6 +184,231 @@ func (s *ClawService) CheckOpenClaw() *types.ClawOpenClawCheckResult {
 		BinaryPath: bin,
 		ConfigPath: cfgPath,
 	}
+}
+
+// resolveOverviewSystemStatus 根据进程状态推导概览状态标签。
+func resolveOverviewSystemStatus(status clawprocess.Status) string {
+	if status.Running {
+		return "normal"
+	}
+	return "warning"
+}
+
+// resolveOverviewModel 从 openclaw 配置中提取默认模型名。
+func resolveOverviewModel(ocConfig map[string]interface{}) string {
+	candidates := []string{
+		readNestedString(ocConfig, "agents", "defaults", "model", "primary"),
+		readNestedString(ocConfig, "agents", "defaults", "chatModel"),
+		readNestedString(ocConfig, "models", "default"),
+		readNestedString(ocConfig, "models", "defaults", "model"),
+		readNestedString(ocConfig, "models", "current"),
+	}
+	for _, candidate := range candidates {
+		if strings.TrimSpace(candidate) != "" {
+			return strings.TrimSpace(candidate)
+		}
+	}
+
+	models, _ := ocConfig["models"].(map[string]interface{})
+	if models == nil {
+		return "-"
+	}
+	providers, _ := models["providers"].(map[string]interface{})
+	if providers == nil || len(providers) == 0 {
+		return "-"
+	}
+
+	providerKeys := sortedMapKeys(providers)
+	for _, providerKey := range providerKeys {
+		provider, _ := providers[providerKey].(map[string]interface{})
+		if provider == nil {
+			continue
+		}
+		model := strings.TrimSpace(readFirstString(provider, "defaultModel", "model", "chatModel"))
+		if model != "" {
+			return fmt.Sprintf("%s/%s", providerKey, model)
+		}
+	}
+
+	return providerKeys[0]
+}
+
+// buildOverviewChannels 聚合 channels/plugins 配置为概览卡片列表。
+func buildOverviewChannels(ocConfig map[string]interface{}) []types.ClawOverviewChannel {
+	items := make([]types.ClawOverviewChannel, 0)
+
+	channels, _ := ocConfig["channels"].(map[string]interface{})
+	channelKeys := sortedMapKeys(channels)
+	for _, id := range channelKeys {
+		cfg, _ := channels[id].(map[string]interface{})
+		items = append(items, types.ClawOverviewChannel{
+			ID:        id,
+			Name:      resolveOverviewChannelName(id, cfg),
+			Type:      "built-in",
+			Status:    resolveOverviewChannelStatus(cfg),
+			ManagedBy: "由网关管理",
+		})
+	}
+
+	pluginsRoot, _ := ocConfig["plugins"].(map[string]interface{})
+	pluginEntries, _ := pluginsRoot["entries"].(map[string]interface{})
+	pluginKeys := sortedMapKeys(pluginEntries)
+	for _, id := range pluginKeys {
+		cfg, _ := pluginEntries[id].(map[string]interface{})
+		items = append(items, types.ClawOverviewChannel{
+			ID:        id,
+			Name:      resolveOverviewChannelName(id, cfg),
+			Type:      "plugin",
+			Status:    resolveOverviewChannelStatus(cfg),
+			ManagedBy: "由网关管理",
+		})
+	}
+
+	return items
+}
+
+// resolveOverviewChannelName 优先读取通道配置中的名称字段。
+func resolveOverviewChannelName(id string, cfg map[string]interface{}) string {
+	if cfg == nil {
+		return id
+	}
+	nameKeys := []string{"name", "title", "displayName"}
+	for _, key := range nameKeys {
+		if raw, ok := cfg[key]; ok {
+			if name, castOK := raw.(string); castOK && strings.TrimSpace(name) != "" {
+				return strings.TrimSpace(name)
+			}
+		}
+	}
+	return id
+}
+
+// resolveOverviewChannelStatus 将 enabled 字段转换为 enabled/disabled。
+func resolveOverviewChannelStatus(cfg map[string]interface{}) string {
+	if cfg == nil {
+		return "enabled"
+	}
+	enabled := true
+	if raw, ok := cfg["enabled"]; ok {
+		if v, castOK := raw.(bool); castOK {
+			enabled = v
+		}
+	}
+	if enabled {
+		return "enabled"
+	}
+	return "disabled"
+}
+
+// sortedMapKeys 返回 map 的稳定升序 key 列表。
+func sortedMapKeys(m map[string]interface{}) []string {
+	if m == nil {
+		return nil
+	}
+	keys := make([]string, 0, len(m))
+	for key := range m {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// countEnabledChannels 统计已启用通道数量。
+func countEnabledChannels(channels []types.ClawOverviewChannel) int {
+	count := 0
+	for _, channel := range channels {
+		if channel.Status == "enabled" {
+			count++
+		}
+	}
+	return count
+}
+
+// formatOverviewUptime 将秒数转成概览文案。
+func formatOverviewUptime(running bool, seconds int64) string {
+	if seconds <= 0 {
+		if running {
+			return "运行中"
+		}
+		return "未运行"
+	}
+
+	days := seconds / 86400
+	hours := (seconds % 86400) / 3600
+	totalHours := seconds / 3600
+	totalMinutes := seconds / 60
+
+	if days > 0 {
+		return fmt.Sprintf("%d 天", days)
+	}
+	if totalHours > 0 || hours > 0 {
+		return fmt.Sprintf("%d 时", totalHours)
+	}
+	if totalMinutes > 0 {
+		return fmt.Sprintf("%d 分", totalMinutes)
+	}
+	return "1 分内"
+}
+
+// readNestedString 按层级读取字符串值，任意层失败时返回空串。
+func readNestedString(root map[string]interface{}, keys ...string) string {
+	if root == nil || len(keys) == 0 {
+		return ""
+	}
+	var current interface{} = root
+	for _, key := range keys {
+		nextMap, ok := current.(map[string]interface{})
+		if !ok || nextMap == nil {
+			return ""
+		}
+		current = nextMap[key]
+	}
+	v, ok := current.(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(v)
+}
+
+// readFirstString 读取候选字段中第一个非空字符串值。
+func readFirstString(m map[string]interface{}, keys ...string) string {
+	if m == nil {
+		return ""
+	}
+	for _, key := range keys {
+		if raw, ok := m[key]; ok {
+			if v, castOK := raw.(string); castOK && strings.TrimSpace(v) != "" {
+				return strings.TrimSpace(v)
+			}
+		}
+	}
+	return ""
+}
+
+// formatOverviewMemory 将字节数转成 MB 文案。
+func formatOverviewMemory(bytes uint64) string {
+	mb := float64(bytes) / 1024 / 1024
+	return fmt.Sprintf("%.1f MB", mb)
+}
+
+// countTodayTasks 统计今日创建任务数，用于概览“今日消息”展示。
+func countTodayTasks(tasks []*clawtaskman.Task) int {
+	if len(tasks) == 0 {
+		return 0
+	}
+	now := time.Now()
+	start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	end := start.Add(24 * time.Hour)
+	count := 0
+	for _, task := range tasks {
+		if task == nil {
+			continue
+		}
+		if !task.CreatedAt.Before(start) && task.CreatedAt.Before(end) {
+			count++
+		}
+	}
+	return count
 }
 
 // ProcessStatus 获取进程状态（兼容 ClawPanel 接口名）。
