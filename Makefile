@@ -95,7 +95,7 @@ release-auto-tag: ## 自动递增版本并推送标签
 	\
 	$(MAKE) release-tag VERSION="$$NEW_VERSION"
 
-release-undo-version: ## 撤销最近一次版本号修改（仅回退 frontend/package.json 的 version）
+release-undo-version: ## 撤销最近一次版本号修改（回退 frontend/package.json 的 version，清空 RELEASE_NOTES.md，并移除对应 CHANGELOG 条目）
 	@command -v node >/dev/null 2>&1 || (echo "$(COLOR_YELLOW)未安装 Node.js$(COLOR_RESET)" && exit 1); \
 	CURRENT_VERSION=$$(node -e 'const fs=require("fs");const p=JSON.parse(fs.readFileSync("frontend/package.json","utf8"));process.stdout.write(p.version||"")'); \
 	TARGET_COMMIT=""; \
@@ -123,7 +123,32 @@ release-undo-version: ## 撤销最近一次版本号修改（仅回退 frontend/
 	fi; \
 	git show "$${TARGET_COMMIT}:frontend/package.json" > frontend/package.json; \
 	NEW_VERSION=$$(node -e 'const fs=require("fs");const p=JSON.parse(fs.readFileSync("frontend/package.json","utf8"));process.stdout.write(p.version||"")'); \
+	: > RELEASE_NOTES.md; \
+	CHANGELOG_REMOVED=0; \
+	if [ -f CHANGELOG.md ]; then \
+		if awk -v ver="v$$CURRENT_VERSION" 'BEGIN{skip=0;found=0} \
+			$$0 ~ "^## \\[" ver "\\]" {skip=1;found=1;next} \
+			skip && $$0 ~ "^## \\[" {skip=0} \
+			!skip {print} \
+			END{if(!found) exit 2}' CHANGELOG.md > CHANGELOG.md.tmp; then \
+			mv CHANGELOG.md.tmp CHANGELOG.md; \
+			CHANGELOG_REMOVED=1; \
+		else \
+			STATUS=$$?; \
+			rm -f CHANGELOG.md.tmp; \
+			if [ "$$STATUS" -ne 2 ]; then \
+				echo "$(COLOR_YELLOW)处理 CHANGELOG.md 失败$(COLOR_RESET)"; \
+				exit 1; \
+			fi; \
+		fi; \
+	fi; \
 	echo "$(COLOR_GREEN)已回退版本: $$CURRENT_VERSION -> $$NEW_VERSION$(COLOR_RESET)"; \
+	echo "$(COLOR_GREEN)已清空 RELEASE_NOTES.md$(COLOR_RESET)"; \
+	if [ "$$CHANGELOG_REMOVED" -eq 1 ]; then \
+		echo "$(COLOR_GREEN)已移除 CHANGELOG.md 中 v$$CURRENT_VERSION 对应条目$(COLOR_RESET)"; \
+	else \
+		echo "$(COLOR_YELLOW)未找到 CHANGELOG.md 中 v$$CURRENT_VERSION 对应条目，已跳过$(COLOR_RESET)"; \
+	fi; \
 	echo "$(COLOR_BLUE)提示: 请检查后手动提交变更$(COLOR_RESET)"
 
 clean: ## 清理构建文件

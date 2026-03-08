@@ -1,17 +1,18 @@
 # GitHub Release 发布命令
 
-发布 Boxify 新版本到 GitHub。
+发布 Boxify 新版本到 GitHub，或撤销最近一次版本。
 
 ## 使用方式
 
 ```bash
-/git-release [patch|minor|major]
+/git-release [patch|minor|major|undo]
 ```
 
 - 不带参数：会询问用户版本更新类型
 - `patch`：修订号 +1 (0.0.x) - bug 修复、小优化
 - `minor`：次版本 +1 (0.x.0) - 新功能、功能增强
 - `major`：主版本 +1 (x.0.0) - 重大更新、破坏性变更
+- `undo`：撤销最近一次版本号修改（回退版本并清空发布说明）
 
 ## 执行步骤
 
@@ -236,13 +237,48 @@ All notable changes to this project will be documented in this file.
 /git-release patch     # 修订号更新
 /git-release minor     # 次版本更新
 /git-release major     # 主版本更新
+/git-release undo      # 撤销最近一次版本
+```
+
+---
+
+## 撤销版本
+
+当需要撤销最近一次版本发布时：
+
+```bash
+/git-release undo
+```
+
+撤销操作会：
+1. 回退 `frontend/package.json` 的版本号到上一个版本
+2. 清空 `RELEASE_NOTES.md` 文件内容
+3. 撤回 `CHANGELOG.md` 文件中的上一次更改记录
+3. 提示用户检查后手动提交变更
+
+**注意**：撤销操作只会修改本地文件，不会删除已推送的 Git tag 或已发布的 GitHub Release。如需删除远程 tag 和 release，需手动执行：
+```bash
+git push --delete origin v<版本号>
+git tag -d v<版本号>
 ```
 
 ---
 
 **参数**: $ARGUMENTS
 
-请执行以下发布流程：
+请根据参数执行对应流程：
+
+### 如果参数为 `undo`（撤销版本）
+
+1. **执行撤销命令**：
+   - 运行 `make release-undo-version`
+   - 该命令会自动回退版本号并清空 RELEASE_NOTES.md
+
+2. **显示结果**：
+   - 告知用户版本回退结果
+   - 提示用户检查变更后手动提交
+
+### 否则（发布新版本）
 
 1. **检查并提交未提交内容**：
    - 运行 `git status --porcelain` 检查工作区状态
