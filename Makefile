@@ -127,8 +127,9 @@ release-auto-tag: ## 自动递增版本并推送标签（由 GitHub Workflow 负
 		exit 1; \
 	fi; \
 	command -v node >/dev/null 2>&1 || (echo "$(COLOR_YELLOW)未安装 Node.js，无法自动递增 frontend/package.json 版本$(COLOR_RESET)" && exit 1); \
-	$(MAKE) bump-version PART="$$PART" >/dev/null; \
-	NEW_VERSION=$$(node -p "require('./frontend/package.json').version"); \
+	MAX_REMOTE_VERSION=$$(git ls-remote --tags --refs origin "v*.*.*" | awk -F'/' '{print $$3}' | sed 's/^v//' | sort -V | tail -n1); \
+	if [ -z "$$MAX_REMOTE_VERSION" ]; then MAX_REMOTE_VERSION="0.0.0"; fi; \
+	NEW_VERSION=$$(PART="$$PART" MAX_REMOTE_VERSION="$$MAX_REMOTE_VERSION" node -e 'const fs=require("fs"); const file="frontend/package.json"; const part=process.env.PART||"patch"; const maxRemote=process.env.MAX_REMOTE_VERSION||"0.0.0"; const pkg=JSON.parse(fs.readFileSync(file,"utf8")); const parse=v=>(v||"0.0.0").split(".").map(n=>parseInt(n,10)||0).concat([0,0,0]).slice(0,3); const cmp=(a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]; const seg=cmp(parse(pkg.version),parse(maxRemote))>=0?parse(pkg.version):parse(maxRemote); if(part==="major"){seg[0]++; seg[1]=0; seg[2]=0;} else if(part==="minor"){seg[1]++; seg[2]=0;} else {seg[2]++;} const next=seg.join("."); pkg.version=next; fs.writeFileSync(file, JSON.stringify(pkg,null,2)+"\n"); process.stdout.write(next);'); \
 	echo "$(COLOR_GREEN)版本已更新为: $$NEW_VERSION$(COLOR_RESET)"; \
 	git add frontend/package.json; \
 	git commit -m "🔧 chore(release): bump version to v$$NEW_VERSION"; \
