@@ -78,18 +78,56 @@ download_file() {
     fi
 }
 
+download_from_candidates() {
+    local output="$1"
+    shift
+    local url
+
+    for url in "$@"; do
+        info "尝试下载: ${url}"
+        if download_file "${url}" "${output}"; then
+            log "下载成功: ${url}"
+            return 0
+        fi
+        warn "下载失败，继续尝试其他候选资源。"
+        rm -f "${output}"
+    done
+
+    return 1
+}
+
 install_linux() {
     local version="$1"
     local arch="$2"
-    local archive_name="${APP_NAME}-${version}-linux-${arch}.tar.gz"
-    local download_url="https://github.com/${REPO}/releases/download/v${version}/${archive_name}"
-    local tmp_file="/tmp/${archive_name}"
+    local tmp_file="/tmp/boxify-installer-linux-${arch}"
+    local download_urls=(
+        "https://github.com/${REPO}/releases/download/v${version}/${APP_NAME}-${version}-linux-${arch}.tar.gz"
+        "https://github.com/${REPO}/releases/download/v${version}/${BINARY_NAME}-${version}-linux-${arch}.tar.gz"
+        "https://github.com/${REPO}/releases/download/v${version}/${BINARY_NAME}-v${version}-linux-${arch}"
+        "https://github.com/${REPO}/releases/download/v${version}/${BINARY_NAME}-${version}-linux-${arch}"
+    )
 
-    info "下载地址: ${download_url}"
-    download_file "${download_url}" "${tmp_file}" || err "下载失败，请检查版本或网络。"
+    download_from_candidates "${tmp_file}" "${download_urls[@]}" || err "下载失败，请检查版本或网络。"
 
     mkdir -p "${INSTALL_DIR}"
-    tar -xzf "${tmp_file}" -C "${INSTALL_DIR}"
+
+    if tar -tzf "${tmp_file}" >/dev/null 2>&1; then
+        tar -xzf "${tmp_file}" -C "${INSTALL_DIR}"
+    else
+        install -m 755 "${tmp_file}" "${INSTALL_DIR}/${BINARY_NAME}"
+    fi
+
+    if [ ! -f "${INSTALL_DIR}/${BINARY_NAME}" ]; then
+        local extracted_bin
+        extracted_bin=$(find "${INSTALL_DIR}" -maxdepth 3 -type f -name "${BINARY_NAME}" | head -n 1)
+        if [ -n "${extracted_bin}" ]; then
+            mv "${extracted_bin}" "${INSTALL_DIR}/${BINARY_NAME}"
+        else
+            rm -f "${tmp_file}"
+            err "安装失败：未找到可执行文件 ${BINARY_NAME}。"
+        fi
+    fi
+
     chmod +x "${INSTALL_DIR}/${BINARY_NAME}"
     ln -sf "${INSTALL_DIR}/${BINARY_NAME}" /usr/local/bin/${BINARY_NAME}
     rm -f "${tmp_file}"
@@ -104,30 +142,50 @@ install_linux() {
 install_macos() {
     local version="$1"
     local arch="$2"
-    local dmg_name="${APP_NAME}-${version}-mac-${arch}.dmg"
-    local download_url="https://github.com/${REPO}/releases/download/v${version}/${dmg_name}"
+    local tmp_file="/tmp/boxify-installer-macos-${arch}"
     local app_path="${MAC_MOUNT_POINT}/${APP_NAME}.app"
+    local download_urls=(
+        "https://github.com/${REPO}/releases/download/v${version}/${APP_NAME}-${version}-mac-${arch}.dmg"
+        "https://github.com/${REPO}/releases/download/v${version}/${BINARY_NAME}-${version}-mac-${arch}.dmg"
+        "https://github.com/${REPO}/releases/download/v${version}/${BINARY_NAME}-v${version}-darwin-${arch}"
+        "https://github.com/${REPO}/releases/download/v${version}/${BINARY_NAME}-${version}-darwin-${arch}"
+    )
 
-    info "下载地址: ${download_url}"
-    download_file "${download_url}" "${MAC_TMP_DMG}" || err "下载失败，请检查版本或网络。"
+    download_from_candidates "${tmp_file}" "${download_urls[@]}" || err "下载失败，请检查版本或网络。"
 
-    hdiutil detach "${MAC_MOUNT_POINT}" >/dev/null 2>&1 || true
-    hdiutil attach "${MAC_TMP_DMG}" -mountpoint "${MAC_MOUNT_POINT}" -nobrowse -quiet || err "挂载 DMG 失败。"
-
-    if [ ! -d "${app_path}" ]; then
+    if hdiutil imageinfo "${tmp_file}" >/dev/null 2>&1; then
+        cp "${tmp_file}" "${MAC_TMP_DMG}"
+        rm -f "${tmp_file}"
         hdiutil detach "${MAC_MOUNT_POINT}" >/dev/null 2>&1 || true
-        err "未在 DMG 中找到 ${APP_NAME}.app。"
+        hdiutil attach "${MAC_TMP_DMG}" -mountpoint "${MAC_MOUNT_POINT}" -nobrowse -quiet || err "挂载 DMG 失败。"
+
+        if [ ! -d "${app_path}" ]; then
+            hdiutil detach "${MAC_MOUNT_POINT}" >/dev/null 2>&1 || true
+            err "未在 DMG 中找到 ${APP_NAME}.app。"
+        fi
+
+        rm -rf "/Applications/${APP_NAME}.app"
+        cp -R "${app_path}" "/Applications/${APP_NAME}.app"
+        hdiutil detach "${MAC_MOUNT_POINT}" -quiet || true
+        rm -f "${MAC_TMP_DMG}"
+
+        log "安装完成: /Applications/${APP_NAME}.app"
+        echo ""
+        echo -e "  ${BOLD}启动方式${NC}: 在 Launchpad 或 /Applications 中打开 ${APP_NAME}"
+        echo -e "  ${BOLD}卸载命令${NC}: sudo rm -rf /Applications/${APP_NAME}.app ${INSTALL_DIR}"
+        echo ""
+        return
     fi
 
-    rm -rf "/Applications/${APP_NAME}.app"
-    cp -R "${app_path}" "/Applications/${APP_NAME}.app"
-    hdiutil detach "${MAC_MOUNT_POINT}" -quiet || true
-    rm -f "${MAC_TMP_DMG}"
+    mkdir -p "${INSTALL_DIR}"
+    install -m 755 "${tmp_file}" "${INSTALL_DIR}/${BINARY_NAME}"
+    ln -sf "${INSTALL_DIR}/${BINARY_NAME}" /usr/local/bin/${BINARY_NAME}
+    rm -f "${tmp_file}"
 
-    log "安装完成: /Applications/${APP_NAME}.app"
+    log "安装完成: ${INSTALL_DIR}/${BINARY_NAME}"
     echo ""
-    echo -e "  ${BOLD}启动方式${NC}: 在 Launchpad 或 /Applications 中打开 ${APP_NAME}"
-    echo -e "  ${BOLD}卸载命令${NC}: sudo rm -rf /Applications/${APP_NAME}.app ${INSTALL_DIR}"
+    echo -e "  ${BOLD}启动命令${NC}: ${CYAN}${BINARY_NAME}${NC}"
+    echo -e "  ${BOLD}卸载命令${NC}: sudo rm -f /usr/local/bin/${BINARY_NAME} && sudo rm -rf ${INSTALL_DIR}"
     echo ""
 }
 
