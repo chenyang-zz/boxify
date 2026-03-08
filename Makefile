@@ -1,7 +1,7 @@
 # Boxify Makefile
 # 基于 Wails v3 的跨平台数据库管理应用
 
-.PHONY: help dev build sync-build-assets build-macos-app build-macos-app-universal refresh-icons package-macos package-macos-universal run-macos-app clean install frontend-install frontend-dev frontend-build test format tidy lint release bump-version release-tag release-auto-tag
+.PHONY: help dev build sync-build-assets build-macos-app build-macos-app-universal refresh-icons package-macos package-macos-universal run-macos-app clean install frontend-install frontend-dev frontend-build test format tidy lint release-tag release-auto-tag
 
 # 默认目标
 .DEFAULT_GOAL := help
@@ -60,52 +60,6 @@ run-macos-app: ## 启动已打包的 macOS .app（自动移除隔离属性）
 	@test -d bin/boxify.app || (echo "$(COLOR_YELLOW)未找到 bin/boxify.app，请先执行 make build-macos-app$(COLOR_RESET)" && exit 1)
 	@xattr -dr com.apple.quarantine bin/boxify.app 2>/dev/null || true
 	@open bin/boxify.app
-
-build-release: ## 构建发布版本
-	@echo "$(COLOR_GREEN)📦 构建发布版本...$(COLOR_RESET)"
-	@rm -rf dist
-	@mkdir -p dist
-	@$(WAILS) build
-	@if [ -d "bin/$(APP_NAME).app" ]; then \
-		cp -R "bin/$(APP_NAME).app" "dist/$(APP_NAME).app"; \
-	fi
-	@if [ -f "bin/$(APP_NAME)" ]; then \
-		cp "bin/$(APP_NAME)" "dist/$(APP_NAME)"; \
-	fi
-	@if [ -f "bin/$(APP_NAME).exe" ]; then \
-		cp "bin/$(APP_NAME).exe" "dist/$(APP_NAME).exe"; \
-	fi
-	@ls -1 dist >/dev/null || (echo "$(COLOR_YELLOW)未生成发布产物$(COLOR_RESET)" && exit 1)
-
-release: ## 一条龙发布（用法: make release VERSION=0.0.1）
-	@if [ -z "$(VERSION)" ]; then \
-		echo "$(COLOR_YELLOW)请提供版本号: make release VERSION=0.0.1$(COLOR_RESET)"; \
-		exit 1; \
-	fi
-	@command -v gh >/dev/null 2>&1 || (echo "$(COLOR_YELLOW)未安装 GitHub CLI (gh)，请先安装并执行 gh auth login$(COLOR_RESET)" && exit 1)
-	@git diff --quiet && git diff --cached --quiet || (echo "$(COLOR_YELLOW)工作区有未提交改动，请先提交后再发布$(COLOR_RESET)" && exit 1)
-	@git rev-parse -q --verify "refs/tags/v$(VERSION)" >/dev/null && (echo "$(COLOR_YELLOW)本地已存在 tag v$(VERSION)$(COLOR_RESET)" && exit 1) || true
-	@git ls-remote --tags origin "refs/tags/v$(VERSION)" | grep -q "refs/tags/v$(VERSION)$$" && (echo "$(COLOR_YELLOW)远端已存在 tag v$(VERSION)$(COLOR_RESET)" && exit 1) || true
-	@$(MAKE) build-release
-	@git tag -a "v$(VERSION)" -m "release v$(VERSION)"
-	@git push origin "v$(VERSION)"
-	@ASSETS="$$(find dist -maxdepth 1 -type f -print)"; \
-	if [ -z "$$ASSETS" ]; then \
-		echo "$(COLOR_YELLOW)dist/ 目录下没有可上传的文件$(COLOR_RESET)"; \
-		exit 1; \
-	fi; \
-	gh release create "v$(VERSION)" $$ASSETS --title "v$(VERSION)" --generate-notes
-	@echo "$(COLOR_GREEN)✅ 发布完成: v$(VERSION)$(COLOR_RESET)"
-
-bump-version: ## 自动递增版本号（用法: make bump-version PART=patch|minor|major）
-	@PART="$(PART)"; \
-	if [ -z "$$PART" ]; then PART="patch"; fi; \
-	if [ "$$PART" != "patch" ] && [ "$$PART" != "minor" ] && [ "$$PART" != "major" ]; then \
-		echo "$(COLOR_YELLOW)PART 仅支持 patch/minor/major$(COLOR_RESET)"; \
-		exit 1; \
-	fi; \
-	PART="$$PART" node -e 'const fs=require("fs"); const part=process.env.PART||"patch"; const file="frontend/package.json"; const pkg=JSON.parse(fs.readFileSync(file,"utf8")); const seg=(pkg.version||"0.0.0").split(".").map(n=>parseInt(n,10)||0); if(seg.length<3){while(seg.length<3) seg.push(0);} if(part==="major"){seg[0]++; seg[1]=0; seg[2]=0;} else if(part==="minor"){seg[1]++; seg[2]=0;} else {seg[2]++;} pkg.version=seg.join("."); fs.writeFileSync(file, JSON.stringify(pkg,null,2)+"\n"); console.log(pkg.version);'
-
 
 release-tag: ## 仅创建并推送版本标签（触发 GitHub Workflow 发布，示例: make release-tag VERSION=0.0.6）
 	@if [ -z "$(VERSION)" ]; then \

@@ -17,11 +17,14 @@ FROM golang:1.25-bookworm
 
 ARG TARGETARCH
 
-# Install base tools, GCC, and GTK/WebKit dev packages
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install base tools, native deps, and arm64 cross toolchain/deps for Linux arm64 builds
+RUN dpkg --add-architecture arm64 && \
+    apt-get update && apt-get install -y --no-install-recommends \
     curl xz-utils nodejs npm pkg-config gcc libc6-dev \
+    gcc-aarch64-linux-gnu libc6-dev-arm64-cross \
     libgtk-3-dev libwebkit2gtk-4.1-dev \
     libgtk-4-dev libwebkitgtk-6.0-dev \
+    libgtk-3-dev:arm64 libwebkit2gtk-4.1-dev:arm64 libsoup-3.0-dev:arm64 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Zig - automatically selects correct binary for host architecture
@@ -142,14 +145,19 @@ case "${OS}-${ARCH}" in
         export GOOS=darwin
         ;;
     linux-arm64|linux-aarch64)
-        export CC=gcc
+        export CC=aarch64-linux-gnu-gcc
         export GOARCH=arm64
         export GOOS=linux
+        export PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig
+        export PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig
+        export CGO_LDFLAGS="-L/usr/lib/aarch64-linux-gnu"
         ;;
     linux-amd64|linux-x86_64)
         export CC=gcc
         export GOARCH=amd64
         export GOOS=linux
+        export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig
+        export PKG_CONFIG_LIBDIR=/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig
         ;;
     windows-arm64|windows-aarch64)
         export CC=zcc-windows-arm64

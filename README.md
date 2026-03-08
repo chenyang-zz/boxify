@@ -54,11 +54,9 @@ curl -fsSLO https://raw.githubusercontent.com/chenyang-zz/boxify/main/scripts/in
 # 开发与构建
 make dev                # 启动开发模式
 make build              # 构建生产版本
-make build-release      # 构建发布版本（如存在 scripts/build-release.sh）
-make release VERSION=0.0.1  # 一条龙发布（构建 + 打 tag + 创建 GitHub Release）
-make release-auto PART=patch  # 自动升版本并一条龙发布（默认 patch）
-make release-auto PART=minor  # 次版本 +1
-make release-auto PART=major  # 主版本 +1
+make release-auto-tag PART=patch  # 自动升版本并推送 tag（默认 patch，由 GitHub Actions 发布）
+make release-auto-tag PART=minor  # 次版本 +1 并推送 tag
+make release-auto-tag PART=major  # 主版本 +1 并推送 tag
 
 # 依赖与检查
 make install            # 安装所有依赖
@@ -92,6 +90,7 @@ pnpm run build
 - 前端架构：`agents/frontend-architecture.md`
 - 后端代码组织规范：`agents/backend-code-organization.md`
 - Git 提交规范：`agents/git-commit-convention.md`
+- 发布流程：`docs/release-guide.md`
 - 终端组件架构：`docs/terminal-component-architecture.md`
 
 ## 目录概览
