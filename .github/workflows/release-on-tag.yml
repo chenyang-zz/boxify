@@ -8,7 +8,91 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-on-tag-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  APP_NAME: boxify
+  NODE_VERSION: '22'
+  PNPM_VERSION: '10'
+  WAILS_VERSION: v3.0.0-alpha.71
+
+defaults:
+  run:
+    shell: bash
+
 jobs:
+  build-linux-amd64:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pkg-config gcc \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libsoup-3.0-dev \
+            rpm
+
+      - name: Install Wails v3 CLI
+        run: |
+          CGO_ENABLED=0 go install github.com/wailsapp/wails/v3/cmd/wails3@${WAILS_VERSION}
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Install Frontend Dependencies
+        run: pnpm -C frontend install --frozen-lockfile
+
+      - name: Build Linux amd64 packages
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          rm -rf dist
+          mkdir -p dist
+
+          wails3 task linux:build ARCH=amd64 OUTPUT="bin/${APP_NAME}"
+          wails3 task linux:create:appimage ARCH=amd64
+          wails3 task linux:create:deb ARCH=amd64
+          wails3 task linux:create:rpm ARCH=amd64
+
+          APPIMAGE="$(find bin -maxdepth 1 -type f -name '*.AppImage' | head -n1)"
+          DEB="$(find bin -maxdepth 1 -type f -name '*.deb' | head -n1)"
+          RPM="$(find bin -maxdepth 1 -type f -name '*.rpm' | head -n1)"
+
+          [ -n "$APPIMAGE" ] && [ -f "$APPIMAGE" ] || (echo "未找到 AppImage 产物" && exit 1)
+          [ -n "$DEB" ] && [ -f "$DEB" ] || (echo "未找到 deb 产物" && exit 1)
+          [ -n "$RPM" ] && [ -f "$RPM" ] || (echo "未找到 rpm 产物" && exit 1)
+
+          cp "$APPIMAGE" "dist/${APP_NAME}-${VERSION}-linux-x86_64.AppImage"
+          cp "$DEB" "dist/${APP_NAME}_${VERSION}_amd64.deb"
+          cp "$RPM" "dist/${APP_NAME}-${VERSION}.x86_64.rpm"
+
+      - name: Upload Linux amd64 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-amd64
+          path: dist/*
+          if-no-files-found: error
+
   build-linux-arm64:
     runs-on: ubuntu-24.04-arm
     steps:
@@ -19,62 +103,61 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      
-      - name: Install Linux dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libgtk-3-dev \
-            libwebkit2gtk-4.1-dev \
-            libglib2.0-dev
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: ${{ env.NODE_VERSION }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10
+          version: ${{ env.PNPM_VERSION }}
 
-      - name: Install Linux Build Dependencies
+      - name: Install Linux dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             pkg-config gcc \
-            libgtk-3-dev libwebkit2gtk-4.1-dev libsoup-3.0-dev
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libsoup-3.0-dev
 
       - name: Install Wails v3 CLI
         run: |
-          CGO_ENABLED=0 go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.71
+          CGO_ENABLED=0 go install github.com/wailsapp/wails/v3/cmd/wails3@${WAILS_VERSION}
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - name: Install Frontend Dependencies
         run: pnpm -C frontend install --frozen-lockfile
 
-      - name: Build Linux arm64 Artifact
+      - name: Build Linux arm64 AppImage
         run: |
           set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          rm -rf dist
           mkdir -p dist
-          VERSION="${GITHUB_REF_NAME}"
-          wails3 task linux:build ARCH=arm64 OUTPUT="dist/boxify-${VERSION}-linux-arm64"
 
-      - name: Upload Linux arm64 Artifact
+          wails3 task linux:build ARCH=arm64 OUTPUT="bin/${APP_NAME}"
+          wails3 task linux:create:appimage ARCH=arm64
+
+          APPIMAGE="$(find bin -maxdepth 1 -type f -name '*.AppImage' | head -n1)"
+          [ -n "$APPIMAGE" ] && [ -f "$APPIMAGE" ] || (echo "未找到 arm64 AppImage 产物" && exit 1)
+
+          cp "$APPIMAGE" "dist/${APP_NAME}-${VERSION}-linux-arm64.AppImage"
+
+      - name: Upload Linux arm64 artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: linux-arm64-artifact
-          path: dist/boxify-${{ github.ref_name }}-linux-arm64
+          name: release-linux-arm64
+          path: dist/*
           if-no-files-found: error
 
-  release:
-    needs: build-linux-arm64
+  build-windows:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -84,72 +167,223 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: ${{ env.NODE_VERSION }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install Windows build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            nsis zip \
+            gcc-mingw-w64-x86-64 \
+            gcc-mingw-w64-aarch64
 
       - name: Install Wails v3 CLI
         run: |
-          CGO_ENABLED=0 go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.71
+          CGO_ENABLED=0 go install github.com/wailsapp/wails/v3/cmd/wails3@${WAILS_VERSION}
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - name: Install Frontend Dependencies
         run: pnpm -C frontend install --frozen-lockfile
 
-      - name: Generate Wails Bindings
-        run: CGO_ENABLED=0 wails3 generate bindings -f '-tags production -trimpath -buildvcs=false -ldflags="-w -s"' -clean=true
-
-      - name: Verification
-        run: |
-          pnpm -C frontend run build
-
-      - name: Install NSIS
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y nsis
-
-      - name: Build Release Artifacts
+      - name: Build Windows artifacts
         run: |
           set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          rm -rf dist
           mkdir -p dist
-          VERSION="${GITHUB_REF_NAME}"
-          wails3 task setup:docker
-          wails3 task darwin:build ARCH=amd64 OUTPUT="dist/boxify-${VERSION}-darwin-amd64"
-          wails3 task darwin:build ARCH=arm64 OUTPUT="dist/boxify-${VERSION}-darwin-arm64"
-          wails3 task linux:build:docker ARCH=amd64 OUTPUT="dist/boxify-${VERSION}-linux-amd64"
+
+          # x64 executable + setup
           wails3 task windows:build ARCH=amd64 CGO_ENABLED=0
           wails3 task windows:package ARCH=amd64 FORMAT=nsis CGO_ENABLED=0
-          if [ -f "bin/boxify.exe" ]; then
-            mv "bin/boxify.exe" "dist/boxify-${VERSION}-windows-amd64.exe"
-          elif [ -f "bin/boxify-windows-amd64.exe" ]; then
-            mv "bin/boxify-windows-amd64.exe" "dist/boxify-${VERSION}-windows-amd64.exe"
+
+          if [ -f "bin/${APP_NAME}.exe" ]; then
+            WIN_X64_EXE="bin/${APP_NAME}.exe"
+          elif [ -f "bin/${APP_NAME}-windows-amd64.exe" ]; then
+            WIN_X64_EXE="bin/${APP_NAME}-windows-amd64.exe"
           else
-            echo "未找到 Windows 构建产物（bin/boxify.exe 或 bin/boxify-windows-amd64.exe）"
-            exit 1
-          fi
-          if [ -f "bin/boxify-amd64-installer.exe" ]; then
-            mv "bin/boxify-amd64-installer.exe" "dist/boxify-${VERSION}-windows-amd64-setup.exe"
-          elif [ -f "bin/boxify-installer.exe" ]; then
-            mv "bin/boxify-installer.exe" "dist/boxify-${VERSION}-windows-amd64-setup.exe"
-          else
-            echo "未找到 Windows 安装包产物（bin/boxify-amd64-installer.exe 或 bin/boxify-installer.exe）"
+            echo "未找到 Windows x64 可执行文件"
             exit 1
           fi
 
-      - name: Download Linux arm64 Artifact
+          if [ -f "bin/${APP_NAME}-amd64-installer.exe" ]; then
+            WIN_X64_SETUP="bin/${APP_NAME}-amd64-installer.exe"
+          elif [ -f "bin/${APP_NAME}-installer.exe" ]; then
+            WIN_X64_SETUP="bin/${APP_NAME}-installer.exe"
+          else
+            echo "未找到 Windows x64 安装包"
+            exit 1
+          fi
+
+          cp "$WIN_X64_SETUP" "dist/${APP_NAME}-${VERSION}-win-x64-setup.exe"
+          cp "$WIN_X64_EXE" "dist/${APP_NAME}.exe"
+          (cd dist && zip -9 "${APP_NAME}-${VERSION}-win-x64-portable.zip" "${APP_NAME}.exe")
+          rm -f "dist/${APP_NAME}.exe"
+
+          # arm64 setup
+          wails3 task windows:build ARCH=arm64 CGO_ENABLED=0
+          wails3 task windows:package ARCH=arm64 FORMAT=nsis CGO_ENABLED=0
+
+          if [ -f "bin/${APP_NAME}-arm64-installer.exe" ]; then
+            WIN_ARM64_SETUP="bin/${APP_NAME}-arm64-installer.exe"
+          elif [ -f "bin/${APP_NAME}-installer.exe" ]; then
+            WIN_ARM64_SETUP="bin/${APP_NAME}-installer.exe"
+          elif [ -f "bin/${APP_NAME}-windows-arm64-installer.exe" ]; then
+            WIN_ARM64_SETUP="bin/${APP_NAME}-windows-arm64-installer.exe"
+          else
+            echo "未找到 Windows arm64 安装包"
+            exit 1
+          fi
+
+          cp "$WIN_ARM64_SETUP" "dist/${APP_NAME}-${VERSION}-win-arm64-setup.exe"
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-windows
+          path: dist/*
+          if-no-files-found: error
+
+  build-macos:
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install Wails v3 CLI
+        run: |
+          CGO_ENABLED=0 go install github.com/wailsapp/wails/v3/cmd/wails3@${WAILS_VERSION}
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Install Frontend Dependencies
+        run: pnpm -C frontend install --frozen-lockfile
+
+      - name: Build macOS DMGs
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          APP_BUNDLE="bin/${APP_NAME}.app"
+          rm -rf dist
+          mkdir -p dist
+
+          create_dmg() {
+            local app_path="$1"
+            local dmg_path="$2"
+            hdiutil create -volname "${APP_NAME}" -srcfolder "$app_path" -ov -format UDZO "$dmg_path"
+          }
+
+          # macOS x64
+          wails3 task darwin:package ARCH=amd64
+          [ -d "$APP_BUNDLE" ] || (echo "未找到 x64 app bundle" && exit 1)
+          create_dmg "$APP_BUNDLE" "dist/${APP_NAME}-${VERSION}-macos-x64.dmg"
+
+          # macOS arm64
+          wails3 task darwin:package ARCH=arm64
+          [ -d "$APP_BUNDLE" ] || (echo "未找到 arm64 app bundle" && exit 1)
+          create_dmg "$APP_BUNDLE" "dist/${APP_NAME}-${VERSION}-macos-arm64.dmg"
+
+          # macOS universal
+          wails3 task darwin:package:universal
+          [ -d "$APP_BUNDLE" ] || (echo "未找到 universal app bundle" && exit 1)
+          create_dmg "$APP_BUNDLE" "dist/${APP_NAME}-${VERSION}-macos-universal.dmg"
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-macos
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    needs:
+      - build-linux-amd64
+      - build-linux-arm64
+      - build-windows
+      - build-macos
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          name: linux-arm64-artifact
           path: dist
+          merge-multiple: true
 
-      - name: Generate Checksums
+      - name: Verify expected files exist
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          expected=(
+            "${APP_NAME}-${VERSION}-win-x64-setup.exe"
+            "${APP_NAME}-${VERSION}-win-x64-portable.zip"
+            "${APP_NAME}-${VERSION}-win-arm64-setup.exe"
+            "${APP_NAME}-${VERSION}-macos-universal.dmg"
+            "${APP_NAME}-${VERSION}-macos-arm64.dmg"
+            "${APP_NAME}-${VERSION}-macos-x64.dmg"
+            "${APP_NAME}-${VERSION}-linux-x86_64.AppImage"
+            "${APP_NAME}-${VERSION}-linux-arm64.AppImage"
+            "${APP_NAME}_${VERSION}_amd64.deb"
+            "${APP_NAME}-${VERSION}.x86_64.rpm"
+          )
+
+          for file in "${expected[@]}"; do
+            if [ ! -f "dist/${file}"; then
+              echo "缺少预期产物: dist/${file}"
+              exit 1
+            fi
+          done
+
+      - name: Generate checksums
         run: |
           set -euo pipefail
           cd dist
-          sha256sum * > checksums.txt
+          sha256sum * | LC_ALL=C sort > checksums.txt
+
+      - name: Sign checksums
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.CHECKSUMS_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.CHECKSUMS_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${GPG_PRIVATE_KEY:-}" ] || [ -z "${GPG_PASSPHRASE:-}" ]; then
+            echo "缺少签名密钥，请配置 CHECKSUMS_PRIVATE_KEY 与 CHECKSUMS_PASSPHRASE"
+            exit 1
+          fi
+
+          if printf '%s' "$GPG_PRIVATE_KEY" | grep -q "BEGIN PGP PRIVATE KEY BLOCK"; then
+            printf '%s' "$GPG_PRIVATE_KEY" | gpg --batch --import
+          else
+            printf '%s' "$GPG_PRIVATE_KEY" | base64 -d | gpg --batch --import
+          fi
+
+          gpg --batch --yes --pinentry-mode loopback \
+            --passphrase "$GPG_PASSPHRASE" \
+            --output dist/checksums.txt.sig \
+            --detach-sign dist/checksums.txt
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2

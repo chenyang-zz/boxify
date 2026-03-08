@@ -256,12 +256,6 @@ All notable changes to this project will be documented in this file.
 3. 撤回 `CHANGELOG.md` 文件中的上一次更改记录
 3. 提示用户检查后手动提交变更
 
-**注意**：撤销操作只会修改本地文件，不会删除已推送的 Git tag 或已发布的 GitHub Release。如需删除远程 tag 和 release，需手动执行：
-```bash
-git push --delete origin v<版本号>
-git tag -d v<版本号>
-```
-
 ---
 
 **参数**: $ARGUMENTS

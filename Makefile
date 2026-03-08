@@ -95,30 +95,64 @@ release-auto-tag: ## 自动递增版本并推送标签
 	\
 	$(MAKE) release-tag VERSION="$$NEW_VERSION"
 
-release-undo-version: ## 撤销最近一次版本号修改（回退 frontend/package.json 的 version，清空 RELEASE_NOTES.md，并移除对应 CHANGELOG 条目）
+release-undo-version: ## 撤销最近一次版本号修改（支持撤销远程版本，回退 package.json，清空 RELEASE_NOTES.md，移除 CHANGELOG 条目）
 	@command -v node >/dev/null 2>&1 || (echo "$(COLOR_YELLOW)未安装 Node.js$(COLOR_RESET)" && exit 1); \
 	CURRENT_VERSION=$$(node -e 'const fs=require("fs");const p=JSON.parse(fs.readFileSync("frontend/package.json","utf8"));process.stdout.write(p.version||"")'); \
+	\
+	REMOTE_VERSION=""; \
+	if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then \
+		REMOTE_VERSION=$$(gh release list --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null | sed 's/^v//'); \
+	fi; \
+	\
+	VERSION_TO_UNDO="$$CURRENT_VERSION"; \
+	if [ -n "$$REMOTE_VERSION" ]; then \
+		REMOTE_MAJOR=$$(echo "$$REMOTE_VERSION" | cut -d. -f1); \
+		REMOTE_MINOR=$$(echo "$$REMOTE_VERSION" | cut -d. -f2); \
+		REMOTE_PATCH=$$(echo "$$REMOTE_VERSION" | cut -d. -f3); \
+		CURRENT_MAJOR=$$(echo "$$CURRENT_VERSION" | cut -d. -f1); \
+		CURRENT_MINOR=$$(echo "$$CURRENT_VERSION" | cut -d. -f2); \
+		CURRENT_PATCH=$$(echo "$$CURRENT_VERSION" | cut -d. -f3); \
+		IS_REMOTE_NEWER=0; \
+		if [ "$$REMOTE_MAJOR" -gt "$$CURRENT_MAJOR" ] 2>/dev/null; then \
+			IS_REMOTE_NEWER=1; \
+		elif [ "$$REMOTE_MAJOR" -eq "$$CURRENT_MAJOR" ] 2>/dev/null; then \
+			if [ "$$REMOTE_MINOR" -gt "$$CURRENT_MINOR" ] 2>/dev/null; then \
+				IS_REMOTE_NEWER=1; \
+			elif [ "$$REMOTE_MINOR" -eq "$$CURRENT_MINOR" ] 2>/dev/null; then \
+				if [ "$$REMOTE_PATCH" -gt "$$CURRENT_PATCH" ] 2>/dev/null; then \
+					IS_REMOTE_NEWER=1; \
+				fi; \
+			fi; \
+		fi; \
+		if [ "$$IS_REMOTE_NEWER" -eq 1 ]; then \
+			echo "$(COLOR_YELLOW)检测到远程版本 $$REMOTE_VERSION 高于本地 $$CURRENT_VERSION$(COLOR_RESET)"; \
+			VERSION_TO_UNDO="$$REMOTE_VERSION"; \
+		elif [ "$$REMOTE_VERSION" = "$$CURRENT_VERSION" ]; then \
+			echo "$(COLOR_BLUE)检测到远程版本 $$REMOTE_VERSION 与本地一致$(COLOR_RESET)"; \
+		fi; \
+	fi; \
+	\
 	TARGET_COMMIT=""; \
-	SEEN_CURRENT=0; \
+	SEEN_TARGET=0; \
 	for COMMIT in $$(git log --format=%H -- frontend/package.json); do \
 		CANDIDATE_VERSION=$$(git show "$${COMMIT}:frontend/package.json" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write(p.version||"")})'); \
-		if [ "$$SEEN_CURRENT" -eq 0 ]; then \
-			if [ "$$CANDIDATE_VERSION" = "$$CURRENT_VERSION" ]; then \
-				SEEN_CURRENT=1; \
+		if [ "$$SEEN_TARGET" -eq 0 ]; then \
+			if [ "$$CANDIDATE_VERSION" = "$$VERSION_TO_UNDO" ]; then \
+				SEEN_TARGET=1; \
 			fi; \
 			continue; \
 		fi; \
-		if [ "$$CANDIDATE_VERSION" != "$$CURRENT_VERSION" ]; then \
+		if [ "$$CANDIDATE_VERSION" != "$$VERSION_TO_UNDO" ]; then \
 			TARGET_COMMIT="$$COMMIT"; \
 			break; \
 		fi; \
 	done; \
-	if [ "$$SEEN_CURRENT" -eq 0 ]; then \
-		echo "$(COLOR_YELLOW)历史中未找到当前版本: $$CURRENT_VERSION$(COLOR_RESET)"; \
+	if [ "$$SEEN_TARGET" -eq 0 ]; then \
+		echo "$(COLOR_YELLOW)历史中未找到要撤销的版本: $$VERSION_TO_UNDO$(COLOR_RESET)"; \
 		exit 1; \
 	fi; \
 	if [ -z "$$TARGET_COMMIT" ]; then \
-		echo "$(COLOR_YELLOW)未找到可回退的更早版本（当前: $$CURRENT_VERSION）$(COLOR_RESET)"; \
+		echo "$(COLOR_YELLOW)未找到可回退的更早版本（当前: $$VERSION_TO_UNDO）$(COLOR_RESET)"; \
 		exit 1; \
 	fi; \
 	git show "$${TARGET_COMMIT}:frontend/package.json" > frontend/package.json; \
@@ -126,7 +160,7 @@ release-undo-version: ## 撤销最近一次版本号修改（回退 frontend/pac
 	: > RELEASE_NOTES.md; \
 	CHANGELOG_REMOVED=0; \
 	if [ -f CHANGELOG.md ]; then \
-		if awk -v ver="v$$CURRENT_VERSION" 'BEGIN{skip=0;found=0} \
+		if awk -v ver="v$$VERSION_TO_UNDO" 'BEGIN{skip=0;found=0} \
 			$$0 ~ "^## \\[" ver "\\]" {skip=1;found=1;next} \
 			skip && $$0 ~ "^## \\[" {skip=0} \
 			!skip {print} \
@@ -142,12 +176,15 @@ release-undo-version: ## 撤销最近一次版本号修改（回退 frontend/pac
 			fi; \
 		fi; \
 	fi; \
-	echo "$(COLOR_GREEN)已回退版本: $$CURRENT_VERSION -> $$NEW_VERSION$(COLOR_RESET)"; \
+	echo "$(COLOR_GREEN)已回退版本: $$VERSION_TO_UNDO -> $$NEW_VERSION$(COLOR_RESET)"; \
 	echo "$(COLOR_GREEN)已清空 RELEASE_NOTES.md$(COLOR_RESET)"; \
 	if [ "$$CHANGELOG_REMOVED" -eq 1 ]; then \
-		echo "$(COLOR_GREEN)已移除 CHANGELOG.md 中 v$$CURRENT_VERSION 对应条目$(COLOR_RESET)"; \
+		echo "$(COLOR_GREEN)已移除 CHANGELOG.md 中 v$$VERSION_TO_UNDO 对应条目$(COLOR_RESET)"; \
 	else \
-		echo "$(COLOR_YELLOW)未找到 CHANGELOG.md 中 v$$CURRENT_VERSION 对应条目，已跳过$(COLOR_RESET)"; \
+		echo "$(COLOR_YELLOW)未找到 CHANGELOG.md 中 v$$VERSION_TO_UNDO 对应条目，已跳过$(COLOR_RESET)"; \
+	fi; \
+	if [ "$$VERSION_TO_UNDO" = "$$REMOTE_VERSION" ] && [ -n "$$REMOTE_VERSION" ]; then \
+		echo "$(COLOR_YELLOW)注意: 远程存在 v$$REMOTE_VERSION Release，如需删除请执行: gh release delete v$$REMOTE_VERSION --yes$(COLOR_RESET)"; \
 	fi; \
 	echo "$(COLOR_BLUE)提示: 请检查后手动提交变更$(COLOR_RESET)"
 
