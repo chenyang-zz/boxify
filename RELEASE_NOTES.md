@@ -14,16 +14,18 @@
  limitations under the License.
 -->
 
-v0.0.23 - macOS 构建磁盘空间优化
+v0.0.24 - Go 缓存清理改进
 
-在 macOS DMG 打包前清理缓存，解决磁盘空间不足问题。
+改进 macOS 构建中 Go 模块缓存的清理方式。
 
 Improvements
-- CI: macOS DMG 打包前清理 node_modules、pnpm、Go、Homebrew、Xcode 缓存释放磁盘空间
+- CI: 使用 go env GOMODCACHE 获取正确的 Go 模块缓存路径
+- CI: 添加 chmod 处理缓存目录权限问题
+- CI: 使用 go clean -cache 清理构建缓存
 
 Verification
 - Passed pnpm run build
 - Passed make dev
 - Passed make build
 
-Full Changelog: v0.0.22...v0.0.23
+Full Changelog: v0.0.23...v0.0.24

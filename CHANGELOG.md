@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.0.24] - 2026-03-09
+
+### Changed
+- CI: 使用 go env GOMODCACHE 获取正确的 Go 模块缓存路径
+- CI: 添加 chmod 处理缓存目录权限问题
+- CI: 使用 go clean -cache 清理构建缓存
+
+---
+
 ## [v0.0.23] - 2026-03-09
 
 ### Changed
