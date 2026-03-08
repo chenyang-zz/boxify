@@ -16,20 +16,24 @@
 
 ## 执行步骤
 
-1. **发布前检查**
-   - 检查工作区是否干净（无未提交改动）
+1. **自动提交未提交内容**
+   - 检查工作区是否有未提交的改动
+   - 如果有未提交内容，自动执行 `/git-push` 命令提交
+   - 确保工作区干净后再继续发布流程
+
+2. **发布前检查**
    - 检查是否已登录 GitHub CLI
    - 检查本地分支是否与远端同步
 
-2. **版本管理**
+3. **版本管理**
    - 自动模式：递增版本号并更新 `frontend/package.json`
    - 手动模式：使用指定的版本号创建 tag
 
-3. **触发发布**
+4. **触发发布**
    - 推送 tag 到 GitHub
    - 自动触发 GitHub Actions 构建与发布
 
-4. **发布后验证**
+5. **发布后验证**
    - 显示 workflow 运行状态
    - 提供查看发布详情的命令
 
@@ -54,19 +58,24 @@
 
 请执行以下发布流程：
 
-1. 首先解析参数 `$ARGUMENTS`：
-   - 空或 `patch` → 执行 `make release-auto-tag PART=patch`
-   - `minor` → 执行 `make release-auto-tag PART=minor`
-   - `major` → 执行 `make release-auto-tag PART=major`
-   - 版本号格式 (如 `0.1.0`) → 执行 `make release-tag VERSION=0.1.0`
+1. **检查并提交未提交内容**：
+   - 运行 `git status --porcelain` 检查工作区状态
+   - 如果有未提交内容，执行 `/git-push` 命令自动提交
+   - 等待提交完成后再继续
 
-2. 执行发布前检查：
-   - 运行 `git status --porcelain` 检查工作区
+2. **解析参数并准备发布**：
+   - 解析参数 `$ARGUMENTS`：
+     - 空或 `patch` → 执行 `make release-auto-tag PART=patch`
+     - `minor` → 执行 `make release-auto-tag PART=minor`
+     - `major` → 执行 `make release-auto-tag PART=major`
+     - 版本号格式 (如 `0.1.0`) → 执行 `make release-tag VERSION=0.1.0`
+
+3. **执行发布前检查**：
    - 运行 `gh auth status` 检查 GitHub CLI 登录状态
    - 如有问题，提示用户修复后重试
 
-3. 执行发布命令
+4. **执行发布命令**
 
-4. 发布完成后：
+5. **发布完成后**：
    - 显示 workflow 运行状态：`gh run list --limit 3`
    - 提示用户可通过 `gh run view` 查看详情
