@@ -312,7 +312,13 @@ jobs:
           echo "DMG 打包前清理缓存，释放磁盘空间..."
           rm -rf frontend/node_modules || true
           rm -rf ~/.pnpm-store ~/.cache/pnpm || true
-          rm -rf ~/go/pkg/mod ~/.cache/go-build || true
+          GOMODCACHE="$(go env GOMODCACHE)"
+          if [ -n "${GOMODCACHE}" ] && [ -d "${GOMODCACHE}" ]; then
+            chmod -R u+w "${GOMODCACHE}" || true
+            rm -rf "${GOMODCACHE}" || true
+          fi
+          go clean -cache || true
+          rm -rf ~/.cache/go-build || true
           rm -rf ~/Library/Caches/Homebrew ~/Library/Developer/Xcode/DerivedData || true
 
           echo "清理后磁盘空间:"
