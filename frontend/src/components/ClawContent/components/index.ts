@@ -29,3 +29,5 @@ export type { PanelHeaderProps } from "./PanelHeader";
 export { SkillPanel } from "./SkillPanel";
 export { SkillListItem } from "./SkillListItem";
 export type { SkillListItemProps } from "./SkillListItem";
+export { ChatPanel } from "./ChatPanel";
+export { OpenClawPendingPanel } from "./OpenClawPendingPanel";
