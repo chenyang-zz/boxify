@@ -14,16 +14,16 @@
  limitations under the License.
 -->
 
-v0.0.22 - Windows 构建修复
+v0.0.23 - macOS 构建磁盘空间优化
 
-修复 Windows 打包任务变量传递问题。
+在 macOS DMG 打包前清理缓存，解决磁盘空间不足问题。
 
-Fixes
-- 修复 Windows 打包任务中 ARCH、CERT_PATH、PUBLISHER、USE_MSIX_TOOL 变量未正确传递到子任务的问题
+Improvements
+- CI: macOS DMG 打包前清理 node_modules、pnpm、Go、Homebrew、Xcode 缓存释放磁盘空间
 
 Verification
 - Passed pnpm run build
 - Passed make dev
 - Passed make build
 
-Full Changelog: v0.0.21...v0.0.22
+Full Changelog: v0.0.22...v0.0.23

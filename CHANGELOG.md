@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.0.23] - 2026-03-09
+
+### Changed
+- CI: macOS DMG 打包前清理 node_modules、pnpm、Go、Homebrew、Xcode 缓存释放磁盘空间
+
+---
+
 ## [v0.0.22] - 2026-03-09
 
 ### Fixed
