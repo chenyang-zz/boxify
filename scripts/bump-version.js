@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-const fs = require("fs")
+import fs from "fs"
+
 
 const file = "frontend/package.json"
 const part = process.env.PART || "patch"
