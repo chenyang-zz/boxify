@@ -40,6 +40,9 @@ jobs:
       - name: Install Frontend Dependencies
         run: pnpm -C frontend install --frozen-lockfile
 
+      - name: Generate Wails Bindings
+        run: wails3 task common:generate:bindings BUILD_FLAGS='-tags production -trimpath -buildvcs=false -ldflags="-w -s"'
+
       - name: Verification
         run: |
           pnpm -C frontend run build
