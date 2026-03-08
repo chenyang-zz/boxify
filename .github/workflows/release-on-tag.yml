@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   release:
-    runs-on: macos-14
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -50,16 +50,29 @@ jobs:
 
       - name: Build Release Artifacts
         run: |
+          set -euo pipefail
           mkdir -p dist
-          go build -tags production -trimpath -buildvcs=false -ldflags="-w -s" -o dist/boxify
-
-      - name: Pack Directory Artifacts
-        run: |
-          set -e
-          if [ -d "dist/boxify.app" ]; then
-            tar -czf "dist/boxify.app.tar.gz" -C dist boxify.app
-            rm -rf "dist/boxify.app"
+          VERSION="${GITHUB_REF_NAME}"
+          wails3 task setup:docker
+          wails3 task darwin:build ARCH=amd64 OUTPUT="dist/boxify-${VERSION}-darwin-amd64"
+          wails3 task darwin:build ARCH=arm64 OUTPUT="dist/boxify-${VERSION}-darwin-arm64"
+          wails3 task linux:build ARCH=amd64 OUTPUT="dist/boxify-${VERSION}-linux-amd64"
+          wails3 task linux:build ARCH=arm64 OUTPUT="dist/boxify-${VERSION}-linux-arm64"
+          wails3 task windows:build ARCH=amd64 CGO_ENABLED=0
+          if [ -f "bin/boxify.exe" ]; then
+            mv "bin/boxify.exe" "dist/boxify-${VERSION}-windows-amd64.exe"
+          elif [ -f "bin/boxify-windows-amd64.exe" ]; then
+            mv "bin/boxify-windows-amd64.exe" "dist/boxify-${VERSION}-windows-amd64.exe"
+          else
+            echo "未找到 Windows 构建产物（bin/boxify.exe 或 bin/boxify-windows-amd64.exe）"
+            exit 1
           fi
+
+      - name: Generate Checksums
+        run: |
+          set -euo pipefail
+          cd dist
+          sha256sum * > checksums.txt
 
       - name: Generate Release Notes
         run: |
