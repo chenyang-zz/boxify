@@ -49,7 +49,9 @@ jobs:
           go test ./...
 
       - name: Build Release Artifacts
-        run: make build-release
+        run: |
+          mkdir -p dist
+          go build -tags production -trimpath -buildvcs=false -ldflags="-w -s" -o dist/boxify
 
       - name: Pack Directory Artifacts
         run: |
