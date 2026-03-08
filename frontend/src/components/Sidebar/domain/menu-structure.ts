@@ -20,6 +20,7 @@ import {
   FileText,
   Activity,
   Star,
+  Sparkles,
 } from "lucide-react";
 import type { MenuCategory, MenuItem } from "../types";
 
@@ -38,6 +39,7 @@ export const menuCategories: MenuCategory[] = [
     items: [
       { id: "overview", label: "概览", icon: BarChart3 },
       { id: "channel", label: "频道", icon: Link2 },
+      { id: "skill", label: "技能", icon: Sparkles },
       { id: "instance", label: "实例", icon: CircleDot },
       { id: "session", label: "会话", icon: FileText },
       { id: "usage", label: "使用情况", icon: Activity },
@@ -70,7 +72,9 @@ export function findMenuItemById(itemId: string): MenuItem | undefined {
 /**
  * 根据 ID 查找菜单分类
  */
-export function findMenuCategoryById(categoryId: string): MenuCategory | undefined {
+export function findMenuCategoryById(
+  categoryId: string,
+): MenuCategory | undefined {
   return menuCategories.find((category) => category.id === categoryId);
 }
 
@@ -78,5 +82,7 @@ export function findMenuCategoryById(categoryId: string): MenuCategory | undefin
  * 获取所有菜单项 ID
  */
 export function getAllMenuItemIds(): string[] {
-  return menuCategories.flatMap((category) => category.items.map((item) => item.id));
+  return menuCategories.flatMap((category) =>
+    category.items.map((item) => item.id),
+  );
 }

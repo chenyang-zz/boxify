@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { FC, ReactNode, useState } from "react";
+import { FC, useState } from "react";
 import { Channel } from "./ChannelListItem";
 import { ChannelList } from "./ChannelList";
 import { ChannelConfigPanel } from "./ChannelConfigPanel";
 import { RadioIcon } from "lucide-react";
+import { PanelHeader } from "./PanelHeader";
 
 /**
  * 频道列表数据
@@ -60,14 +61,11 @@ export const ChannelPanel: FC = () => {
   return (
     <div className="h-full w-full overflow-auto p-6">
       {/* 标题区域 */}
-      <div className="flex items-start justify-between mb-6">
-        <div className="flex flex-col gap-1 text-left">
-          <h1 className="text-xl font-bold">通道管理</h1>
-          <p className="text-sm text-muted-foreground">
-            配置和管理所有消息通道 — 已启用 已配置未启用 未配置
-          </p>
-        </div>
-      </div>
+      <PanelHeader
+        className="mb-6"
+        title="频道管理"
+        description="配置和管理所有消息频道 — 已启用 已配置未启用 未配置"
+      />
       <div className="flex gap-6">
         {/* 左侧频道列表 */}
         <ChannelList

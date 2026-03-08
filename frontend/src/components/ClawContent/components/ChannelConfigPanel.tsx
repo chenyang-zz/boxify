@@ -13,13 +13,14 @@
 // limitations under the License.
 
 import { FC, useState } from "react";
-import { Check, Circle, Eye, EyeOff, Save } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Check, Circle, Eye, EyeOff } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { channels } from "./ChannelPanel";
+import CardItem from "./CardItem";
+import { PanelHeader } from "./PanelHeader";
 
 export interface ChannelConfigPanelProps {
   channelId: string;
@@ -61,10 +62,12 @@ export const ChannelConfigPanel: FC<ChannelConfigPanelProps> = ({
     <div className="h-full overflow-auto flex-1">
       <div className="space-y-6">
         {/* 标题区域 */}
-        <div className="flex items-start justify-between mt-4">
-          <div className="flex flex-col gap-1">
+        <PanelHeader
+          align="start"
+          className="mt-4"
+          title={
             <div className="flex items-center gap-2">
-              <h1 className="text-base font-semibold">{channel?.name} 配置</h1>
+              <span>{channel?.name} 配置</span>
               {isConfigured && (
                 <Badge
                   variant="outline"
@@ -74,22 +77,23 @@ export const ChannelConfigPanel: FC<ChannelConfigPanelProps> = ({
                 </Badge>
               )}
             </div>
-            <p className="text-sm text-muted-foreground text-left">
-              配置 {channel?.name} 机器人以接收和发送消息
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span
-              className={cn(
-                "text-sm",
-                isEnabled ? "text-emerald-500" : "text-muted-foreground",
-              )}
-            >
-              {isEnabled ? "启用中" : "已禁用"}
-            </span>
-            <Switch checked={isEnabled} onCheckedChange={setIsEnabled} />
-          </div>
-        </div>
+          }
+          titleClassName="text-base font-semibold"
+          description={`配置 ${channel?.name} 机器人以接收和发送消息`}
+          actions={
+            <div className="flex items-center gap-2">
+              <span
+                className={cn(
+                  "text-sm",
+                  isEnabled ? "text-emerald-500" : "text-muted-foreground",
+                )}
+              >
+                {isEnabled ? "启用中" : "已禁用"}
+              </span>
+              <Switch checked={isEnabled} onCheckedChange={setIsEnabled} />
+            </div>
+          }
+        />
 
         {/* 配置版本选择 */}
         <div className="text-left">
@@ -98,9 +102,9 @@ export const ChannelConfigPanel: FC<ChannelConfigPanelProps> = ({
             <button
               onClick={() => setConfigVersion("official")}
               className={cn(
-                "flex items-center gap-2 px-4 py-3 rounded-lg border transition-colors",
+                "flex items-center gap-2 px-4 py-3 rounded-lg transition-colors",
                 configVersion === "official"
-                  ? "bg-primary/10 border-primary/30 text-primary"
+                  ? "bg-primary/10  text-primary"
                   : "bg-card hover:bg-accent border-border",
               )}
             >
@@ -117,9 +121,9 @@ export const ChannelConfigPanel: FC<ChannelConfigPanelProps> = ({
             <button
               onClick={() => setConfigVersion("community")}
               className={cn(
-                "flex items-center gap-2 px-4 py-3 rounded-lg border transition-colors",
+                "flex items-center gap-2 px-4 py-3 rounded-lg transition-colors",
                 configVersion === "community"
-                  ? "bg-primary/10 border-primary/30 text-primary"
+                  ? "bg-primary/10  text-primary"
                   : "bg-card hover:bg-accent border-border",
               )}
             >
@@ -188,44 +192,30 @@ export const ChannelConfigPanel: FC<ChannelConfigPanelProps> = ({
           <h2 className="text-sm font-semibold">功能设置</h2>
           <div className="space-y-4 mt-2">
             {/* 图片卡片输出 */}
-            <div className="flex items-start justify-between p-4 bg-card rounded-lg ">
-              <div className="space-y-0.5">
-                <div className="text-sm font-medium">图片卡片输出</div>
-                <p className="text-xs text-muted-foreground">
-                  将图片消息以卡片形式展示，提升阅读体验
-                </p>
-              </div>
-              <Switch
-                checked={imageCardOutput}
-                onCheckedChange={setImageCardOutput}
-              />
-            </div>
+            <CardItem
+              label="图片卡片输出"
+              description="将图片消息以卡片形式展示，提升阅读体验"
+              action={
+                <Switch
+                  checked={imageCardOutput}
+                  onCheckedChange={setImageCardOutput}
+                />
+              }
+            />
 
             {/* 逐题独立上下文 */}
-            <div className="flex items-start justify-between p-4 bg-card rounded-lg ">
-              <div className="space-y-0.5">
-                <div className="text-sm font-medium">逐题独立上下文</div>
-                <p className="text-xs text-muted-foreground">
-                  每个问题使用独立的对话上下文，避免历史消息干扰
-                </p>
-              </div>
-              <Switch
-                checked={independentContext}
-                onCheckedChange={setIndependentContext}
-              />
-            </div>
+            <CardItem
+              label="逐题独立上下文"
+              description="每个问题使用独立的对话上下文，避免历史消息干扰"
+              action={
+                <Switch
+                  checked={independentContext}
+                  onCheckedChange={setIndependentContext}
+                />
+              }
+            />
           </div>
         </div>
-      </div>
-
-      {/* 保存按钮 */}
-      <div className="absolute bottom-6 right-6">
-        <Button
-          size="icon-lg"
-          className="size-12 rounded-full shadow-lg bg-violet-600 hover:bg-violet-700"
-        >
-          <Save className="size-5" />
-        </Button>
       </div>
     </div>
   );

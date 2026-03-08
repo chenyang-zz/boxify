@@ -24,3 +24,8 @@ export { ChannelConfigPanel } from "./ChannelConfigPanel";
 export type { ChannelConfigPanelProps } from "./ChannelConfigPanel";
 export { ChannelList } from "./ChannelList";
 export type { ChannelListProps } from "./ChannelList";
+export { PanelHeader } from "./PanelHeader";
+export type { PanelHeaderProps } from "./PanelHeader";
+export { SkillPanel } from "./SkillPanel";
+export { SkillListItem } from "./SkillListItem";
+export type { SkillListItemProps } from "./SkillListItem";

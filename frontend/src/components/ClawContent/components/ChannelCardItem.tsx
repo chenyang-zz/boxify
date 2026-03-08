@@ -15,6 +15,7 @@
 import { FC } from "react";
 import { Badge } from "@/components/ui/badge";
 import { getChannelTypeLabel, getStatusBadgeConfig } from "../domain";
+import CardItem from "./CardItem";
 
 export interface ChannelCardItemProps {
   name: string;
@@ -37,23 +38,25 @@ export const ChannelCardItem: FC<ChannelCardItemProps> = ({
   const typeLabel = getChannelTypeLabel(type);
 
   return (
-    <div className="flex items-center flex-1 gap-4 p-4 bg-card rounded-lg  min-w-80">
-      <div className="flex items-center justify-center size-12 bg-background rounded-lg border">
-        <span className="text-sm font-medium">
-          {name.charAt(0).toUpperCase()}
-        </span>
-      </div>
-      <div className="flex flex-col gap-1 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">{name}</span>
-          <Badge className={statusConfig.className}>{statusConfig.text}</Badge>
+    <CardItem
+      label={name}
+      icon={
+        <div className="flex items-center justify-center size-12 bg-background rounded-lg border">
+          <span className="text-sm font-medium">
+            {name.charAt(0).toUpperCase()}
+          </span>
         </div>
-        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+      }
+      badge={
+        <Badge className={statusConfig.className}>{statusConfig.text}</Badge>
+      }
+      description={
+        <>
           <span>类型：{typeLabel}</span>
           <span>状态：{managedBy}</span>
-        </div>
-      </div>
-    </div>
+        </>
+      }
+    />
   );
 };
 

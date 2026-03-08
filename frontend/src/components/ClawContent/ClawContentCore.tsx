@@ -16,6 +16,7 @@ import { FC } from "react";
 import { useSelectedMenuItem } from "@/components/Sidebar/store";
 import { OverviewPanel } from "./components/OverviewPanel";
 import { ChannelPanel } from "./components/ChannelPanel";
+import { SkillPanel } from "./components/SkillPanel";
 
 /**
  * ClawContent 核心渲染组件
@@ -30,6 +31,8 @@ export const ClawContentCore: FC = () => {
         return <OverviewPanel />;
       case "channel":
         return <ChannelPanel />;
+      case "skill":
+        return <SkillPanel />;
       case "instance":
         return <div className="p-6 text-muted-foreground">实例面板（开发中）</div>;
       case "session":

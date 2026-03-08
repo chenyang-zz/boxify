@@ -18,6 +18,7 @@ import { useClawContentStore } from "../store";
 import { statCardsConfig, getStatCardValue } from "../domain";
 import { StatCardItem } from "./StatCardItem";
 import { ChannelCardItem } from "./ChannelCardItem";
+import { PanelHeader } from "./PanelHeader";
 
 /**
  * 概览面板组件
@@ -29,16 +30,17 @@ export const OverviewPanel: FC = () => {
   return (
     <div className="h-full w-full overflow-auto p-6">
       {/* 标题区域 */}
-      <div className="flex items-start justify-between mb-6">
-        <div className="flex flex-col gap-1 text-left">
-          <h1 className="text-xl font-bold">仪表盘</h1>
-          <p className="text-sm text-muted-foreground">OpenClaw 运行状态总览</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <CircleCheck className="size-3.5 text-emerald-500" />
-          <span className="text-sm text-emerald-500">系统运行正常</span>
-        </div>
-      </div>
+      <PanelHeader
+        className="mb-6"
+        title="仪表盘"
+        description="OpenClaw 运行状态总览"
+        actions={
+          <div className="flex items-center gap-2">
+            <CircleCheck className="size-3.5 text-emerald-500" />
+            <span className="text-sm text-emerald-500">系统运行正常</span>
+          </div>
+        }
+      />
 
       {/* 状态卡片组 */}
       <div className="flex flex-wrap gap-4 mb-6">
