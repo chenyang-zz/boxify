@@ -2,15 +2,6 @@
 
 All notable changes to this project will be documented in this file.
 
-## [v0.0.27] - 2026-03-08
-
-### Changed
-- CI: 启用 CGO_ENABLED=1 支持 Linux/macOS 构建
-- CI: 更新 Windows 构建依赖（GTK/WebKit/libsoup）
-- Makefile: release-undo-version 自动删除远程 Release
-
----
-
 ## [v0.0.21] - 2026-03-08
 
 ### Changed

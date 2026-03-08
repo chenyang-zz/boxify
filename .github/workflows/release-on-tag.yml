@@ -201,6 +201,14 @@ jobs:
           rm -rf dist
           mkdir -p dist
 
+          # 查找 Windows 安装包，兼容大小写和命名差异（如 AMD64/ARM64/x64 等）
+          find_installer() {
+            local arch_regex="$1"
+            find bin -maxdepth 1 -type f -name '*.exe' \
+              | grep -Ei "/${APP_NAME}.*(${arch_regex}).*installer\\.exe$" \
+              | head -n 1
+          }
+
           # x64 executable + setup
           wails3 task windows:build ARCH=amd64 CGO_ENABLED=0
           wails3 task windows:package ARCH=amd64 FORMAT=nsis CGO_ENABLED=0
@@ -214,12 +222,13 @@ jobs:
             exit 1
           fi
 
-          if [ -f "bin/${APP_NAME}-amd64-installer.exe" ]; then
-            WIN_X64_SETUP="bin/${APP_NAME}-amd64-installer.exe"
-          elif [ -f "bin/${APP_NAME}-installer.exe" ]; then
+          WIN_X64_SETUP="$(find_installer 'amd64|x64')"
+          if [ -z "${WIN_X64_SETUP}" ] && [ -f "bin/${APP_NAME}-installer.exe" ]; then
             WIN_X64_SETUP="bin/${APP_NAME}-installer.exe"
-          else
+          fi
+          if [ -z "${WIN_X64_SETUP}" ]; then
             echo "未找到 Windows x64 安装包"
+            ls -lah bin/*.exe || true
             exit 1
           fi
 
@@ -229,17 +238,18 @@ jobs:
           rm -f "dist/${APP_NAME}.exe"
 
           # arm64 setup
+          # 清理旧安装包，避免通用命名（如 boxify-installer.exe）与 x64 产物混淆
+          find bin -maxdepth 1 -type f -name '*installer.exe' -delete
           wails3 task windows:build ARCH=arm64 CGO_ENABLED=0
           wails3 task windows:package ARCH=arm64 FORMAT=nsis CGO_ENABLED=0
 
-          if [ -f "bin/${APP_NAME}-arm64-installer.exe" ]; then
-            WIN_ARM64_SETUP="bin/${APP_NAME}-arm64-installer.exe"
-          elif [ -f "bin/${APP_NAME}-installer.exe" ]; then
+          WIN_ARM64_SETUP="$(find_installer 'arm64')"
+          if [ -z "${WIN_ARM64_SETUP}" ] && [ -f "bin/${APP_NAME}-installer.exe" ]; then
             WIN_ARM64_SETUP="bin/${APP_NAME}-installer.exe"
-          elif [ -f "bin/${APP_NAME}-windows-arm64-installer.exe" ]; then
-            WIN_ARM64_SETUP="bin/${APP_NAME}-windows-arm64-installer.exe"
-          else
+          fi
+          if [ -z "${WIN_ARM64_SETUP}" ]; then
             echo "未找到 Windows arm64 安装包"
+            ls -lah bin/*.exe || true
             exit 1
           fi
 
@@ -254,6 +264,19 @@ jobs:
 
   build-macos:
     runs-on: macos-14
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            wails_task: darwin:package
+            dmg_suffix: macos-x64
+          - arch: arm64
+            wails_task: darwin:package
+            dmg_suffix: macos-arm64
+          - arch: universal
+            wails_task: darwin:package:universal
+            dmg_suffix: macos-universal
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -281,14 +304,22 @@ jobs:
       - name: Install Frontend Dependencies
         run: pnpm -C frontend install --frozen-lockfile
 
-      - name: Build macOS DMGs
+      - name: Build macOS DMG
+        env:
+          BUILD_ARCH: ${{ matrix.arch }}
+          WAILS_TASK: ${{ matrix.wails_task }}
+          DMG_SUFFIX: ${{ matrix.dmg_suffix }}
         run: |
           set -euo pipefail
           export CGO_ENABLED=1
           VERSION="${GITHUB_REF_NAME#v}"
           APP_BUNDLE="bin/${APP_NAME}.app"
+          DMG_PATH="dist/${APP_NAME}-${VERSION}-${DMG_SUFFIX}.dmg"
           rm -rf dist
           mkdir -p dist
+
+          echo "构建前磁盘空间:"
+          df -h
 
           create_dmg() {
             local app_path="$1"
@@ -296,25 +327,22 @@ jobs:
             hdiutil create -volname "${APP_NAME}" -srcfolder "$app_path" -ov -format UDZO "$dmg_path"
           }
 
-          # macOS x64
-          wails3 task darwin:package ARCH=amd64
-          [ -d "$APP_BUNDLE" ] || (echo "未找到 x64 app bundle" && exit 1)
-          create_dmg "$APP_BUNDLE" "dist/${APP_NAME}-${VERSION}-macos-x64.dmg"
+          if [ "$BUILD_ARCH" = "universal" ]; then
+            wails3 task "$WAILS_TASK"
+          else
+            wails3 task "$WAILS_TASK" ARCH="$BUILD_ARCH"
+          fi
 
-          # macOS arm64
-          wails3 task darwin:package ARCH=arm64
-          [ -d "$APP_BUNDLE" ] || (echo "未找到 arm64 app bundle" && exit 1)
-          create_dmg "$APP_BUNDLE" "dist/${APP_NAME}-${VERSION}-macos-arm64.dmg"
+          [ -d "$APP_BUNDLE" ] || (echo "未找到 ${BUILD_ARCH} app bundle" && exit 1)
+          create_dmg "$APP_BUNDLE" "$DMG_PATH"
 
-          # macOS universal
-          wails3 task darwin:package:universal
-          [ -d "$APP_BUNDLE" ] || (echo "未找到 universal app bundle" && exit 1)
-          create_dmg "$APP_BUNDLE" "dist/${APP_NAME}-${VERSION}-macos-universal.dmg"
+          echo "构建后磁盘空间:"
+          df -h
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: release-macos
+          name: release-macos-${{ matrix.arch }}
           path: dist/*
           if-no-files-found: error
 

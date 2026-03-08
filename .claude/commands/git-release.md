@@ -254,7 +254,10 @@ All notable changes to this project will be documented in this file.
 1. 回退 `frontend/package.json` 的版本号到上一个版本
 2. 清空 `RELEASE_NOTES.md` 文件内容
 3. 撤回 `CHANGELOG.md` 文件中的上一次更改记录
-3. 提示用户检查后手动提交变更
+4. 删除被撤销版本对应的远程 Release（若存在）
+5. 删除被撤销版本对应的远程 Tag（若存在）
+6. 删除被撤销版本对应的本地 Tag（若存在）
+7. 提示用户检查后手动提交变更
 
 ---
 
@@ -266,7 +269,7 @@ All notable changes to this project will be documented in this file.
 
 1. **执行撤销命令**：
    - 运行 `make release-undo-version`
-   - 该命令会自动回退版本号并清空 RELEASE_NOTES.md
+   - 该命令会自动回退版本号、清空 RELEASE_NOTES.md、移除 CHANGELOG 对应条目，并清理被撤销版本的 Release/Tag 信息
 
 2. **显示结果**：
    - 告知用户版本回退结果
