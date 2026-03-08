@@ -14,7 +14,7 @@
  limitations under the License.
 -->
 
-v0.0.26 - CI 构建修复与发布流程优化
+v0.0.27 - CI 构建修复与发布流程优化
 
 修复跨平台构建配置问题，增强版本撤销命令功能。
 
@@ -28,4 +28,4 @@ Verification
 - Passed make dev
 - Passed make build
 
-Full Changelog: v0.0.25...v0.0.26
+Full Changelog: v0.0.25...v0.0.27

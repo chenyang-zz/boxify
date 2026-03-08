@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [v0.0.26] - 2026-03-08
+## [v0.0.27] - 2026-03-08
 
 ### Changed
 - CI: 启用 CGO_ENABLED=1 支持 Linux/macOS 构建
