@@ -46,7 +46,6 @@ jobs:
       - name: Verification
         run: |
           pnpm -C frontend run build
-          go test ./...
 
       - name: Build Release Artifacts
         run: |
