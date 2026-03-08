@@ -56,7 +56,8 @@ jobs:
           wails3 task darwin:build ARCH=amd64 OUTPUT="dist/boxify-${VERSION}-darwin-amd64"
           wails3 task darwin:build ARCH=arm64 OUTPUT="dist/boxify-${VERSION}-darwin-arm64"
           wails3 task linux:build:docker ARCH=amd64 OUTPUT="dist/boxify-${VERSION}-linux-amd64"
-          wails3 task linux:build:docker ARCH=arm64 OUTPUT="dist/boxify-${VERSION}-linux-arm64"
+          # TODO: linux/arm64 交叉编译链路待完善后再恢复
+          # 当前 Docker 交叉环境会在 arm64 CGO 汇编阶段失败（gcc_arm64.S 指令不兼容）
           wails3 task windows:build ARCH=amd64 CGO_ENABLED=0
           if [ -f "bin/boxify.exe" ]; then
             mv "bin/boxify.exe" "dist/boxify-${VERSION}-windows-amd64.exe"
