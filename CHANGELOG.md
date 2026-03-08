@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.0.22] - 2026-03-09
+
+### Fixed
+- 修复 Windows 打包任务中 ARCH、CERT_PATH、PUBLISHER、USE_MSIX_TOOL 变量未正确传递到子任务的问题
+
+---
+
 ## [v0.0.21] - 2026-03-09
 
 ### Changed

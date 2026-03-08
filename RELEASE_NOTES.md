@@ -14,18 +14,16 @@
  limitations under the License.
 -->
 
-v0.0.21 - CI 构建流程重构
+v0.0.22 - Windows 构建修复
 
-重构 CI 构建流程，使用 matrix 策略优化跨平台构建。
+修复 Windows 打包任务变量传递问题。
 
-Improvements
-- CI: Linux 构建合并为 matrix 并行构建 (amd64/arm64)
-- CI: Windows 构建合并为 matrix 并行构建 (amd64/arm64)
-- Makefile: 优化 release-undo-version 版本查找逻辑
+Fixes
+- 修复 Windows 打包任务中 ARCH、CERT_PATH、PUBLISHER、USE_MSIX_TOOL 变量未正确传递到子任务的问题
 
 Verification
 - Passed pnpm run build
 - Passed make dev
 - Passed make build
 
-Full Changelog: v0.0.20...v0.0.21
+Full Changelog: v0.0.21...v0.0.22
