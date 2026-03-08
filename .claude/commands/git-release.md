@@ -32,11 +32,19 @@
    - 根据 PART 类型选择合适的发布说明格式
    - 编写完成后自动继续发布流程
 
-4. **触发发布**
+4. **更新 CHANGELOG.md**
+   - 在 `CHANGELOG.md` 文件顶部添加新版本的更新日志
+   - 格式参考下方「CHANGELOG 格式」章节
+   - 根据版本类型选择合适的条目分类
+
+5. **提交变更**
+   - 如果 RELEASE_NOTES.md 或 CHANGELOG.md 有修改，执行 `/git-push` 提交
+
+6. **触发发布**
    - 使用 `make release-auto-tag PART=patch|minor|major` 自动递增版本并推送
    - 自动触发 GitHub Actions 构建与发布
 
-5. **发布后验证**
+7. **发布后验证**
    - 显示 workflow 运行状态
 
 ## 发布说明格式
@@ -128,6 +136,92 @@ vX.Y.0 - 发布主题/名称
 Full Changelog: v旧版本...v新版本
 ```
 
+## CHANGELOG 格式
+
+CHANGELOG.md 记录所有版本的历史变更，新版本信息添加到文件顶部。
+
+### 基本格式
+
+```markdown
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+## [vX.Y.Z] - YYYY-MM-DD
+
+### Added
+- 新增功能描述
+
+### Changed
+- 变更/优化描述
+
+### Fixed
+- 修复问题描述
+
+### Removed
+- 移除功能描述（如有）
+
+---
+
+## [v0.0.1] - 2024-01-01
+...
+```
+
+### patch 版本 CHANGELOG 示例
+
+```markdown
+## [v0.0.24] - 2024-03-08
+
+### Fixed
+- 修复登录页面在移动端的显示问题
+- 修复文件上传时的内存泄漏
+
+### Changed
+- 优化首页加载速度
+```
+
+### minor 版本 CHANGELOG 示例
+
+```markdown
+## [v0.1.0] - 2024-03-08
+
+### Added
+- 新增用户权限管理模块
+- 新增数据导出功能（支持 CSV/JSON）
+- 新增深色模式支持
+
+### Changed
+- 重构 API 响应结构，统一错误处理
+
+### Fixed
+- 修复分页组件在数据为空时的显示问题
+```
+
+### major 版本 CHANGELOG 示例
+
+```markdown
+## [v1.0.0] - 2024-03-08
+
+### Added
+- 全新的插件系统
+- 支持多语言（i18n）
+- 完整的 CLI 工具链
+
+### Changed
+- **BREAKING**: API 接口全面升级，不再兼容 v0.x
+- **BREAKING**: 配置文件格式变更，需迁移
+
+### Fixed
+- 修复所有已知的稳定性问题
+
+### Removed
+- 移除已废弃的旧版 API
+
+### Migration Guide
+- 配置文件迁移：运行 `boxify migrate config`
+- API 升级：参考 [升级指南](./docs/upgrade-v1.md)
+```
+
 ## 发布产物
 
 自动构建以下平台产物：
@@ -166,13 +260,19 @@ Full Changelog: v旧版本...v新版本
    - 根据 PART 类型（patch/minor/major）选择对应的发布说明格式
    - 编写完成后直接继续，无需等待用户确认
 
-4. **提交发布说明（如有修改）**：
-   - 如果 RELEASE_NOTES.md 有修改，执行 `/git-push` 提交
+4. **更新 CHANGELOG.md**：
+   - 读取当前 `CHANGELOG.md` 文件内容
+   - 根据本次更新内容，按照「CHANGELOG 格式」章节编写新版本的变更日志
+   - 将新版本条目插入到文件顶部（在 `# Changelog` 标题和分隔线之后）
+   - 日期使用当前日期（格式：YYYY-MM-DD）
 
-5. **执行发布**：
+5. **提交变更**：
+   - 如果 RELEASE_NOTES.md 或 CHANGELOG.md 有修改，执行 `/git-push` 提交
+
+6. **执行发布**：
    - 执行 `make release-auto-tag PART=patch|minor|major`（使用步骤2确定的 PART 值）
    - 该命令会自动：递增版本号 → 提交版本变更 → 推送 → 创建并推送 tag
 
-6. **发布完成后**：
+7. **发布完成后**：
    - 显示 workflow 运行状态：`gh run list --limit 3`
    - 提示用户可通过 `gh run view` 查看详情

@@ -1,7 +1,7 @@
 # Boxify Makefile
 # 基于 Wails v3 的跨平台数据库管理应用
 
-.PHONY: help dev build sync-build-assets build-macos-app build-macos-app-universal refresh-icons package-macos package-macos-universal run-macos-app clean install frontend-install frontend-dev frontend-build test format tidy lint release-tag release-auto-tag
+.PHONY: help dev build sync-build-assets build-macos-app build-macos-app-universal refresh-icons package-macos package-macos-universal run-macos-app clean install frontend-install frontend-dev frontend-build test format tidy lint release-tag release-auto-tag release-undo-version
 
 # 默认目标
 .DEFAULT_GOAL := help
@@ -94,6 +94,37 @@ release-auto-tag: ## 自动递增版本并推送标签
 	git push origin HEAD; \
 	\
 	$(MAKE) release-tag VERSION="$$NEW_VERSION"
+
+release-undo-version: ## 撤销最近一次版本号修改（仅回退 frontend/package.json 的 version）
+	@command -v node >/dev/null 2>&1 || (echo "$(COLOR_YELLOW)未安装 Node.js$(COLOR_RESET)" && exit 1); \
+	CURRENT_VERSION=$$(node -e 'const fs=require("fs");const p=JSON.parse(fs.readFileSync("frontend/package.json","utf8"));process.stdout.write(p.version||"")'); \
+	TARGET_COMMIT=""; \
+	SEEN_CURRENT=0; \
+	for COMMIT in $$(git log --format=%H -- frontend/package.json); do \
+		CANDIDATE_VERSION=$$(git show "$${COMMIT}:frontend/package.json" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write(p.version||"")})'); \
+		if [ "$$SEEN_CURRENT" -eq 0 ]; then \
+			if [ "$$CANDIDATE_VERSION" = "$$CURRENT_VERSION" ]; then \
+				SEEN_CURRENT=1; \
+			fi; \
+			continue; \
+		fi; \
+		if [ "$$CANDIDATE_VERSION" != "$$CURRENT_VERSION" ]; then \
+			TARGET_COMMIT="$$COMMIT"; \
+			break; \
+		fi; \
+	done; \
+	if [ "$$SEEN_CURRENT" -eq 0 ]; then \
+		echo "$(COLOR_YELLOW)历史中未找到当前版本: $$CURRENT_VERSION$(COLOR_RESET)"; \
+		exit 1; \
+	fi; \
+	if [ -z "$$TARGET_COMMIT" ]; then \
+		echo "$(COLOR_YELLOW)未找到可回退的更早版本（当前: $$CURRENT_VERSION）$(COLOR_RESET)"; \
+		exit 1; \
+	fi; \
+	git show "$${TARGET_COMMIT}:frontend/package.json" > frontend/package.json; \
+	NEW_VERSION=$$(node -e 'const fs=require("fs");const p=JSON.parse(fs.readFileSync("frontend/package.json","utf8"));process.stdout.write(p.version||"")'); \
+	echo "$(COLOR_GREEN)已回退版本: $$CURRENT_VERSION -> $$NEW_VERSION$(COLOR_RESET)"; \
+	echo "$(COLOR_BLUE)提示: 请检查后手动提交变更$(COLOR_RESET)"
 
 clean: ## 清理构建文件
 	@echo "$(COLOR_YELLOW)🧹 清理构建文件...$(COLOR_RESET)"
