@@ -1,19 +1,16 @@
-v0.0.21 - 发布流程优化
+v0.0.22 - 发布工作流重构
 
-本次更新主要优化了 GitHub Release 发布流程和 CI 工作流配置。
+本次更新重构了 GitHub Release 发布工作流，新增 tag 触发的独立 CI 配置。
 
-Highlights
-- 新增 RELEASE_NOTES.md 支持自定义发布说明
-- 简化 git-release 命令，移除手动指定版本号功能
-- 优化 CI 工作流配置，增加完整 git 历史获取
-
-Stability
-- 为 bindings 生成任务添加 CGO_ENABLED=0 环境变量，避免 CI 环境缺少依赖时的告警
-- 格式化 CI 工作流 YAML 配置，提升可读性
+Improvements
+- 新增 release-on-tag.yml 工作流，支持 tag 推送时自动构建和发布
+- 支持多平台构建: darwin-amd64/arm64, linux-amd64/arm64, windows-amd64
+- 更新 git-release 命令支持版本类型询问 (patch/minor/major)
+- 添加不同版本类型的发布说明格式模板
 
 Verification
 - Passed pnpm run build
 - Passed make dev
 - Passed make build
 
-Full Changelog: v0.0.20...v0.0.21
+Full Changelog: v0.0.21...v0.0.22
