@@ -12,22 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { ClawContentCore } from "./ClawContentCore";
+import type { FC } from "react";
+
+interface ComingSoonPanelProps {
+  text: string;
+}
 
 /**
- * ClawContent 组件主入口
+ * 通用开发中占位面板。
  */
-const ClawContent = () => {
-  return <ClawContentCore />;
+export const ComingSoonPanel: FC<ComingSoonPanelProps> = ({ text }) => {
+  return <div className="p-6 text-muted-foreground">{text}</div>;
 };
 
-export default ClawContent;
-
-// 导出子组件和 hooks
-export { ClawContentCore } from "./ClawContentCore";
-export { OverviewPanel } from "./components/OverviewPanel";
-export * from "./store";
-export * from "./domain";
-export * from "./hooks";
-export * from "./constants";
-export * from "./types";
+export default ComingSoonPanel;

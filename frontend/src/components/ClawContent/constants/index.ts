@@ -12,22 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { ClawContentCore } from "./ClawContentCore";
-
-/**
- * ClawContent 组件主入口
- */
-const ClawContent = () => {
-  return <ClawContentCore />;
-};
-
-export default ClawContent;
-
-// 导出子组件和 hooks
-export { ClawContentCore } from "./ClawContentCore";
-export { OverviewPanel } from "./components/OverviewPanel";
-export * from "./store";
-export * from "./domain";
-export * from "./hooks";
-export * from "./constants";
-export * from "./types";
+export {
+  clawMenuPanelRenderers,
+  isClawMenuItemId,
+} from "./claw-menu-panels";
+export type { ClawMenuItemId } from "./claw-menu-panels";

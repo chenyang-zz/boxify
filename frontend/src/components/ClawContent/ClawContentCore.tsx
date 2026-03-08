@@ -12,16 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { FC, useEffect, useState } from "react";
+import { FC, useCallback } from "react";
 import { useSelectedMenuItem } from "@/components/Sidebar/store";
-import { callWails } from "@/lib/utils";
-import { ClawService } from "@wails/service";
-import type { ClawOpenClawCheckResult } from "@wails/types/models";
-import { OverviewPanel } from "./components/OverviewPanel";
-import { ChannelPanel } from "./components/ChannelPanel";
-import { SkillPanel } from "./components/SkillPanel";
-import { ChatPanel } from "./components/ChatPanel";
 import { OpenClawPendingPanel } from "./components/OpenClawPendingPanel";
+import { useClawMenuContent, useOpenClawCheck } from "./hooks";
 
 /**
  * ClawContent 核心渲染组件
@@ -29,68 +23,15 @@ import { OpenClawPendingPanel } from "./components/OpenClawPendingPanel";
  */
 export const ClawContentCore: FC = () => {
   const selectedMenuItem = useSelectedMenuItem();
-  const [openClawCheck, setOpenClawCheck] =
-    useState<ClawOpenClawCheckResult | null>(null);
-  const [checking, setChecking] = useState(true);
+  const menuContent = useClawMenuContent(selectedMenuItem);
+  const { openClawCheck, checking, refreshOpenClawCheck } = useOpenClawCheck();
 
   /**
-   * 拉取 OpenClaw 安装与配置状态。
+   * 处理用户主动触发的 OpenClaw 状态刷新。
    */
-  const fetchOpenClawCheck = async () => {
-    setChecking(true);
-    try {
-      const result = await callWails(ClawService.CheckOpenClaw);
-      if (!result) {
-        return;
-      }
-      setOpenClawCheck(result);
-    } finally {
-      setChecking(false);
-    }
-  };
-
-  useEffect(() => {
-    // fetchOpenClawCheck();
-  }, []);
-
-  const renderContent = () => {
-    switch (selectedMenuItem) {
-      case "overview":
-        return <OverviewPanel />;
-      case "channel":
-        return <ChannelPanel />;
-      case "skill":
-        return <SkillPanel />;
-      case "instance":
-        return (
-          <div className="p-6 text-muted-foreground">实例面板（开发中）</div>
-        );
-      case "session":
-        return (
-          <div className="p-6 text-muted-foreground">会话面板（开发中）</div>
-        );
-      case "usage":
-        return (
-          <div className="p-6 text-muted-foreground">
-            使用情况面板（开发中）
-          </div>
-        );
-      case "scheduled":
-        return (
-          <div className="p-6 text-muted-foreground">
-            定时任务面板（开发中）
-          </div>
-        );
-      case "chat":
-        return <ChatPanel />;
-      default:
-        return (
-          <div className="h-full flex items-center justify-center text-muted-foreground">
-            <p>请从左侧选择一个菜单项</p>
-          </div>
-        );
-    }
-  };
+  const handleRefreshOpenClawCheck = useCallback(() => {
+    void refreshOpenClawCheck();
+  }, [refreshOpenClawCheck]);
 
   return (
     <div className="h-full w-full overflow-hidden bg-background">
@@ -100,10 +41,10 @@ export const ClawContentCore: FC = () => {
           checking={checking}
           binaryPath={openClawCheck?.binaryPath ?? ""}
           configPath={openClawCheck?.configPath ?? ""}
-          onRefresh={fetchOpenClawCheck}
+          onRefresh={handleRefreshOpenClawCheck}
         />
       ) : (
-        renderContent()
+        menuContent
       )}
     </div>
   );

@@ -31,3 +31,4 @@ export { SkillListItem } from "./SkillListItem";
 export type { SkillListItemProps } from "./SkillListItem";
 export { ChatPanel } from "./ChatPanel";
 export { OpenClawPendingPanel } from "./OpenClawPendingPanel";
+export { ComingSoonPanel } from "./ComingSoonPanel";
