@@ -1,7 +1,7 @@
 # Boxify Makefile
 # 基于 Wails v3 的跨平台数据库管理应用
 
-.PHONY: help dev build sync-build-assets build-macos-app build-macos-app-universal refresh-icons package-macos package-macos-universal run-macos-app clean install frontend-install frontend-dev frontend-build test format tidy lint release bump-version release-auto
+.PHONY: help dev build sync-build-assets build-macos-app build-macos-app-universal refresh-icons package-macos package-macos-universal run-macos-app clean install frontend-install frontend-dev frontend-build test format tidy lint release bump-version release-tag release-auto-tag
 
 # 默认目标
 .DEFAULT_GOAL := help
@@ -89,7 +89,12 @@ release: ## 一条龙发布（用法: make release VERSION=0.0.1）
 	@$(MAKE) build-release
 	@git tag -a "v$(VERSION)" -m "release v$(VERSION)"
 	@git push origin "v$(VERSION)"
-	@gh release create "v$(VERSION)" dist/* --title "v$(VERSION)" --generate-notes
+	@ASSETS="$$(find dist -maxdepth 1 -type f -print)"; \
+	if [ -z "$$ASSETS" ]; then \
+		echo "$(COLOR_YELLOW)dist/ 目录下没有可上传的文件$(COLOR_RESET)"; \
+		exit 1; \
+	fi; \
+	gh release create "v$(VERSION)" $$ASSETS --title "v$(VERSION)" --generate-notes
 	@echo "$(COLOR_GREEN)✅ 发布完成: v$(VERSION)$(COLOR_RESET)"
 
 bump-version: ## 自动递增版本号（用法: make bump-version PART=patch|minor|major）
@@ -101,19 +106,34 @@ bump-version: ## 自动递增版本号（用法: make bump-version PART=patch|mi
 	fi; \
 	PART="$$PART" node -e 'const fs=require("fs"); const part=process.env.PART||"patch"; const file="frontend/package.json"; const pkg=JSON.parse(fs.readFileSync(file,"utf8")); const seg=(pkg.version||"0.0.0").split(".").map(n=>parseInt(n,10)||0); if(seg.length<3){while(seg.length<3) seg.push(0);} if(part==="major"){seg[0]++; seg[1]=0; seg[2]=0;} else if(part==="minor"){seg[1]++; seg[2]=0;} else {seg[2]++;} pkg.version=seg.join("."); fs.writeFileSync(file, JSON.stringify(pkg,null,2)+"\n"); console.log(pkg.version);'
 
-release-auto: ## 自动递增版本并发布（用法: make release-auto PART=patch|minor|major）
+
+release-tag: ## 仅创建并推送版本标签（触发 GitHub Workflow 发布，示例: make release-tag VERSION=0.0.6）
+	@if [ -z "$(VERSION)" ]; then \
+		echo "$(COLOR_YELLOW)请提供版本号: make release-tag VERSION=0.0.6$(COLOR_RESET)"; \
+		exit 1; \
+	fi
+	@git diff --quiet && git diff --cached --quiet || (echo "$(COLOR_YELLOW)工作区有未提交改动，请先提交后再发布$(COLOR_RESET)" && exit 1)
+	@git rev-parse -q --verify "refs/tags/v$(VERSION)" >/dev/null && (echo "$(COLOR_YELLOW)本地已存在 tag v$(VERSION)$(COLOR_RESET)" && exit 1) || true
+	@git ls-remote --tags origin "refs/tags/v$(VERSION)" | grep -q "refs/tags/v$(VERSION)$$" && (echo "$(COLOR_YELLOW)远端已存在 tag v$(VERSION)$(COLOR_RESET)" && exit 1) || true
+	@git tag -a "v$(VERSION)" -m "release v$(VERSION)"
+	@git push origin "v$(VERSION)"
+	@echo "$(COLOR_GREEN)✅ 已推送 tag: v$(VERSION)（GitHub Actions 将自动发布）$(COLOR_RESET)"
+
+release-auto-tag: ## 自动递增版本并推送标签（由 GitHub Workflow 负责构建与发布）
 	@PART="$(PART)"; \
 	if [ -z "$$PART" ]; then PART="patch"; fi; \
-	git diff --quiet && git diff --cached --quiet || (echo "$(COLOR_YELLOW)工作区有未提交改动，请先提交后再发布$(COLOR_RESET)" && exit 1); \
+	if ! (git diff --quiet && git diff --cached --quiet); then \
+		echo "$(COLOR_YELLOW)工作区有未提交改动，请先提交后再发布$(COLOR_RESET)"; \
+		exit 1; \
+	fi; \
 	command -v node >/dev/null 2>&1 || (echo "$(COLOR_YELLOW)未安装 Node.js，无法自动递增 frontend/package.json 版本$(COLOR_RESET)" && exit 1); \
-	command -v gh >/dev/null 2>&1 || (echo "$(COLOR_YELLOW)未安装 GitHub CLI (gh)，请先安装并执行 gh auth login$(COLOR_RESET)" && exit 1); \
 	$(MAKE) bump-version PART="$$PART" >/dev/null; \
 	NEW_VERSION=$$(node -p "require('./frontend/package.json').version"); \
 	echo "$(COLOR_GREEN)版本已更新为: $$NEW_VERSION$(COLOR_RESET)"; \
 	git add frontend/package.json; \
 	git commit -m "🔧 chore(release): bump version to v$$NEW_VERSION"; \
 	git push origin HEAD; \
-	$(MAKE) release VERSION="$$NEW_VERSION"
+	$(MAKE) release-tag VERSION="$$NEW_VERSION"
 
 clean: ## 清理构建文件
 	@echo "$(COLOR_YELLOW)🧹 清理构建文件...$(COLOR_RESET)"

@@ -1,0 +1,70 @@
+name: Release On Tag
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install Wails v3 CLI
+        run: |
+          go install github.com/wailsapp/wails/v3/cmd/wails3@latest
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Install Frontend Dependencies
+        run: pnpm -C frontend install --frozen-lockfile
+
+      - name: Verification
+        run: |
+          pnpm -C frontend run build
+          go test ./...
+
+      - name: Build Release Artifacts
+        run: make build-release
+
+      - name: Pack Directory Artifacts
+        run: |
+          set -e
+          if [ -d "dist/boxify.app" ]; then
+            tar -czf "dist/boxify.app.tar.gz" -C dist boxify.app
+            rm -rf "dist/boxify.app"
+          fi
+
+      - name: Generate Release Notes
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          ./scripts/generate-release-notes.sh "$TAG" "常规功能更新与稳定性优化" .release-notes.md
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Boxify ${{ github.ref_name }}
+          body_path: .release-notes.md
+          files: dist/*
+          fail_on_unmatched_files: true
