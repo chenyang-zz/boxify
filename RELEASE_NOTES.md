@@ -1,12 +1,12 @@
 <!--
  Copyright 2026 chenyang
-
+ 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
  You may obtain a copy of the License at
-
+ 
      https://www.apache.org/licenses/LICENSE-2.0
-
+ 
  Unless required by applicable law or agreed to in writing, software
  distributed under the License is distributed on an "AS IS" BASIS,
  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -14,18 +14,3 @@
  limitations under the License.
 -->
 
-v0.0.24 - Go 缓存清理改进
-
-改进 macOS 构建中 Go 模块缓存的清理方式。
-
-Improvements
-- CI: 使用 go env GOMODCACHE 获取正确的 Go 模块缓存路径
-- CI: 添加 chmod 处理缓存目录权限问题
-- CI: 使用 go clean -cache 清理构建缓存
-
-Verification
-- Passed pnpm run build
-- Passed make dev
-- Passed make build
-
-Full Changelog: v0.0.23...v0.0.24
