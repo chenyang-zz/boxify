@@ -2,8 +2,8 @@
 # ============================================================
 # Boxify 一键安装脚本 (Linux/macOS)
 # 用法:
-#   curl -fsSLO https://raw.githubusercontent.com/chenyang-zz/boxify/main/scripts/install.sh && sudo bash install.sh
-#   wget -O install.sh https://raw.githubusercontent.com/chenyang-zz/boxify/main/scripts/install.sh && sudo bash install.sh
+#   curl -fsSL https://raw.githubusercontent.com/chenyang-zz/boxify/main/scripts/install.sh ｜ sudo bash install.sh
+#   wget -qO- https://raw.githubusercontent.com/chenyang-zz/boxify/main/scripts/install.sh | sudo bash
 # ============================================================
 
 set -e
@@ -31,15 +31,32 @@ err()  { echo -e "${RED}[Boxify]${NC} $1"; exit 1; }
 get_latest_version() {
     local tag=""
     local ver=""
+    local api_url="https://api.github.com/repos/${REPO}/releases/latest"
 
+    # 方案1: 使用 GitHub API
     if command -v curl >/dev/null 2>&1; then
-        tag=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null | awk -F'"' '/"tag_name"/ {print $4; exit}')
+        tag=$(curl -fsSL --connect-timeout 10 "$api_url" 2>/dev/null | grep -m1 '"tag_name"' | sed 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
     elif command -v wget >/dev/null 2>&1; then
-        tag=$(wget -qO- "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null | awk -F'"' '/"tag_name"/ {print $4; exit}')
+        tag=$(wget -qO- --timeout=10 "$api_url" 2>/dev/null | grep -m1 '"tag_name"' | sed 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
     fi
 
+    # 方案2: 从 releases 页面解析 (API 限流时的备用方案)
+    if [ -z "$tag" ]; then
+        info "GitHub API 不可用，尝试从 releases 页面获取版本..."
+        local releases_url="https://github.com/${REPO}/releases/latest"
+        if command -v curl >/dev/null 2>&1; then
+            tag=$(curl -fsSL --connect-timeout 10 -L "$releases_url" 2>/dev/null | grep -oE '/releases/tag/v[0-9]+\.[0-9]+\.[0-9]+[a-zA-Z0-9._-]*' | head -1 | sed 's|.*/v||')
+        elif command -v wget >/dev/null 2>&1; then
+            tag=$(wget -qO- --timeout=10 -L "$releases_url" 2>/dev/null | grep -oE '/releases/tag/v[0-9]+\.[0-9]+\.[0-9]+[a-zA-Z0-9._-]*' | head -1 | sed 's|.*/v||')
+        fi
+    fi
+
+    # 移除 'v' 前缀
     ver="${tag#v}"
-    if [[ ! "$ver" =~ ^[0-9][0-9A-Za-z._-]*$ ]]; then
+
+    # 验证版本号格式 (支持语义化版本如 0.0.18, 1.0.0-beta 等)
+    if [[ ! "$ver" =~ ^[0-9]+\.[0-9]+\.[0-9]+[a-zA-Z0-9._-]*$ ]]; then
+        warn "无法获取最新版本，使用默认版本: ${DEFAULT_VERSION}"
         ver=""
     fi
 
