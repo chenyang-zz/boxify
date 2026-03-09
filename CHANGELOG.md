@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.0.18] - 2026-03-09
+
+### Changed
+- Workflow: 新增自动生成 RELEASE_NOTES.md 步骤
+- Makefile: 添加 git-release 兼容命令
+- 重构 generate-release-notes.sh，增加 Release Info / Chores 分类
+- 更新 README 和 release-guide 文档
+
+---
+
 ## [v0.0.17] - 2026-03-09
 
 ### Added
