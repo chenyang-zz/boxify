@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { cn } from "@/lib/utils";
 import { FC, ReactNode } from "react";
 
 export interface CardItemProps {
@@ -33,9 +34,13 @@ export const CardItem: FC<CardItemProps> = ({
   action,
 }) => {
   return (
-    <div className="flex items-center flex-1 gap-4 p-4 bg-card rounded-lg  min-w-80">
+    <div
+      className={cn(
+        "flex items-center flex-1 gap-4 p-4 bg-card rounded-lg  min-w-80 overflow-hidden",
+      )}
+    >
       {icon}
-      <div className="flex flex-col justify-between gap-1 flex-1">
+      <div className="flex flex-col justify-between flex-1  overflow-hidden">
         <div className="flex items-center gap-2 justify-between">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">{label}</span>
@@ -45,7 +50,7 @@ export const CardItem: FC<CardItemProps> = ({
           {action && <div className="shrink-0">{action}</div>}
         </div>
         {description && (
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <div className="text-xs leading-5 text-muted-foreground text-left line-clamp-2">
             {description}
           </div>
         )}

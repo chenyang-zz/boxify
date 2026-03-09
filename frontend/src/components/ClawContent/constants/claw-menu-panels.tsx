@@ -38,7 +38,7 @@ export type ClawMenuItemId =
 export const clawMenuPanelRenderers: Record<ClawMenuItemId, () => ReactNode> = {
   overview: () => <OverviewPanel />,
   channel: () => <ChannelPanel />,
-  skill: () => <ComingSoonPanel text="技能面板（开发中）" />,
+  skill: () => <SkillPanel />,
   instance: () => <ComingSoonPanel text="实例面板（开发中）" />,
   session: () => <ComingSoonPanel text="会话面板（开发中）" />,
   usage: () => <ComingSoonPanel text="使用情况面板（开发中）" />,

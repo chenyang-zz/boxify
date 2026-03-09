@@ -104,6 +104,43 @@ type ClawChannelsResult struct {
 	Plugins  map[string]interface{} `json:"plugins"`  // plugins 配置
 }
 
+// ClawSkill 技能列表项。
+type ClawSkill struct {
+	ID          string                 `json:"id"`                 // 技能唯一标识
+	Name        string                 `json:"name"`               // 技能展示名称
+	Description string                 `json:"description"`        // 技能说明
+	Version     string                 `json:"version,omitempty"`  // 技能版本
+	Enabled     bool                   `json:"enabled"`            // 是否启用
+	Source      string                 `json:"source"`             // 技能来源
+	Path        string                 `json:"path,omitempty"`     // 技能目录路径
+	Metadata    map[string]interface{} `json:"metadata,omitempty"` // 技能元数据
+	Requires    map[string]interface{} `json:"requires,omitempty"` // 技能依赖描述
+}
+
+// ClawSkillPlugin 技能中心中的插件列表项。
+type ClawSkillPlugin struct {
+	ID          string `json:"id"`                    // 插件唯一标识
+	Name        string `json:"name"`                  // 插件展示名称
+	Description string `json:"description"`           // 插件说明
+	Version     string `json:"version,omitempty"`     // 插件版本
+	Enabled     bool   `json:"enabled"`               // 是否启用
+	Source      string `json:"source"`                // 插件来源
+	InstalledAt string `json:"installedAt,omitempty"` // 安装时间
+	Path        string `json:"path,omitempty"`        // 安装目录
+}
+
+// ClawSkillsResult 技能中心列表结果。
+type ClawSkillsResult struct {
+	BaseResult
+	Skills []ClawSkill `json:"skills"` // 技能列表
+}
+
+// ClawSkillPluginsResult 技能中心插件列表结果。
+type ClawSkillPluginsResult struct {
+	BaseResult
+	Plugins []ClawSkillPlugin `json:"plugins"` // 插件列表
+}
+
 // ClawPluginListResult 插件列表结果。
 type ClawPluginListResult struct {
 	BaseResult

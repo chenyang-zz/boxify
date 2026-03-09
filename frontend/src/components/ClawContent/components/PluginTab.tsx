@@ -13,176 +13,87 @@
 // limitations under the License.
 
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  BarChart3,
-  BrainCircuit,
-  Code2,
-  FileCode2,
-  Globe,
-  Palette,
-  Search,
-} from "lucide-react";
-import { FC, useState } from "react";
-import { SkillListItemProps } from "./SkillListItem";
-import SkillListItem from "./SkillListItem";
-import { PluginListItemProps } from "./PluginListItem";
+import { Search } from "lucide-react";
+import { FC, ReactNode, useMemo, useState } from "react";
+import SkillListItem, { SkillListItemProps } from "./SkillListItem";
 
-const pluginList: Omit<PluginListItemProps, "onToggle" | "onSettingsClick">[] =
-  [
-    {
-      id: "ai-drawing",
-      name: "AI绘画",
-      description: "DALL-E/SD/Midjourney等AI绘画工具的调用适配",
-      icon: Palette,
-      enabled: true,
-    },
-    {
-      id: "web-search",
-      name: "联网搜索",
-      description: "联网搜索功能，支持搜索引擎选择",
-      icon: Globe,
-      enabled: true,
-    },
-    {
-      id: "code-interpreter",
-      name: "代码解释器",
-      description: "Python代码执行环境，支持文件操作",
-      icon: Code2,
-      enabled: true,
-    },
-    {
-      id: "web-parser",
-      name: "网页解析",
-      description: "网页内容解析，支持多种格式输出",
-      icon: FileCode2,
-      enabled: false,
-    },
-    {
-      id: "data-analysis",
-      name: "数据分析",
-      description: "数据分析和可视化功能",
-      icon: BarChart3,
-      enabled: false,
-    },
-    {
-      id: "chain-of-thought",
-      name: "思维链",
-      description: "思维链推理功能，用于复杂问题求解",
-      icon: BrainCircuit,
-      enabled: false,
-    },
-    {
-      id: "code-interpreter",
-      name: "代码解释器",
-      description: "Python代码执行环境，支持文件操作",
-      icon: Code2,
-      enabled: true,
-    },
-    {
-      id: "web-parser",
-      name: "网页解析",
-      description: "网页内容解析，支持多种格式输出",
-      icon: FileCode2,
-      enabled: false,
-    },
-    {
-      id: "data-analysis",
-      name: "数据分析",
-      description: "数据分析和可视化功能",
-      icon: BarChart3,
-      enabled: false,
-    },
-    {
-      id: "chain-of-thought",
-      name: "思维链",
-      description: "思维链推理功能，用于复杂问题求解",
-      icon: BrainCircuit,
-      enabled: false,
-    },
-    {
-      id: "code-interpreter",
-      name: "代码解释器",
-      description: "Python代码执行环境，支持文件操作",
-      icon: Code2,
-      enabled: true,
-    },
-    {
-      id: "web-parser",
-      name: "网页解析",
-      description: "网页内容解析，支持多种格式输出",
-      icon: FileCode2,
-      enabled: false,
-    },
-    {
-      id: "data-analysis",
-      name: "数据分析",
-      description: "数据分析和可视化功能",
-      icon: BarChart3,
-      enabled: false,
-    },
-    {
-      id: "chain-of-thought",
-      name: "思维链",
-      description: "思维链推理功能，用于复杂问题求解",
-      icon: BrainCircuit,
-      enabled: false,
-    },
-  ];
+interface PluginTabProps {
+  plugins: Omit<SkillListItemProps, "onToggle" | "onSettingsClick">[];
+  loading?: boolean;
+  onToggle: (id: string, enabled: boolean) => void | Promise<void>;
+}
 
 /**
  * 插件面板
- * 展示已安装插件的列表，提供启用/禁用和设置入口
+ * 展示已安装插件列表，提供启用/禁用入口
  */
-export const PluginTab: FC = () => {
+export const PluginTab: FC<PluginTabProps> = ({
+  plugins,
+  loading = false,
+  onToggle,
+}) => {
   const [searchValue, setSearchValue] = useState("");
 
-  const handleToggle = (id: string, enabled: boolean) => {
-    console.log(`Plugin ${id} toggled: ${enabled}`);
-    // TODO: 更新后端状态
-  };
-
+  /** 预留设置入口，后续补充配置弹窗。 */
   const handleSettingsClick = (id: string) => {
     console.log(`Plugin ${id} settings clicked`);
-    // TODO: 打开设置弹窗
   };
 
-  const filterPlugins = (plugins: typeof pluginList) => {
-    if (!searchValue.trim()) return plugins;
-    const query = searchValue.toLowerCase();
+  /** 根据搜索词过滤插件。 */
+  const filteredPlugins = useMemo(() => {
+    const query = searchValue.trim().toLowerCase();
+    if (!query) return plugins;
+
     return plugins.filter(
-      (skill) =>
-        skill.name.toLowerCase().includes(query) ||
-        skill.description.toLowerCase().includes(query),
+      (plugin) =>
+        plugin.name.toLowerCase().includes(query) ||
+        plugin.description.toLowerCase().includes(query),
     );
-  };
+  }, [plugins, searchValue]);
 
-  const renderPlugins = (plugins: typeof pluginList) => {
-    const filteredSkills = filterPlugins(plugins);
-
-    if (filteredSkills.length === 0) {
-      return (
-        <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">
-          {searchValue ? "没有找到匹配的技能" : "暂无技能"}
-        </div>
-      );
-    }
-
-    return (
+  let content: ReactNode;
+  if (loading) {
+    content = (
+      <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">
+        正在加载插件...
+      </div>
+    );
+  } else if (filteredPlugins.length === 0) {
+    content = (
+      <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">
+        {searchValue ? "没有找到匹配的插件" : "暂无插件"}
+      </div>
+    );
+  } else {
+    content = (
       <div className="flex flex-col gap-2">
-        {filteredSkills.map((skill) => (
+        {filteredPlugins.map((plugin) => (
           <SkillListItem
-            key={skill.id}
-            {...skill}
-            onToggle={handleToggle}
+            key={plugin.id}
+            {...plugin}
+            onToggle={onToggle}
             onSettingsClick={handleSettingsClick}
           />
         ))}
       </div>
     );
-  };
+  }
 
-  return renderPlugins(pluginList);
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="relative w-full">
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="搜索插件..."
+          value={searchValue}
+          onChange={(e) => setSearchValue(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
+      {content}
+    </div>
+  );
 };
 
 export default PluginTab;

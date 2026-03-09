@@ -14,6 +14,7 @@ import (
 	clawmonitor "github.com/chenyang-zz/boxify/internal/claw/monitor"
 	clawplugin "github.com/chenyang-zz/boxify/internal/claw/plugin"
 	clawprocess "github.com/chenyang-zz/boxify/internal/claw/process"
+	clawskill "github.com/chenyang-zz/boxify/internal/claw/skill"
 	clawtaskman "github.com/chenyang-zz/boxify/internal/claw/taskman"
 	clawupdate "github.com/chenyang-zz/boxify/internal/claw/update"
 	"github.com/chenyang-zz/boxify/internal/types"
@@ -28,6 +29,7 @@ type ClawService struct {
 	manager       *clawprocess.Manager       // OpenClaw 进程管理器
 	pluginCfg     *clawplugin.Config         // OpenClaw 配置读写器
 	pluginManager *clawplugin.Manager        // 插件管理器
+	skillManager  *clawskill.Manager         // 技能管理器
 	taskManager   *clawtaskman.Manager       // 任务管理器
 	updater       *clawupdate.Updater        // 面板更新器
 	napcatMonitor *clawmonitor.NapCatMonitor // NapCat 监控器
@@ -165,6 +167,67 @@ func (s *ClawService) GetOverview() *types.ClawOverviewResult {
 		BaseResult: types.BaseResult{Success: true, Message: "获取概览成功"},
 		Data:       data,
 	}
+}
+
+// GetSkillPlugins 获取技能中心中的已安装插件列表。
+func (s *ClawService) GetSkillPlugins() *types.ClawSkillPluginsResult {
+	if s.pluginManager == nil {
+		return &types.ClawSkillPluginsResult{
+			BaseResult: types.BaseResult{Success: true, Message: "获取插件列表成功"},
+			Plugins:    []types.ClawSkillPlugin{},
+		}
+	}
+
+	plugins := s.pluginManager.ListSkillCenterPlugins()
+	result := make([]types.ClawSkillPlugin, 0, len(plugins))
+	for _, plugin := range plugins {
+		result = append(result, types.ClawSkillPlugin{
+			ID:          plugin.ID,
+			Name:        plugin.Name,
+			Description: plugin.Description,
+			Version:     plugin.Version,
+			Enabled:     plugin.Enabled,
+			Source:      plugin.Source,
+			InstalledAt: plugin.InstalledAt,
+			Path:        plugin.Path,
+		})
+	}
+
+	return &types.ClawSkillPluginsResult{
+		BaseResult: types.BaseResult{Success: true, Message: "获取插件列表成功"},
+		Plugins:    result,
+	}
+}
+
+// GetSkills 获取技能中心所需的技能列表。
+func (s *ClawService) GetSkills() *types.ClawSkillsResult {
+	if s.skillManager == nil {
+		return &types.ClawSkillsResult{
+			BaseResult: types.BaseResult{Success: true, Message: "获取技能列表成功"},
+			Skills:     []types.ClawSkill{},
+		}
+	}
+
+	items := s.skillManager.List()
+	return &types.ClawSkillsResult{
+		BaseResult: types.BaseResult{Success: true, Message: "获取技能列表成功"},
+		Skills:     items,
+	}
+}
+
+// ToggleSkill 切换技能启用状态。
+func (s *ClawService) ToggleSkill(id string, enabled bool) *types.BaseResult {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return &types.BaseResult{Success: false, Message: "技能 ID 不能为空"}
+	}
+	if s.skillManager == nil {
+		s.skillManager = clawskill.NewManager(s.pluginCfg, s.openClawDir, s.openClawApp, s.Logger())
+	}
+	if err := s.skillManager.Toggle(id, enabled); err != nil {
+		return &types.BaseResult{Success: false, Message: "更新技能状态失败: " + err.Error()}
+	}
+	return &types.BaseResult{Success: true, Message: "技能状态已更新"}
 }
 
 // CheckOpenClaw 检查 OpenClaw 是否已安装并完成基础配置。
@@ -1037,6 +1100,7 @@ func (s *ClawService) rebuildManagers() {
 	}, s.Logger())
 	s.pluginCfg = &clawplugin.Config{OpenClawDir: s.openClawDir, DataDir: s.dataDir}
 	s.pluginManager = clawplugin.NewManager(s.pluginCfg, s.Logger())
+	s.skillManager = clawskill.NewManager(s.pluginCfg, s.openClawDir, s.openClawApp, s.Logger())
 	s.taskManager = clawtaskman.NewManager(nil, s.Logger())
 	s.updater = clawupdate.NewUpdater(resolveCurrentVersion(), s.dataDir, s.Logger())
 	if s.napcatMonitor != nil {

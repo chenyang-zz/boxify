@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { FC, useState } from "react";
+import { FC } from "react";
 import { LucideIcon } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
@@ -47,10 +47,8 @@ export const SkillListItem: FC<SkillListItemProps> = ({
   enabled,
   onToggle,
 }) => {
-  const [isEnabled, setIsEnabled] = useState(enabled);
-
+  /** 由父组件维护真实状态，避免本地状态与后端返回不一致。 */
   const handleToggle = (checked: boolean) => {
-    setIsEnabled(checked);
     onToggle(id, checked);
   };
 
@@ -64,14 +62,14 @@ export const SkillListItem: FC<SkillListItemProps> = ({
       }
       badge={
         <Badge
-          variant={isEnabled ? "default" : "secondary"}
+          variant={enabled ? "default" : "secondary"}
           className="text-[10px] px-1.5 py-0"
         >
-          {isEnabled ? "已启用" : "未启用"}
+          {enabled ? "已启用" : "未启用"}
         </Badge>
       }
       description={description}
-      action={<Switch checked={isEnabled} onCheckedChange={handleToggle} />}
+      action={<Switch checked={enabled} onCheckedChange={handleToggle} />}
     />
   );
 };

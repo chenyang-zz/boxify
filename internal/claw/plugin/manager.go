@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -83,6 +84,23 @@ type Manager struct {
 	logger     *slog.Logger                // 日志记录器。
 }
 
+// SkillCenterPlugin 表示技能中心中的插件列表项。
+type SkillCenterPlugin struct {
+	ID          string // 插件唯一标识。
+	Name        string // 插件展示名称。
+	Description string // 插件说明。
+	Version     string // 插件版本。
+	Enabled     bool   // 是否启用。
+	Source      string // 插件来源。
+	InstalledAt string // 安装时间。
+	Path        string // 安装目录。
+}
+
+type skillCenterPluginSearchDir struct {
+	dir    string
+	source string
+}
+
 // 创建插件管理器。
 func NewManager(cfg *Config, logger *slog.Logger) *Manager {
 	if logger == nil {
@@ -121,6 +139,63 @@ func (m *Manager) ListInstalled() []*InstalledPlugin {
 	result := make([]*InstalledPlugin, 0, len(m.plugins))
 	for _, p := range m.plugins {
 		result = append(result, p)
+	}
+	return result
+}
+
+// ListSkillCenterPlugins 返回技能中心所需的已安装插件视图。
+func (m *Manager) ListSkillCenterPlugins() []SkillCenterPlugin {
+	if m == nil || m.cfg == nil {
+		return []SkillCenterPlugin{}
+	}
+
+	ocConfig, _ := m.cfg.ReadOpenClawJSON()
+	if ocConfig == nil {
+		ocConfig = map[string]interface{}{}
+	}
+
+	pluginEntries, pluginInstalls := extractOpenClawPluginState(ocConfig)
+	pluginEntries, pluginInstalls = filterSkillPluginState(m.cfg.OpenClawDir, pluginEntries, pluginInstalls)
+
+	plugins := make([]SkillCenterPlugin, 0)
+	seenPlugins := make(map[string]bool)
+	for _, sourceDir := range m.skillCenterPluginSearchDirs() {
+		scanSkillCenterPluginDir(sourceDir.dir, pluginEntries, pluginInstalls, &plugins, seenPlugins, sourceDir.source)
+	}
+	scanConfiguredPluginInstalls(pluginEntries, pluginInstalls, &plugins, seenPlugins)
+	appendConfigOnlyPlugins(pluginEntries, pluginInstalls, &plugins, seenPlugins)
+
+	sort.Slice(plugins, func(i, j int) bool {
+		return plugins[i].Name < plugins[j].Name
+	})
+	return plugins
+}
+
+// skillCenterPluginSearchDirs 返回技能中心插件扫描目录，当前仅扫描当前 OpenClaw 实例。
+func (m *Manager) skillCenterPluginSearchDirs() []skillCenterPluginSearchDir {
+	if m == nil {
+		return nil
+	}
+
+	candidates := []skillCenterPluginSearchDir{
+		{dir: m.pluginsDir, source: "installed"},
+	}
+	seen := make(map[string]struct{})
+	result := make([]skillCenterPluginSearchDir, 0, len(candidates))
+	for _, candidate := range candidates {
+		candidate.dir = strings.TrimSpace(candidate.dir)
+		if candidate.dir == "" {
+			continue
+		}
+		candidate.dir = filepath.Clean(candidate.dir)
+		if _, err := os.Stat(candidate.dir); err != nil {
+			continue
+		}
+		if _, ok := seen[candidate.dir]; ok {
+			continue
+		}
+		seen[candidate.dir] = struct{}{}
+		result = append(result, candidate)
 	}
 	return result
 }
@@ -650,9 +725,16 @@ func (m *Manager) CheckConflicts(pluginID string) []string {
 
 // 扫描插件目录并与内存状态及 OpenClaw 配置对齐。
 func (m *Manager) scanInstalledPlugins() {
-	entries, err := os.ReadDir(m.pluginsDir)
+	scannedDirs := map[string]struct{}{}
+	m.scanPluginDir(m.pluginsDir, scannedDirs)
+	m.pruneDetachedPlugins()
+}
+
+// 扫描单个插件目录并回填内存状态。
+func (m *Manager) scanPluginDir(baseDir string, scannedDirs map[string]struct{}) {
+	entries, err := os.ReadDir(baseDir)
 	if err != nil {
-		m.logger.Warn("扫描插件目录失败", "dir", m.pluginsDir, "error", err)
+		m.logger.Debug("跳过不可用插件目录", "dir", baseDir, "error", err)
 		return
 	}
 
@@ -660,38 +742,174 @@ func (m *Manager) scanInstalledPlugins() {
 		if !entry.IsDir() {
 			continue
 		}
-		pluginDir := filepath.Join(m.pluginsDir, entry.Name())
+		pluginDir := filepath.Join(baseDir, entry.Name())
+		if _, ok := scannedDirs[pluginDir]; ok {
+			continue
+		}
+		scannedDirs[pluginDir] = struct{}{}
+
 		meta, err := m.readPluginMeta(pluginDir)
 		if err != nil {
 			m.logger.Debug("跳过无效插件目录", "dir", pluginDir, "error", err)
 			continue
 		}
+		m.upsertScannedPlugin(meta, pluginDir)
+	}
+}
 
-		enabled := true
-		source := "local"
-		version := meta.Version
-		m.mu.Lock()
-		if _, exists := m.plugins[meta.ID]; !exists {
-			m.plugins[meta.ID] = &InstalledPlugin{
-				PluginMeta:  *meta,
-				Enabled:     true,
-				InstalledAt: time.Now().Format(time.RFC3339),
-				Source:      "local",
-				Dir:         pluginDir,
-			}
-		} else {
-			// 用磁盘数据更新目录路径与元数据。
-			m.plugins[meta.ID].Dir = pluginDir
-			m.plugins[meta.ID].PluginMeta = *meta
-			enabled = m.plugins[meta.ID].Enabled
-			source = m.plugins[meta.ID].Source
-		}
-		m.mu.Unlock()
-		if err := m.syncOpenClawPluginState(meta.ID, pluginDir, enabled, source, version); err != nil {
-			m.logger.Warn("扫描插件后同步 OpenClaw 状态失败", "plugin_id", meta.ID, "error", err)
+// 清理不属于当前 OpenClaw 实例插件目录的历史插件状态。
+func (m *Manager) pruneDetachedPlugins() {
+	baseDir := filepath.Clean(m.pluginsDir)
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for pluginID, plugin := range m.plugins {
+		pluginDir := filepath.Clean(strings.TrimSpace(plugin.Dir))
+		if pluginDir == "" {
+			delete(m.plugins, pluginID)
 			continue
 		}
+		rel, err := filepath.Rel(baseDir, pluginDir)
+		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			delete(m.plugins, pluginID)
+			continue
+		}
+		if !pathExists(pluginDir) {
+			delete(m.plugins, pluginID)
+		}
 	}
+}
+
+// 将扫描到的插件元数据合并到当前状态，并同步回 openclaw.json。
+func (m *Manager) upsertScannedPlugin(meta *PluginMeta, pluginDir string) {
+	enabled := true
+	source := "local"
+	version := meta.Version
+
+	m.mu.Lock()
+	if _, exists := m.plugins[meta.ID]; !exists {
+		m.plugins[meta.ID] = &InstalledPlugin{
+			PluginMeta:  *meta,
+			Enabled:     true,
+			InstalledAt: time.Now().Format(time.RFC3339),
+			Source:      "local",
+			Dir:         pluginDir,
+		}
+	} else {
+		// 用磁盘数据更新目录路径与元数据。
+		m.plugins[meta.ID].Dir = pluginDir
+		m.plugins[meta.ID].PluginMeta = *meta
+		enabled = m.plugins[meta.ID].Enabled
+		source = m.plugins[meta.ID].Source
+	}
+	m.mu.Unlock()
+
+	if err := m.syncOpenClawPluginState(meta.ID, pluginDir, enabled, source, version); err != nil {
+		m.logger.Warn("扫描插件后同步 OpenClaw 状态失败", "plugin_id", meta.ID, "error", err)
+	}
+}
+
+// 从 openclaw.json 恢复插件索引，避免目录布局变化时列表为空。
+func (m *Manager) hydratePluginsFromOpenClawConfig() {
+	ocConfig, err := m.cfg.ReadOpenClawJSON()
+	if err != nil || ocConfig == nil {
+		return
+	}
+	plugins, _ := ocConfig["plugins"].(map[string]interface{})
+	entries, _ := plugins["entries"].(map[string]interface{})
+	installs, _ := plugins["installs"].(map[string]interface{})
+	if len(entries) == 0 && len(installs) == 0 {
+		return
+	}
+
+	for pluginID, rawEntry := range entries {
+		entry, _ := rawEntry.(map[string]interface{})
+		enabled, hasEnabled := entry["enabled"].(bool)
+		if !hasEnabled {
+			enabled = true
+		}
+
+		install, _ := installs[pluginID].(map[string]interface{})
+		installPath, _ := install["installPath"].(string)
+		version, _ := install["version"].(string)
+		source, _ := install["source"].(string)
+		installedAt, _ := install["installedAt"].(string)
+		resolvedDir := m.resolvePluginInstallPath(pluginID, installPath)
+
+		m.mu.Lock()
+		plugin, exists := m.plugins[pluginID]
+		if !exists {
+			plugin = &InstalledPlugin{
+				PluginMeta: PluginMeta{
+					ID:      pluginID,
+					Name:    pluginID,
+					Version: version,
+				},
+				Enabled:     enabled,
+				InstalledAt: installedAt,
+				Source:      source,
+				Dir:         resolvedDir,
+			}
+			if plugin.InstalledAt == "" {
+				plugin.InstalledAt = time.Now().Format(time.RFC3339)
+			}
+			if plugin.Source == "" {
+				plugin.Source = "config"
+			}
+			m.plugins[pluginID] = plugin
+		} else {
+			plugin.Enabled = enabled
+			if plugin.Version == "" {
+				plugin.Version = version
+			}
+			if plugin.Source == "" {
+				plugin.Source = source
+			}
+			if plugin.Dir == "" {
+				plugin.Dir = resolvedDir
+			}
+		}
+		m.mu.Unlock()
+
+		if resolvedDir != "" {
+			if meta, metaErr := m.readPluginMeta(resolvedDir); metaErr == nil {
+				m.mu.Lock()
+				current := m.plugins[pluginID]
+				current.PluginMeta = *meta
+				current.Enabled = enabled
+				if current.Source == "" {
+					current.Source = source
+				}
+				if current.Source == "" {
+					current.Source = "config"
+				}
+				current.Dir = resolvedDir
+				m.mu.Unlock()
+			}
+		}
+	}
+}
+
+// 解析插件真实安装目录，仅接受显式 installPath。
+func (m *Manager) resolvePluginInstallPath(pluginID, installPath string) string {
+	if pathExists(installPath) {
+		return filepath.Clean(installPath)
+	}
+
+	if strings.TrimSpace(installPath) != "" {
+		return filepath.Clean(installPath)
+	}
+	return ""
+}
+
+// 判断路径是否存在。
+func pathExists(path string) bool {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return false
+	}
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 // 读取插件元数据，优先 plugin.json，缺失时回退 package.json。
