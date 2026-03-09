@@ -6,6 +6,8 @@
 
 ```bash
 make release-auto-tag
+# 或兼容命令
+make git-release
 ```
 
 可选参数：
@@ -14,6 +16,7 @@ make release-auto-tag
 make release-auto-tag PART=patch  # 默认，修订号 +1
 make release-auto-tag PART=minor  # 次版本 +1，修订号归零
 make release-auto-tag PART=major  # 主版本 +1，次版本/修订号归零
+make git-release PART=minor       # 兼容命令，行为同上
 ```
 
 执行内容：
@@ -24,11 +27,14 @@ make release-auto-tag PART=major  # 主版本 +1，次版本/修订号归零
 4. 推送到 `main`。
 5. 创建并推送 `vX.Y.Z` tag。
 6. 触发 GitHub Actions `Release On Tag` 自动构建并发布 Release。
+7. Workflow 会自动生成规范化 `RELEASE_NOTES.md`（Release Info / Highlights / Stability / Chores / Verification / Full Changelog）。
 
 ## 手动方式：只打 tag 触发发布
 
 ```bash
 make release-tag VERSION=0.0.15
+# 或兼容命令
+make git-release VERSION=0.0.15
 ```
 
 适用于已手动维护版本号、仅需触发发布的场景。

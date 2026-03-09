@@ -1,7 +1,7 @@
 # Boxify Makefile
 # 基于 Wails v3 的跨平台数据库管理应用
 
-.PHONY: help dev build sync-build-assets build-macos-app build-macos-app-universal refresh-icons package-macos package-macos-universal run-macos-app clean install frontend-install frontend-dev frontend-build test format tidy lint release-tag release-auto-tag release-undo-version
+.PHONY: help dev build sync-build-assets build-macos-app build-macos-app-universal refresh-icons package-macos package-macos-universal run-macos-app clean install frontend-install frontend-dev frontend-build test format tidy lint release-tag release-auto-tag git-release release-undo-version
 
 # 默认目标
 .DEFAULT_GOAL := help
@@ -94,6 +94,13 @@ release-auto-tag: ## 自动递增版本并推送标签
 	git push origin HEAD; \
 	\
 	$(MAKE) release-tag VERSION="$$NEW_VERSION"
+
+git-release: ## 兼容命令：发布版本（可选 VERSION=0.0.X，未传则按 PART 自动递增）
+	@if [ -n "$(VERSION)" ]; then \
+		$(MAKE) release-tag VERSION="$(VERSION)"; \
+	else \
+		$(MAKE) release-auto-tag PART="$(PART)"; \
+	fi
 
 release-undo-version: ## 撤销最近一次版本号修改（按目标版本批量删除更高版本的 Release/Tag，回退 package.json，清空 RELEASE_NOTES.md，移除 CHANGELOG 更高版本条目）
 	@command -v node >/dev/null 2>&1 || (echo "$(COLOR_YELLOW)未安装 Node.js$(COLOR_RESET)" && exit 1); \

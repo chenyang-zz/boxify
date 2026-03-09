@@ -54,6 +54,9 @@ curl -fsSLO https://raw.githubusercontent.com/chenyang-zz/boxify/main/scripts/in
 # 开发与构建
 make dev                # 启动开发模式
 make build              # 构建生产版本
+make git-release        # 兼容发布命令（默认 patch 自动升版本并推送 tag）
+make git-release PART=minor  # 次版本 +1 并推送 tag
+make git-release VERSION=0.0.18  # 手动指定版本号仅打 tag
 make release-auto-tag PART=patch  # 自动升版本并推送 tag（默认 patch，由 GitHub Actions 发布）
 make release-auto-tag PART=minor  # 次版本 +1 并推送 tag
 make release-auto-tag PART=major  # 主版本 +1 并推送 tag

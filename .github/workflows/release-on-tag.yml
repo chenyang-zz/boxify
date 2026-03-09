@@ -407,6 +407,11 @@ jobs:
             --output dist/checksums.txt.sig \
             --detach-sign dist/checksums.txt
 
+      - name: Generate release notes
+        run: |
+          set -euo pipefail
+          scripts/generate-release-notes.sh "${GITHUB_REF_NAME}" "常规功能更新与稳定性优化" "RELEASE_NOTES.md"
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
