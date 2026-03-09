@@ -42,7 +42,7 @@ get_latest_version() {
 
     # 方案2: 从 releases 页面解析 (API 限流时的备用方案)
     if [ -z "$tag" ]; then
-        info "GitHub API 不可用，尝试从 releases 页面获取版本..."
+        info "GitHub API 不可用，尝试从 releases 页面获取版本..." >&2
         local releases_url="https://github.com/${REPO}/releases/latest"
         if command -v curl >/dev/null 2>&1; then
             tag=$(curl -fsSL --connect-timeout 10 -L "$releases_url" 2>/dev/null | grep -oE '/releases/tag/v[0-9]+\.[0-9]+\.[0-9]+[a-zA-Z0-9._-]*' | head -1 | sed 's|.*/v||')
@@ -56,7 +56,7 @@ get_latest_version() {
 
     # 验证版本号格式 (支持语义化版本如 0.0.18, 1.0.0-beta 等)
     if [[ ! "$ver" =~ ^[0-9]+\.[0-9]+\.[0-9]+[a-zA-Z0-9._-]*$ ]]; then
-        warn "无法获取最新版本，使用默认版本: ${DEFAULT_VERSION}"
+        warn "无法获取最新版本，使用默认版本: ${DEFAULT_VERSION}" >&2
         ver=""
     fi
 
