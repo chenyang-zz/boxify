@@ -169,13 +169,13 @@ install_macos() {
     local app_path="${MAC_MOUNT_POINT}/${APP_NAME}.app"
     dmg_arch=$(get_macos_dmg_arch_suffix "$arch")
     local download_urls=(
-        "https://github.com/${REPO}/releases/download/v${version}/${APP_NAME}-${version}-macos-${dmg_arch}.dmg"
         "https://github.com/${REPO}/releases/download/v${version}/${BINARY_NAME}-${version}-macos-${dmg_arch}.dmg"
-        "https://github.com/${REPO}/releases/download/v${version}/${APP_NAME}-${version}-macos-universal.dmg"
+        "https://github.com/${REPO}/releases/download/v${version}/${APP_NAME}-${version}-macos-${dmg_arch}.dmg"
         "https://github.com/${REPO}/releases/download/v${version}/${BINARY_NAME}-${version}-macos-universal.dmg"
+        "https://github.com/${REPO}/releases/download/v${version}/${APP_NAME}-${version}-macos-universal.dmg"
         "https://github.com/${REPO}/releases/download/v${version}/${BINARY_NAME}-v${version}-darwin-${arch}"
-        "https://github.com/${REPO}/releases/download/v${version}/${APP_NAME}-${version}-mac-${arch}.dmg"
         "https://github.com/${REPO}/releases/download/v${version}/${BINARY_NAME}-${version}-mac-${arch}.dmg"
+        "https://github.com/${REPO}/releases/download/v${version}/${APP_NAME}-${version}-mac-${arch}.dmg"
         "https://github.com/${REPO}/releases/download/v${version}/${BINARY_NAME}-${version}-darwin-${arch}"
     )
 
