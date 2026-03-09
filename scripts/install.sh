@@ -66,6 +66,24 @@ detect_arch() {
     esac
 }
 
+get_macos_dmg_arch_suffix() {
+    local arch="$1"
+    case "$arch" in
+        amd64) echo "x64" ;;
+        arm64) echo "arm64" ;;
+        *) echo "$arch" ;;
+    esac
+}
+
+get_linux_appimage_arch_suffix() {
+    local arch="$1"
+    case "$arch" in
+        amd64) echo "x86_64" ;;
+        arm64) echo "arm64" ;;
+        *) echo "$arch" ;;
+    esac
+}
+
 download_file() {
     local url="$1"
     local output="$2"
@@ -99,11 +117,15 @@ download_from_candidates() {
 install_linux() {
     local version="$1"
     local arch="$2"
+    local appimage_arch
     local tmp_file="/tmp/boxify-installer-linux-${arch}"
+    appimage_arch=$(get_linux_appimage_arch_suffix "$arch")
     local download_urls=(
+        "https://github.com/${REPO}/releases/download/v${version}/${APP_NAME}-${version}-linux-${appimage_arch}.AppImage"
+        "https://github.com/${REPO}/releases/download/v${version}/${BINARY_NAME}-${version}-linux-${appimage_arch}.AppImage"
+        "https://github.com/${REPO}/releases/download/v${version}/${BINARY_NAME}-v${version}-linux-${arch}"
         "https://github.com/${REPO}/releases/download/v${version}/${APP_NAME}-${version}-linux-${arch}.tar.gz"
         "https://github.com/${REPO}/releases/download/v${version}/${BINARY_NAME}-${version}-linux-${arch}.tar.gz"
-        "https://github.com/${REPO}/releases/download/v${version}/${BINARY_NAME}-v${version}-linux-${arch}"
         "https://github.com/${REPO}/releases/download/v${version}/${BINARY_NAME}-${version}-linux-${arch}"
     )
 
@@ -142,12 +164,18 @@ install_linux() {
 install_macos() {
     local version="$1"
     local arch="$2"
+    local dmg_arch
     local tmp_file="/tmp/boxify-installer-macos-${arch}"
     local app_path="${MAC_MOUNT_POINT}/${APP_NAME}.app"
+    dmg_arch=$(get_macos_dmg_arch_suffix "$arch")
     local download_urls=(
+        "https://github.com/${REPO}/releases/download/v${version}/${APP_NAME}-${version}-macos-${dmg_arch}.dmg"
+        "https://github.com/${REPO}/releases/download/v${version}/${BINARY_NAME}-${version}-macos-${dmg_arch}.dmg"
+        "https://github.com/${REPO}/releases/download/v${version}/${APP_NAME}-${version}-macos-universal.dmg"
+        "https://github.com/${REPO}/releases/download/v${version}/${BINARY_NAME}-${version}-macos-universal.dmg"
+        "https://github.com/${REPO}/releases/download/v${version}/${BINARY_NAME}-v${version}-darwin-${arch}"
         "https://github.com/${REPO}/releases/download/v${version}/${APP_NAME}-${version}-mac-${arch}.dmg"
         "https://github.com/${REPO}/releases/download/v${version}/${BINARY_NAME}-${version}-mac-${arch}.dmg"
-        "https://github.com/${REPO}/releases/download/v${version}/${BINARY_NAME}-v${version}-darwin-${arch}"
         "https://github.com/${REPO}/releases/download/v${version}/${BINARY_NAME}-${version}-darwin-${arch}"
     )
 

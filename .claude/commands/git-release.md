@@ -225,10 +225,11 @@ All notable changes to this project will be documented in this file.
 
 ## 发布产物
 
-自动构建以下平台产物：
-- macOS: `darwin-amd64`, `darwin-arm64`
-- Linux: `linux-amd64`, `linux-arm64`
-- Windows: `windows-amd64.exe`, `windows-amd64-setup.exe`
+自动构建并发布以下产物（`VERSION` 为 `vX.Y.Z`）：
+- macOS: `boxify-${VERSION}-darwin-amd64`、`boxify-${VERSION}-darwin-arm64`
+- Linux: `boxify-${VERSION}-linux-amd64`、`boxify-${VERSION}-linux-arm64`
+- Windows: `boxify-${VERSION}-windows-amd64.exe`、`boxify-${VERSION}-windows-amd64-setup.exe`
+- 校验文件: `checksums.txt`
 
 ## 示例
 
