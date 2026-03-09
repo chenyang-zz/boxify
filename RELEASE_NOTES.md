@@ -14,3 +14,24 @@
  limitations under the License.
 -->
 
+v0.0.17 - CI 构建流程优化
+
+重构 CI 构建流程，使用 matrix 策略并行构建多平台产物，并修复若干构建问题。
+
+Improvements
+- CI: Linux 构建合并为 matrix 并行构建 (amd64/arm64)
+- CI: Windows 构建合并为 matrix 并行构建 (amd64/arm64)
+- CI: macOS DMG 打包前清理缓存释放磁盘空间
+- CI: 使用 go env GOMODCACHE 获取正确的 Go 模块缓存路径
+- Makefile: 优化 release-undo-version 版本查找逻辑
+
+Fixes
+- 修复 Windows 打包任务中 ARCH、CERT_PATH 等变量未正确传递到子任务的问题
+- 修复 macOS 构建中 Go 模块缓存权限问题
+
+Verification
+- Passed pnpm run build
+- Passed make dev
+- Passed make build
+
+Full Changelog: v0.0.15...v0.0.17
