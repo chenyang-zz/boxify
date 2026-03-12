@@ -8,6 +8,9 @@ import { Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as chat$0 from "../../../../chenyang-zz/boxify/internal/claw/chat/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as service$0 from "../../../../chenyang-zz/boxify/internal/service/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -15,27 +18,29 @@ import * as types$0 from "../../../../chenyang-zz/boxify/internal/types/models.j
 
 function configure() {
     Object.freeze(Object.assign($Create.Events, {
-        "data-sync:broadcast": $$createType0,
-        "data-sync:targeted": $$createType0,
-        "git:status-changed": $$createType1,
-        "initial-data:received": $$createType2,
-        "menu:clicked": $$createType3,
-        "terminal:command_end": $$createType4,
-        "terminal:error": $$createType4,
-        "terminal:interaction_mode_change": $$createType5,
-        "terminal:output": $$createType4,
-        "terminal:pwd_update": $$createType4,
-        "window:closed": $$createType4,
-        "window:opened": $$createType4,
+        "claw:chat-event": $$createType0,
+        "data-sync:broadcast": $$createType1,
+        "data-sync:targeted": $$createType1,
+        "git:status-changed": $$createType2,
+        "initial-data:received": $$createType3,
+        "menu:clicked": $$createType4,
+        "terminal:command_end": $$createType5,
+        "terminal:error": $$createType5,
+        "terminal:interaction_mode_change": $$createType6,
+        "terminal:output": $$createType5,
+        "terminal:pwd_update": $$createType5,
+        "window:closed": $$createType5,
+        "window:opened": $$createType5,
     }));
 }
 
 // Private type creation functions
-const $$createType0 = service$0.DataSyncEvent.createFrom;
-const $$createType1 = types$0.GitStatusChangedEvent.createFrom;
-const $$createType2 = service$0.InitialDataEntry.createFrom;
-const $$createType3 = service$0.MenuClickEvent.createFrom;
-const $$createType4 = $Create.Map($Create.Any, $Create.Any);
-const $$createType5 = types$0.TerminalInteractionModeChangedEvent.createFrom;
+const $$createType0 = chat$0.ChatEvent.createFrom;
+const $$createType1 = service$0.DataSyncEvent.createFrom;
+const $$createType2 = types$0.GitStatusChangedEvent.createFrom;
+const $$createType3 = service$0.InitialDataEntry.createFrom;
+const $$createType4 = service$0.MenuClickEvent.createFrom;
+const $$createType5 = $Create.Map($Create.Any, $Create.Any);
+const $$createType6 = types$0.TerminalInteractionModeChangedEvent.createFrom;
 
 configure();

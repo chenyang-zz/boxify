@@ -43,7 +43,7 @@ export const clawMenuPanelRenderers: Record<ClawMenuItemId, () => ReactNode> = {
   session: () => <ComingSoonPanel text="会话面板（开发中）" />,
   usage: () => <ComingSoonPanel text="使用情况面板（开发中）" />,
   scheduled: () => <ComingSoonPanel text="定时任务面板（开发中）" />,
-  chat: () => <ComingSoonPanel text="聊天面板（开发中）" />,
+  chat: () => <ChatPanel />,
 };
 
 /**

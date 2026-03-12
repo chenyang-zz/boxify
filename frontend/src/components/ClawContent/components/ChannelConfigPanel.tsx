@@ -73,6 +73,11 @@ export interface ChannelConfigPanelProps {
   onSaved?: () => Promise<void> | void;
 }
 
+interface ChatChannelInfoState {
+  channelInboxURL: string;
+  sharedToken: string;
+}
+
 /**
  * 频道配置详情组件
  */
@@ -82,15 +87,21 @@ export const ChannelConfigPanel: FC<ChannelConfigPanelProps> = ({
 }) => {
   const feishuOfficialId = "feishu-openclaw-plugin";
   const feishuClawteamId = "feishu";
+  const boxifyPluginId = "boxify-channel";
   const [isSaving, setIsSaving] = useState(false);
   const [isTogglingEnabled, setIsTogglingEnabled] = useState(false);
   const isConfigured =
     channel?.status === "configured" || channel?.status === "enabled";
   const isFeishuChannel = channel?.id === "feishu";
+  const isBoxifyChannel = channel?.id === "boxify";
   const channelConfig = useMemo(
     () => toJsonObject(channel?.config),
     [channel?.config],
   );
+  const [chatChannelInfo, setChatChannelInfo] =
+    useState<ChatChannelInfoState | null>(null);
+  const [isLoadingChannelInfo, setIsLoadingChannelInfo] = useState(false);
+  const [showBoxifyToken, setShowBoxifyToken] = useState(false);
 
   // 飞书版本选择
   const [feishuVariant, setFeishuVariant] = useState<"official" | "clawteam">(
@@ -111,6 +122,7 @@ export const ChannelConfigPanel: FC<ChannelConfigPanelProps> = ({
   // 输入框状态
   const [appId, setAppId] = useState("");
   const [appSecret, setAppSecret] = useState("");
+  const [boxifyDefaultAgent, setBoxifyDefaultAgent] = useState("main");
   const [showSecret, setShowSecret] = useState(false);
 
   // 验证状态
@@ -141,7 +153,9 @@ export const ChannelConfigPanel: FC<ChannelConfigPanelProps> = ({
     setAppSecret(
       readString(channelConfig, ["appSecret", "app_secret", "appKey"]),
     );
+    setBoxifyDefaultAgent(readString(channelConfig, ["defaultAgent"]) || "main");
     setShowSecret(false);
+    setShowBoxifyToken(false);
   }, [
     channel?.feishuVariant,
     channel?.id,
@@ -149,6 +163,39 @@ export const ChannelConfigPanel: FC<ChannelConfigPanelProps> = ({
     channelConfig,
     isConfigured,
   ]);
+
+  /**
+   * 拉取 Boxify 原生 channel inbox 的联调信息。
+   */
+  const loadChatChannelInfo = useCallback(async () => {
+    if (!isBoxifyChannel) {
+      setChatChannelInfo(null);
+      return;
+    }
+
+    setIsLoadingChannelInfo(true);
+    try {
+      const result = await callWails(ClawService.GetChatChannelInfo);
+      const data = result.data;
+      setChatChannelInfo(
+        data
+          ? {
+              channelInboxURL: data.channelInboxURL ?? "",
+              sharedToken: data.sharedToken ?? "",
+            }
+          : null,
+      );
+    } finally {
+      setIsLoadingChannelInfo(false);
+    }
+  }, [isBoxifyChannel]);
+
+  /**
+   * 切到 Boxify 频道时自动刷新一次联调信息。
+   */
+  useEffect(() => {
+    void loadChatChannelInfo();
+  }, [loadChatChannelInfo]);
 
   /**
    * 保存当前频道配置到 openclaw.json。
@@ -177,6 +224,16 @@ export const ChannelConfigPanel: FC<ChannelConfigPanelProps> = ({
       payload.typingIndicator = typingIndicator;
       payload.resolveSenderNames = resolveSenderNames;
       payload.dynamicAgentCreation = dynamicAgentCreation;
+    } else if (isBoxifyChannel) {
+      payload.listenUrl =
+        chatChannelInfo?.channelInboxURL ||
+        readString(channelConfig, ["listenUrl"]) ||
+        "";
+      payload.sharedToken =
+        chatChannelInfo?.sharedToken ||
+        readString(channelConfig, ["sharedToken"]) ||
+        "";
+      payload.defaultAgent = boxifyDefaultAgent.trim() || "main";
     }
 
     const saveId = isFeishuChannel
@@ -198,9 +255,13 @@ export const ChannelConfigPanel: FC<ChannelConfigPanelProps> = ({
         });
       } else if (channel.type === "plugin") {
         await callWails(ClawService.SaveChannel, saveId, payload);
-        await callWails(ClawService.SavePlugin, saveId, {
+        await callWails(
+          ClawService.SavePlugin,
+          isBoxifyChannel ? boxifyPluginId : saveId,
+          {
           enabled: isEnabled,
-        });
+          },
+        );
       } else {
         await callWails(ClawService.SaveChannel, saveId, payload);
       }
@@ -218,7 +279,12 @@ export const ChannelConfigPanel: FC<ChannelConfigPanelProps> = ({
     channel,
     dynamicAgentCreation,
     feishuVariant,
+    boxifyDefaultAgent,
+    channelConfig,
+    chatChannelInfo?.channelInboxURL,
+    chatChannelInfo?.sharedToken,
     isEnabled,
+    isBoxifyChannel,
     isFeishuChannel,
     onSaved,
     replyInThread,
@@ -254,9 +320,13 @@ export const ChannelConfigPanel: FC<ChannelConfigPanelProps> = ({
         } else if (channel.type === "plugin") {
           const targetId = channel.saveTargetId?.trim() || channel.id;
           await callWails(ClawService.ToggleChannel, targetId, nextEnabled);
-          await callWails(ClawService.SavePlugin, targetId, {
+          await callWails(
+            ClawService.SavePlugin,
+            isBoxifyChannel ? boxifyPluginId : targetId,
+            {
             enabled: nextEnabled,
-          });
+            },
+          );
         } else {
           const targetId = channel.saveTargetId?.trim() || channel.id;
           await callWails(ClawService.ToggleChannel, targetId, nextEnabled);
@@ -268,7 +338,7 @@ export const ChannelConfigPanel: FC<ChannelConfigPanelProps> = ({
         setIsTogglingEnabled(false);
       }
     },
-    [channel, feishuVariant, isFeishuChannel, onSaved],
+    [channel, feishuVariant, isBoxifyChannel, isFeishuChannel, onSaved],
   );
 
   if (!channel) {
@@ -492,6 +562,56 @@ export const ChannelConfigPanel: FC<ChannelConfigPanelProps> = ({
               </div>
             </div>
           </>
+        ) : isBoxifyChannel ? (
+          <div className="space-y-4 text-left">
+            <div>
+              <label className="text-sm font-medium">Channel URL</label>
+              <div className="relative mt-2">
+                <Input
+                  readOnly
+                  value={chatChannelInfo?.channelInboxURL ?? ""}
+                  placeholder={
+                    isLoadingChannelInfo ? "正在读取 Channel URL" : "暂无 Channel URL"
+                  }
+                  className="pr-10"
+                />
+                {chatChannelInfo?.channelInboxURL ? (
+                  <Check className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-emerald-500" />
+                ) : null}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Secret Token</label>
+              <div className="relative mt-2">
+                <Input
+                  readOnly
+                  type={showBoxifyToken ? "text" : "password"}
+                  value={chatChannelInfo?.sharedToken ?? ""}
+                  placeholder={
+                    isLoadingChannelInfo ? "正在读取 Secret Token" : "暂无 Secret Token"
+                  }
+                  className="pr-16"
+                />
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                  {chatChannelInfo?.sharedToken ? (
+                    <Check className="size-4 text-emerald-500" />
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => setShowBoxifyToken(!showBoxifyToken)}
+                    className="p-1 hover:bg-accent rounded transition-colors"
+                  >
+                    {showBoxifyToken ? (
+                      <EyeOff className="size-4 text-muted-foreground" />
+                    ) : (
+                      <Eye className="size-4 text-muted-foreground" />
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         ) : (
           <div className="text-sm text-muted-foreground text-left">
             当前频道的详细配置项将逐步接入，现阶段可先保存启用状态。

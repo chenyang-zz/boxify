@@ -1,6 +1,7 @@
 package types
 
 import (
+	clawchat "github.com/chenyang-zz/boxify/internal/claw/chat"
 	clawmonitor "github.com/chenyang-zz/boxify/internal/claw/monitor"
 	clawplugin "github.com/chenyang-zz/boxify/internal/claw/plugin"
 	clawprocess "github.com/chenyang-zz/boxify/internal/claw/process"
@@ -228,4 +229,40 @@ type ClawNapCatStatusResult struct {
 type ClawNapCatReconnectLogsResult struct {
 	BaseResult
 	Logs []clawmonitor.ReconnectLog `json:"logs"` // NapCat 重连日志
+}
+
+// ClawChatChannelInfo 描述 Boxify 与原生 channel inbox 的连接配置。
+type ClawChatChannelInfo struct {
+	ChannelInboxURL string `json:"channelInboxURL"` // 原生 channel inbox 基础地址。
+	SharedToken     string `json:"sharedToken"`     // 原生 channel inbox 共享令牌。
+}
+
+// ClawChatChannelInfoResult 聊天通道连接信息结果。
+type ClawChatChannelInfoResult struct {
+	BaseResult
+	Data *ClawChatChannelInfo `json:"data,omitempty"` // 聊天通道连接信息。
+}
+
+// ClawChatConversationResult 单个聊天会话结果。
+type ClawChatConversationResult struct {
+	BaseResult
+	Data *clawchat.Conversation `json:"data,omitempty"` // 单个聊天会话。
+}
+
+// ClawChatConversationsResult 聊天会话列表结果。
+type ClawChatConversationsResult struct {
+	BaseResult
+	Items []clawchat.Conversation `json:"items"` // 会话列表。
+}
+
+// ClawChatMessagesResult 聊天消息列表结果。
+type ClawChatMessagesResult struct {
+	BaseResult
+	Items []clawchat.Message `json:"items"` // 消息列表。
+}
+
+// ClawChatSendResult 发送聊天消息结果。
+type ClawChatSendResult struct {
+	BaseResult
+	RunID string `json:"runId,omitempty"` // 本次发送对应的 run ID。
 }

@@ -19,4 +19,5 @@ type EventType string
 const (
 	EventTypeGitStatusChanged               EventType = "git:status-changed"
 	EventTypeTerminalInteractionModeChanged EventType = "terminal:interaction_mode_change"
+	EventTypeClawChatEvent                  EventType = "claw:chat-event"
 )

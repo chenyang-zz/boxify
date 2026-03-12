@@ -89,6 +89,12 @@ export const channelDefinitions: ChannelDefinition[] = [
     aliases: ["lark", "feishu-openclaw-plugin"],
   },
   {
+    id: "boxify",
+    name: "Boxify",
+    description: "本地原生 channel inbox (插件)",
+    type: "plugin",
+  },
+  {
     id: "qqbot",
     name: "QQ 官方机器人",
     description: "QQ 开放平台官方 Bot API (插件)",

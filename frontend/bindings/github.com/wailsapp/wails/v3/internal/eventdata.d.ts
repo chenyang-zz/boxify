@@ -7,6 +7,9 @@ import type { Events } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import type * as chat$0 from "../../../../chenyang-zz/boxify/internal/claw/chat/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import type * as service$0 from "../../../../chenyang-zz/boxify/internal/service/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -15,6 +18,7 @@ import type * as types$0 from "../../../../chenyang-zz/boxify/internal/types/mod
 declare module "@wailsio/runtime" {
     namespace Events {
         interface CustomEvents {
+            "claw:chat-event": chat$0.ChatEvent;
             "data-sync:broadcast": service$0.DataSyncEvent;
             "data-sync:targeted": service$0.DataSyncEvent;
             "git:status-changed": types$0.GitStatusChangedEvent;

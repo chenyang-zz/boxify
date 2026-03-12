@@ -20,7 +20,7 @@ const (
 	RegistryMirrorURL = "http://39.102.53.188:16198/clawpanel/plugins/registry.json"                         // 国内加速镜像地址。
 )
 
-// 插件元数据（plugin.json）。
+// 插件元数据（openclaw.plugin.json + package.json 聚合结果）。
 type PluginMeta struct {
 	ID           string            `json:"id"`                     // 插件唯一标识。
 	Name         string            `json:"name"`                   // 插件展示名称。
@@ -436,7 +436,7 @@ func (m *Manager) Install(pluginID string, source string) error {
 	// 读取插件元数据。
 	meta, err := m.readPluginMeta(pluginDir)
 	if err != nil {
-		// 若缺少 plugin.json，则构造最小元数据。
+		// 若缺少 openclaw.plugin.json，则构造最小元数据。
 		meta = &PluginMeta{
 			ID:   pluginID,
 			Name: pluginID,
@@ -912,21 +912,30 @@ func pathExists(path string) bool {
 	return err == nil
 }
 
-// 读取插件元数据，优先 plugin.json，缺失时回退 package.json。
+// 读取插件元数据，优先 openclaw.plugin.json，并补充 package.json 中的通用字段。
 func (m *Manager) readPluginMeta(dir string) (*PluginMeta, error) {
-	metaPath := filepath.Join(dir, "plugin.json")
-	data, err := os.ReadFile(metaPath)
-	if err != nil {
-		// plugin.json 不存在时回退读取 package.json。
-		pkgPath := filepath.Join(dir, "package.json")
-		data, err = os.ReadFile(pkgPath)
-		if err != nil {
-			return nil, fmt.Errorf("no plugin.json or package.json found")
+	var meta PluginMeta
+
+	metaPath := filepath.Join(dir, "openclaw.plugin.json")
+	metaData, metaErr := os.ReadFile(metaPath)
+	if metaErr == nil {
+		if err := json.Unmarshal(metaData, &meta); err != nil {
+			return nil, fmt.Errorf("parse openclaw.plugin.json failed: %w", err)
 		}
 	}
-	var meta PluginMeta
-	if err := json.Unmarshal(data, &meta); err != nil {
-		return nil, err
+
+	pkgPath := filepath.Join(dir, "package.json")
+	pkgData, pkgErr := os.ReadFile(pkgPath)
+	if pkgErr == nil {
+		var pkgMeta PluginMeta
+		if err := json.Unmarshal(pkgData, &pkgMeta); err != nil {
+			return nil, fmt.Errorf("parse package.json failed: %w", err)
+		}
+		mergePluginMeta(&meta, &pkgMeta)
+	}
+
+	if metaErr != nil && pkgErr != nil {
+		return nil, fmt.Errorf("no openclaw.plugin.json or package.json found")
 	}
 	if meta.ID == "" {
 		meta.ID = filepath.Base(dir)
@@ -935,6 +944,64 @@ func (m *Manager) readPluginMeta(dir string) (*PluginMeta, error) {
 		meta.Name = meta.ID
 	}
 	return &meta, nil
+}
+
+// mergePluginMeta 用 package.json 中的通用字段补齐扩展元数据。
+func mergePluginMeta(dst, src *PluginMeta) {
+	if dst == nil || src == nil {
+		return
+	}
+	if strings.TrimSpace(dst.ID) == "" {
+		dst.ID = src.ID
+	}
+	if strings.TrimSpace(dst.Name) == "" {
+		dst.Name = src.Name
+	}
+	if strings.TrimSpace(dst.Version) == "" {
+		dst.Version = src.Version
+	}
+	if strings.TrimSpace(dst.Author) == "" {
+		dst.Author = src.Author
+	}
+	if strings.TrimSpace(dst.Description) == "" {
+		dst.Description = src.Description
+	}
+	if strings.TrimSpace(dst.Homepage) == "" {
+		dst.Homepage = src.Homepage
+	}
+	if strings.TrimSpace(dst.Repository) == "" {
+		dst.Repository = src.Repository
+	}
+	if strings.TrimSpace(dst.License) == "" {
+		dst.License = src.License
+	}
+	if strings.TrimSpace(dst.Category) == "" {
+		dst.Category = src.Category
+	}
+	if len(dst.Tags) == 0 {
+		dst.Tags = src.Tags
+	}
+	if strings.TrimSpace(dst.Icon) == "" {
+		dst.Icon = src.Icon
+	}
+	if strings.TrimSpace(dst.MinOpenClaw) == "" {
+		dst.MinOpenClaw = src.MinOpenClaw
+	}
+	if strings.TrimSpace(dst.MinPanel) == "" {
+		dst.MinPanel = src.MinPanel
+	}
+	if strings.TrimSpace(dst.EntryPoint) == "" {
+		dst.EntryPoint = src.EntryPoint
+	}
+	if len(dst.ConfigSchema) == 0 {
+		dst.ConfigSchema = src.ConfigSchema
+	}
+	if len(dst.Dependencies) == 0 {
+		dst.Dependencies = src.Dependencies
+	}
+	if len(dst.Permissions) == 0 {
+		dst.Permissions = src.Permissions
+	}
 }
 
 // 从 plugins.json 恢复已安装插件状态。

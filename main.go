@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 
+	clawchat "github.com/chenyang-zz/boxify/internal/claw/chat"
 	"github.com/chenyang-zz/boxify/internal/events"
 	"github.com/chenyang-zz/boxify/internal/service"
 	boxtypes "github.com/chenyang-zz/boxify/internal/types"
@@ -34,6 +35,9 @@ func init() {
 
 	// git事件
 	application.RegisterEvent[boxtypes.GitStatusChangedEvent](string(events.EventTypeGitStatusChanged))
+
+	// claw事件
+	application.RegisterEvent[clawchat.ChatEvent](string(events.EventTypeClawChatEvent))
 }
 
 //go:embed all:frontend/dist

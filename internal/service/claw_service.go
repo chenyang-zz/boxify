@@ -2,6 +2,9 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	clawchat "github.com/chenyang-zz/boxify/internal/claw/chat"
 	clawmonitor "github.com/chenyang-zz/boxify/internal/claw/monitor"
 	clawplugin "github.com/chenyang-zz/boxify/internal/claw/plugin"
 	clawprocess "github.com/chenyang-zz/boxify/internal/claw/process"
@@ -22,6 +26,10 @@ import (
 )
 
 const defaultClawManagerPort = 19527
+const boxifyConfigFileName = "boxify.json"
+type boxifyLocalConfig struct {
+	ChatSharedToken string `json:"chatSharedToken,omitempty"` // Boxify 本地聊天共享令牌。
+}
 
 // ClawService 提供 OpenClaw 相关能力（进程、配置、插件、任务、更新、NapCat 监控）。
 type ClawService struct {
@@ -33,11 +41,15 @@ type ClawService struct {
 	taskManager   *clawtaskman.Manager       // 任务管理器
 	updater       *clawupdate.Updater        // 面板更新器
 	napcatMonitor *clawmonitor.NapCatMonitor // NapCat 监控器
+	chatService   *clawchat.Service          // Boxify 聊天服务
 
 	openClawDir string // OpenClaw 配置目录
 	openClawApp string // OpenClaw 应用目录
 	dataDir     string // Boxify 数据目录
 	managerPort int    // 本地管理端口
+	pluginPort  int    // 预期插件入站监听端口
+	chatToken   string // 插件 inbox 共享令牌
+	chatTokenGenerated bool // 是否在本次启动中首次生成了共享令牌
 }
 
 // NewClawService 创建 Claw 服务。
@@ -1069,6 +1081,97 @@ func (s *ClawService) NapCatMonitorConfig(payload map[string]interface{}) *types
 	return &types.BaseResult{Success: true, Message: "NapCat 监控配置已更新"}
 }
 
+// GetChatChannelInfo 返回 Boxify 与原生 channel inbox 通信所需的连接信息。
+func (s *ClawService) GetChatChannelInfo() *types.ClawChatChannelInfoResult {
+	return &types.ClawChatChannelInfoResult{
+		BaseResult: types.BaseResult{Success: true, Message: "获取聊天通道信息成功"},
+		Data: &types.ClawChatChannelInfo{
+			ChannelInboxURL: fmt.Sprintf("http://127.0.0.1:%d", s.pluginPort),
+			SharedToken:     s.chatToken,
+		},
+	}
+}
+
+// CreateChatConversation 创建聊天会话。
+func (s *ClawService) CreateChatConversation(agentID string) *types.ClawChatConversationResult {
+	if s.chatService == nil {
+		return &types.ClawChatConversationResult{
+			BaseResult: types.BaseResult{Success: false, Message: "聊天服务未初始化"},
+		}
+	}
+	item, err := s.chatService.CreateConversation(agentID)
+	if err != nil {
+		return &types.ClawChatConversationResult{
+			BaseResult: types.BaseResult{Success: false, Message: err.Error()},
+		}
+	}
+	return &types.ClawChatConversationResult{
+		BaseResult: types.BaseResult{Success: true, Message: "创建聊天会话成功"},
+		Data:       item,
+	}
+}
+
+// ListChatConversations 返回聊天会话列表。
+func (s *ClawService) ListChatConversations() *types.ClawChatConversationsResult {
+	if s.chatService == nil {
+		return &types.ClawChatConversationsResult{
+			BaseResult: types.BaseResult{Success: false, Message: "聊天服务未初始化"},
+			Items:      []clawchat.Conversation{},
+		}
+	}
+	items, err := s.chatService.ListConversations()
+	if err != nil {
+		return &types.ClawChatConversationsResult{
+			BaseResult: types.BaseResult{Success: false, Message: err.Error()},
+			Items:      []clawchat.Conversation{},
+		}
+	}
+	return &types.ClawChatConversationsResult{
+		BaseResult: types.BaseResult{Success: true, Message: "获取聊天会话成功"},
+		Items:      items,
+	}
+}
+
+// GetChatMessages 返回指定会话消息列表。
+func (s *ClawService) GetChatMessages(conversationID string) *types.ClawChatMessagesResult {
+	if s.chatService == nil {
+		return &types.ClawChatMessagesResult{
+			BaseResult: types.BaseResult{Success: false, Message: "聊天服务未初始化"},
+			Items:      []clawchat.Message{},
+		}
+	}
+	items, err := s.chatService.ListMessages(conversationID)
+	if err != nil {
+		return &types.ClawChatMessagesResult{
+			BaseResult: types.BaseResult{Success: false, Message: err.Error()},
+			Items:      []clawchat.Message{},
+		}
+	}
+	return &types.ClawChatMessagesResult{
+		BaseResult: types.BaseResult{Success: true, Message: "获取聊天消息成功"},
+		Items:      items,
+	}
+}
+
+// SendChatMessage 向指定会话发送消息。
+func (s *ClawService) SendChatMessage(conversationID, text string) *types.ClawChatSendResult {
+	if s.chatService == nil {
+		return &types.ClawChatSendResult{
+			BaseResult: types.BaseResult{Success: false, Message: "聊天服务未初始化"},
+		}
+	}
+	runID, err := s.chatService.SendMessage(s.Context(), conversationID, text)
+	if err != nil {
+		return &types.ClawChatSendResult{
+			BaseResult: types.BaseResult{Success: false, Message: err.Error()},
+		}
+	}
+	return &types.ClawChatSendResult{
+		BaseResult: types.BaseResult{Success: true, Message: "消息已发送"},
+		RunID:      runID,
+	}
+}
+
 // initRuntimeContext 初始化 Claw 相关运行目录、端口与环境变量上下文。
 func (s *ClawService) initRuntimeContext() {
 	s.openClawDir = strings.TrimSpace(os.Getenv("OPENCLAW_DIR"))
@@ -1087,8 +1190,19 @@ func (s *ClawService) initRuntimeContext() {
 			s.managerPort = v
 		}
 	}
+	s.pluginPort = 32124
+	if raw := strings.TrimSpace(os.Getenv("BOXIFY_PLUGIN_INBOX_PORT")); raw != "" {
+		if v, err := strconv.Atoi(raw); err == nil && v > 0 {
+			s.pluginPort = v
+		}
+	}
 	_ = os.MkdirAll(s.dataDir, 0o755)
 	_ = os.MkdirAll(s.openClawDir, 0o755)
+	if token := strings.TrimSpace(os.Getenv("BOXIFY_CHAT_SHARED_TOKEN")); token != "" {
+		s.chatToken = token
+	} else if s.chatToken == "" {
+		s.chatToken, s.chatTokenGenerated = s.loadOrCreateChatSharedToken()
+	}
 }
 
 // rebuildManagers 按当前上下文重建并替换所有 Claw 依赖管理器实例。
@@ -1100,9 +1214,20 @@ func (s *ClawService) rebuildManagers() {
 	}, s.Logger())
 	s.pluginCfg = &clawplugin.Config{OpenClawDir: s.openClawDir, DataDir: s.dataDir}
 	s.pluginManager = clawplugin.NewManager(s.pluginCfg, s.Logger())
+	if s.chatTokenGenerated {
+		s.syncGeneratedChatSharedTokenToOpenClawConfig()
+		s.chatTokenGenerated = false
+	}
 	s.skillManager = clawskill.NewManager(s.pluginCfg, s.openClawDir, s.openClawApp, s.Logger())
 	s.taskManager = clawtaskman.NewManager(nil, s.Logger())
 	s.updater = clawupdate.NewUpdater(resolveCurrentVersion(), s.dataDir, s.Logger())
+	s.chatService = clawchat.NewService(
+		clawchat.NewMemoryConversationStore(),
+		clawchat.NewHTTPChannelClient(fmt.Sprintf("http://127.0.0.1:%d", s.pluginPort), s.chatToken),
+		clawchat.NewWailsEventPublisher(s.App(), s.Logger()),
+		s.manager,
+		s.Logger(),
+	)
 	if s.napcatMonitor != nil {
 		s.napcatMonitor.Stop()
 	}
@@ -1110,6 +1235,92 @@ func (s *ClawService) rebuildManagers() {
 		DataDir:     s.dataDir,
 		OpenClawDir: s.openClawDir,
 	}, nil, s.Logger())
+}
+
+func generateChatSharedToken() string {
+	buf := make([]byte, 16)
+	if _, err := rand.Read(buf); err != nil {
+		return fmt.Sprintf("boxify-%d", time.Now().UnixNano())
+	}
+	return hex.EncodeToString(buf)
+}
+
+// boxifyConfigPath 返回 Boxify 本地配置文件路径。
+func (s *ClawService) boxifyConfigPath() string {
+	return filepath.Join(s.dataDir, boxifyConfigFileName)
+}
+
+// loadBoxifyLocalConfig 读取 Boxify 本地配置。
+func (s *ClawService) loadBoxifyLocalConfig() boxifyLocalConfig {
+	var cfg boxifyLocalConfig
+	data, err := os.ReadFile(s.boxifyConfigPath())
+	if err != nil {
+		return cfg
+	}
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		s.Logger().Warn("读取 boxify.json 失败，忽略并回退默认值", "path", s.boxifyConfigPath(), "error", err)
+		return boxifyLocalConfig{}
+	}
+	return cfg
+}
+
+// saveBoxifyLocalConfig 持久化 Boxify 本地配置。
+func (s *ClawService) saveBoxifyLocalConfig(cfg boxifyLocalConfig) {
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		s.Logger().Warn("序列化 boxify.json 失败", "path", s.boxifyConfigPath(), "error", err)
+		return
+	}
+	if err := os.WriteFile(s.boxifyConfigPath(), data, 0o600); err != nil {
+		s.Logger().Warn("写入 boxify.json 失败", "path", s.boxifyConfigPath(), "error", err)
+	}
+}
+
+// loadOrCreateChatSharedToken 读取已有令牌，不存在时生成并写入 boxify.json。
+func (s *ClawService) loadOrCreateChatSharedToken() (string, bool) {
+	cfg := s.loadBoxifyLocalConfig()
+	if token := strings.TrimSpace(cfg.ChatSharedToken); token != "" {
+		return token, false
+	}
+
+	token := generateChatSharedToken()
+	cfg.ChatSharedToken = token
+	s.saveBoxifyLocalConfig(cfg)
+	return token, true
+}
+
+// syncGeneratedChatSharedTokenToOpenClawConfig 在首次生成 token 后同步写入 openclaw.json。
+func (s *ClawService) syncGeneratedChatSharedTokenToOpenClawConfig() {
+	if s.pluginCfg == nil || strings.TrimSpace(s.chatToken) == "" {
+		return
+	}
+
+	ocConfig, err := s.pluginCfg.ReadOpenClawJSON()
+	if err != nil {
+		s.Logger().Warn("读取 openclaw.json 失败，无法同步聊天共享令牌", "error", err)
+		return
+	}
+	if ocConfig == nil {
+		ocConfig = map[string]interface{}{}
+	}
+
+	channels, _ := ocConfig["channels"].(map[string]interface{})
+	if channels == nil {
+		channels = map[string]interface{}{}
+	}
+	boxifyChannel, _ := channels["boxify"].(map[string]interface{})
+	if boxifyChannel == nil {
+		boxifyChannel = map[string]interface{}{}
+	}
+	boxifyChannel["sharedToken"] = s.chatToken
+	channels["boxify"] = boxifyChannel
+	ocConfig["channels"] = channels
+
+	if err := s.pluginCfg.WriteOpenClawJSON(ocConfig); err != nil {
+		s.Logger().Warn("写入 openclaw.json 失败，无法同步聊天共享令牌", "error", err)
+		return
+	}
+	s.Logger().Info("首次生成聊天共享令牌，已同步写入 openclaw.json")
 }
 
 // defaultOpenClawDir 返回当前用户下的默认 OpenClaw 配置目录。

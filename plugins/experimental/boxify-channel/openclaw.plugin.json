@@ -1,0 +1,9 @@
+{
+  "id": "boxify-channel",
+  "channels": ["boxify"],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}
