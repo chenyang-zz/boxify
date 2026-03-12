@@ -141,3 +141,4 @@ export function getStatusBadgeConfig(status: ChannelCard["status"]) {
       };
   }
 }
+export { formatTimeLabel, getConversationTitle } from "./chat-panel";

@@ -14,3 +14,4 @@
 
 export { useClawMenuContent } from "./use-claw-menu-content";
 export { useOpenClawCheck } from "./use-openclaw-check";
+export { useChatPanelController } from "./use-chat-panel-controller";

@@ -11,6 +11,7 @@ let pluginRuntime = null;
 
 const activeServers = new Map();
 const NATIVE_INBOX_PATH = "/channels/boxify/inbox";
+const NATIVE_STREAM_INBOX_PATH = "/channels/boxify/inbox/stream";
 const DEFAULT_LISTEN_URL = "http://127.0.0.1:32124";
 
 /**
@@ -137,18 +138,51 @@ async function closeActiveServer(accountId) {
 }
 
 /**
- * 处理一条 Boxify 入站消息，并交给原生 channel dispatcher。
+ * 为 SSE 连接写入一个事件。
  */
-async function handleInboxRequest(account, incoming, logger) {
+function writeSSE(res, event, data) {
+  res.write(`event: ${event}\n`);
+  res.write(`data: ${JSON.stringify(data)}\n\n`);
+}
+
+/**
+ * 将 cumulative/fragmented 文本规整为真正的增量片段。
+ */
+function computeDeltaText(currentText, nextText) {
+  if (!nextText) {
+    return { delta: "", merged: currentText };
+  }
+  if (!currentText) {
+    return { delta: nextText, merged: nextText };
+  }
+  if (nextText.startsWith(currentText)) {
+    return {
+      delta: nextText.slice(currentText.length),
+      merged: nextText,
+    };
+  }
+  if (currentText.endsWith(nextText)) {
+    return { delta: "", merged: currentText };
+  }
+  return {
+    delta: nextText,
+    merged: `${currentText}${nextText}`,
+  };
+}
+
+/**
+ * 构造 Boxify 入站消息上下文。
+ */
+function buildInboundContext(account, incoming) {
   const runtime = pluginRuntime;
   const finalizeInboundContext = runtime?.channel?.reply?.finalizeInboundContext;
-  const dispatchReply = runtime?.channel?.reply?.dispatchReplyWithBufferedBlockDispatcher;
-  if (typeof finalizeInboundContext !== "function" || typeof dispatchReply !== "function") {
+  if (typeof finalizeInboundContext !== "function") {
     throw new Error("OpenClaw reply runtime 不可用");
   }
 
   const conversationId = String(incoming?.conversationId || "").trim();
   const messageId = String(incoming?.messageId || "").trim();
+  const runId = String(incoming?.runId || "").trim();
   const text = String(incoming?.text || "").trim();
   const agentId = String(incoming?.agentId || account.defaultAgent || "").trim();
   const senderId = String(incoming?.senderId || incoming?.metadata?.senderId || conversationId).trim();
@@ -156,15 +190,17 @@ async function handleInboxRequest(account, incoming, logger) {
   const sessionId = toSessionKey(agentId, conversationId);
   const senderName = String(incoming?.metadata?.senderName || "Boxify User").trim();
   const conversationLabel = String(incoming?.metadata?.conversationLabel || conversationId).trim();
-  const replyChunks = [];
-
   if (!conversationId || !text) {
     throw new Error("conversationId 和 text 不能为空");
   }
 
-  try {
-    const cfg = await runtime.config.loadConfig();
-    const msgCtx = finalizeInboundContext({
+  return {
+    runtime,
+    conversationId,
+    sessionId,
+    runId,
+    cfgPromise: runtime.config.loadConfig(),
+    msgCtx: finalizeInboundContext({
       Body: text,
       RawBody: text,
       CommandBody: text,
@@ -184,11 +220,27 @@ async function handleInboxRequest(account, incoming, logger) {
       Timestamp: Date.now(),
       CommandAuthorized: true,
       metadata: incoming?.metadata,
-    });
+    }),
+  };
+}
 
+/**
+ * 处理一条 Boxify 入站消息，并按同步方式返回完整回复。
+ */
+async function handleInboxRequest(account, incoming, logger) {
+  const runtime = pluginRuntime;
+  const dispatchReply = runtime?.channel?.reply?.dispatchReplyWithBufferedBlockDispatcher;
+  if (typeof dispatchReply !== "function") {
+    throw new Error("OpenClaw buffered reply runtime 不可用");
+  }
+
+  const { cfgPromise, msgCtx, conversationId, sessionId } = buildInboundContext(account, incoming);
+  const replyChunks = [];
+
+  try {
     await dispatchReply({
       ctx: msgCtx,
-      cfg,
+      cfg: await cfgPromise,
       dispatcherOptions: {
         deliver: async (payload) => {
           const chunk = String(payload?.text ?? payload?.body ?? "").trim();
@@ -222,6 +274,118 @@ async function handleInboxRequest(account, incoming, logger) {
 }
 
 /**
+ * 处理一条 Boxify 入站消息，并通过 SSE 增量返回回复。
+ */
+async function handleStreamInboxRequest(account, incoming, logger, res) {
+  const runtime = pluginRuntime;
+  const createReplyDispatcherWithTyping = runtime?.channel?.reply?.createReplyDispatcherWithTyping;
+  const dispatchReplyFromConfig = runtime?.channel?.reply?.dispatchReplyFromConfig;
+  const withReplyDispatcher = runtime?.channel?.reply?.withReplyDispatcher;
+  if (
+    typeof createReplyDispatcherWithTyping !== "function" ||
+    typeof dispatchReplyFromConfig !== "function" ||
+    typeof withReplyDispatcher !== "function"
+  ) {
+    throw new Error("OpenClaw streaming reply runtime 不可用");
+  }
+
+  const { cfgPromise, msgCtx, conversationId, sessionId, runId } = buildInboundContext(account, incoming);
+  let finalText = "";
+  let streamedText = "";
+  let lastPartial = "";
+  const emitDelta = (text) => {
+    const normalized = String(text ?? "");
+    if (!normalized) {
+      return;
+    }
+    const { delta, merged } = computeDeltaText(streamedText, normalized);
+    streamedText = merged;
+    if (!delta) {
+      return;
+    }
+    writeSSE(res, "delta", {
+      eventType: "delta",
+      conversationId,
+      sessionId,
+      runId,
+      text: delta,
+    });
+  };
+
+  const { dispatcher, replyOptions, markDispatchIdle } = createReplyDispatcherWithTyping({
+    deliver: async (payload, info) => {
+      const text = String(payload?.text ?? payload?.body ?? "");
+      if (!text.trim()) {
+        return;
+      }
+      if (info?.kind === "final") {
+        finalText = text;
+        return;
+      }
+      emitDelta(text);
+    },
+    onReplyStart: () => {
+      logger?.info?.(`[boxify-channel] 原生流式回复开始，conversation=${conversationId}`);
+      writeSSE(res, "start", {
+        eventType: "start",
+        conversationId,
+        sessionId,
+        runId,
+      });
+    },
+    onError: (error, info) => {
+      logger?.error?.(`[boxify-channel] ${info?.kind || "reply"} 流式回复失败: ${String(error)}`);
+    },
+  });
+
+  try {
+    await withReplyDispatcher({
+      dispatcher,
+      run: async () =>
+        dispatchReplyFromConfig({
+          ctx: msgCtx,
+          cfg: await cfgPromise,
+          dispatcher,
+          replyOptions: {
+            ...replyOptions,
+            onPartialReply: async (payload) => {
+              const text = String(payload?.text ?? payload?.body ?? "");
+              if (!text.trim() || text === lastPartial) {
+                return;
+              }
+              lastPartial = text;
+              emitDelta(text);
+            },
+          },
+        }),
+      onSettled: () => {
+        markDispatchIdle();
+      },
+    });
+
+    emitDelta(finalText);
+
+    writeSSE(res, "done", {
+      eventType: "done",
+      conversationId,
+      sessionId,
+      runId,
+      text: streamedText || finalText,
+    });
+  } catch (error) {
+    const message = String(error?.message || error || "OpenClaw 执行失败");
+    logger?.error?.(`[boxify-channel] 原生 channel 流式处理失败: ${message}`);
+    writeSSE(res, "error", {
+      eventType: "error",
+      conversationId,
+      sessionId,
+      runId,
+      error: message,
+    });
+  }
+}
+
+/**
  * 启动 native channel 的本地 inbox。
  */
 async function startInboxServer(ctx) {
@@ -239,7 +403,7 @@ async function startInboxServer(ctx) {
   const listenURL = new URL(account.listenUrl);
   const inboxURL = `${account.listenUrl}${NATIVE_INBOX_PATH}`;
   const server = http.createServer(async (req, res) => {
-    if (req.method !== "POST" || req.url !== NATIVE_INBOX_PATH) {
+    if (req.method !== "POST" || (req.url !== NATIVE_INBOX_PATH && req.url !== NATIVE_STREAM_INBOX_PATH)) {
       res.statusCode = 404;
       res.end("not found");
       return;
@@ -253,6 +417,16 @@ async function startInboxServer(ctx) {
 
     try {
       const payload = await readJSONBody(req);
+      if (req.url === NATIVE_STREAM_INBOX_PATH) {
+        res.writeHead(200, {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache, no-transform",
+          Connection: "keep-alive",
+        });
+        await handleStreamInboxRequest(account, payload, ctx.log, res);
+        res.end();
+        return;
+      }
       const result = await handleInboxRequest(account, payload, ctx.log);
       res.setHeader("Content-Type", "application/json");
       res.end(JSON.stringify(result));

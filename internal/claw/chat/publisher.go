@@ -9,7 +9,7 @@ import (
 
 // EventPublisher 抽象对前端的事件发布。
 type EventPublisher interface {
-	PublishConversationEvent(conversationID string, event BridgeEvent)
+	PublishConversationEvent(conversationID string, event ChatReplyEvent)
 }
 
 // WailsEventPublisher 负责将聊天事件广播给前端。
@@ -27,7 +27,7 @@ func NewWailsEventPublisher(app *application.App, logger *slog.Logger) *WailsEve
 }
 
 // PublishConversationEvent 广播聊天事件。
-func (p *WailsEventPublisher) PublishConversationEvent(conversationID string, event BridgeEvent) {
+func (p *WailsEventPublisher) PublishConversationEvent(conversationID string, event ChatReplyEvent) {
 	if p == nil || p.app == nil {
 		return
 	}

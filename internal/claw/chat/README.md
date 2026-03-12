@@ -59,7 +59,7 @@ POST http://127.0.0.1:<pluginPort>/channels/boxify/inbox
 - `Content-Type: application/json`
 - `X-Boxify-Token: <sharedToken>`，仅当 token 非空时携带
 
-请求体对应 `BridgeInboxRequest`：
+请求体对应 `ChannelInboxRequest`：
 
 ```json
 {
@@ -77,7 +77,7 @@ POST http://127.0.0.1:<pluginPort>/channels/boxify/inbox
 
 ## 插件返回后如何处理
 
-插件当前走同步 request/response 模式，返回结构是 `BridgeInboxResponse`：
+插件当前走同步 request/response 模式，返回结构是 `ChannelInboxResponse`：
 
 - `ok`
 - `conversationId`
@@ -144,7 +144,7 @@ POST http://127.0.0.1:<pluginPort>/channels/boxify/inbox
 
 - `assistant_done`
 
-虽然事件常量名还保留了 `Bridge` 字样，但它现在服务的是原生 channel 聊天链路。
+虽然部分链路仍在沿用早期实现思路，但这里的事件已经服务于原生 channel 聊天链路。
 
 ## 失败路径
 
@@ -182,7 +182,7 @@ POST http://127.0.0.1:<pluginPort>/channels/boxify/inbox
 - 当前只有“同步整段返回”，没有真正的流式 token/chunk 更新。
 - 当前 `ChannelClient` 是本地 HTTP 实现，没有做重试、退避和断线恢复。
 - 当前默认存储是内存版，没有做持久化。
-- 当前模型名里仍保留 `BridgeInboxRequest` / `BridgeInboxResponse` / `BridgeEvent`，这是历史命名遗留，语义上已经对应原生 channel inbox。
+- 当前默认模型已经按原生 channel inbox 语义命名；如果继续做流式扩展，建议围绕 `Channel*` / `Chat*` 命名族保持一致。
 
 ## 读代码建议
 

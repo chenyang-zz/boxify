@@ -99,54 +99,85 @@ func (s *Service) SendMessage(ctx context.Context, conversationID, text string) 
 		return runID, nil
 	}
 
-	result, err := s.client.SendMessage(ctx, BridgeInboxRequest{
+	result, err := s.client.SendMessageStream(ctx, ChannelInboxRequest{
 		ConversationID: conversationID,
 		MessageID:      msgID,
+		RunID:          runID,
 		AgentID:        conv.AgentID,
 		Text:           text,
 		Metadata: map[string]interface{}{
 			"source": "boxify",
 		},
+	}, func(event ChatStreamEvent) error {
+		return s.handleStreamEvent(conversationID, runID, event)
 	})
 	if err != nil {
 		s.logger.Error("请求插件 inbox 失败", "conversation_id", conversationID, "run_id", runID, "error", err)
 		return "", err
 	}
-	if result != nil {
-		if strings.TrimSpace(result.SessionID) != "" {
-			if updateErr := s.store.UpdateOpenClawSessionID(conversationID, result.SessionID); updateErr != nil {
-				s.logger.Warn("更新 OpenClaw 会话映射失败", "conversation_id", conversationID, "session_id", result.SessionID, "error", updateErr)
-			}
-		}
-		if strings.TrimSpace(result.Text) != "" {
-			assistantID := fmt.Sprintf("msg_%d", time.Now().UnixNano())
-			if appendErr := s.store.AppendMessage(Message{
-				ID:             assistantID,
-				ConversationID: conversationID,
-				RunID:          runID,
-				Role:           "assistant",
-				Content:        result.Text,
-				Status:         "done",
-				CreatedAt:      time.Now(),
-			}); appendErr != nil {
-				s.logger.Error("写入助手回复失败", "conversation_id", conversationID, "run_id", runID, "error", appendErr)
-				return "", appendErr
-			}
-			if s.publisher != nil {
-				s.publisher.PublishConversationEvent(conversationID, BridgeEvent{
-					ConversationID: conversationID,
-					SessionID:      result.SessionID,
-					RunID:          runID,
-					EventType:      "assistant_done",
-					Payload: map[string]interface{}{
-						"text": result.Text,
-					},
-					Timestamp: time.Now(),
-				})
-			}
+	if result != nil && strings.TrimSpace(result.SessionID) != "" {
+		if updateErr := s.store.UpdateOpenClawSessionID(conversationID, result.SessionID); updateErr != nil {
+			s.logger.Warn("更新 OpenClaw 会话映射失败", "conversation_id", conversationID, "session_id", result.SessionID, "error", updateErr)
 		}
 	}
 
 	s.logger.Info("插件 inbox 请求完成", "conversation_id", conversationID, "run_id", runID, "agent_id", conv.AgentID)
 	return runID, nil
+}
+
+// handleStreamEvent 处理插件 SSE 回传的流式聊天事件。
+func (s *Service) handleStreamEvent(conversationID, fallbackRunID string, event ChatStreamEvent) error {
+	runID := strings.TrimSpace(event.RunID)
+	if runID == "" {
+		runID = fallbackRunID
+	}
+
+	if strings.TrimSpace(event.SessionID) != "" {
+		if err := s.store.UpdateOpenClawSessionID(conversationID, event.SessionID); err != nil {
+			s.logger.Warn("流式阶段更新 OpenClaw 会话映射失败", "conversation_id", conversationID, "session_id", event.SessionID, "error", err)
+		}
+	}
+
+	switch event.EventType {
+	case ChatEventTypeStreamDelta:
+		if strings.TrimSpace(event.Text) == "" {
+			return nil
+		}
+		if err := s.store.UpdateAssistantDraft(conversationID, runID, event.Text); err != nil {
+			s.logger.Error("写入助手流式草稿失败", "conversation_id", conversationID, "run_id", runID, "error", err)
+			return err
+		}
+		s.publishEvent(conversationID, event.SessionID, runID, ChatEventTypeAssistantDelta, map[string]interface{}{
+			"text": event.Text,
+		})
+	case ChatEventTypeStreamDone:
+		if err := s.store.FinalizeAssistantMessage(conversationID, runID); err != nil {
+			s.logger.Error("收敛助手消息失败", "conversation_id", conversationID, "run_id", runID, "error", err)
+			return err
+		}
+		s.publishEvent(conversationID, event.SessionID, runID, ChatEventTypeAssistantDone, map[string]interface{}{
+			"text": event.Text,
+		})
+	case ChatEventTypeStreamError:
+		s.publishEvent(conversationID, event.SessionID, runID, ChatEventTypeAssistantError, map[string]interface{}{
+			"error": event.Error,
+		})
+	}
+
+	return nil
+}
+
+// publishEvent 向前端广播统一的聊天事件。
+func (s *Service) publishEvent(conversationID, sessionID, runID string, eventType ChatEventType, payload map[string]interface{}) {
+	if s.publisher == nil {
+		return
+	}
+	s.publisher.PublishConversationEvent(conversationID, ChatReplyEvent{
+		ConversationID: conversationID,
+		SessionID:      sessionID,
+		RunID:          runID,
+		EventType:      eventType,
+		Payload:        payload,
+		Timestamp:      time.Now(),
+	})
 }

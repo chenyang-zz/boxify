@@ -52,3 +52,10 @@ export interface ManagedChannel extends Omit<ClawOverviewChannel, "status"> {
   saveTargetId?: string;
   feishuVariant?: "official" | "clawteam";
 }
+
+export {
+  DEFAULT_AGENT_ID,
+  PENDING_ASSISTANT_ID,
+  type PendingAssistantDraft,
+  type RenderedChatMessage,
+} from "./chat-panel";
