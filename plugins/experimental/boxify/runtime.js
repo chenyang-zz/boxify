@@ -33,7 +33,7 @@ export class BoxifyChannelRuntime {
             }
           },
           onReplyStart: () => {
-            this.logger?.info?.(`[boxify-channel] 原生回复开始，conversation=${conversationId}`);
+            this.logger?.info?.(`[boxify] 原生回复开始，conversation=${conversationId}`);
           },
         },
       });
@@ -46,7 +46,7 @@ export class BoxifyChannelRuntime {
       };
     } catch (error) {
       const message = String(error?.message || error || "OpenClaw 执行失败");
-      this.logger?.error?.(`[boxify-channel] 原生 channel 处理失败: ${message}`);
+      this.logger?.error?.(`[boxify] 原生 channel 处理失败: ${message}`);
       return {
         ok: false,
         conversationId,
@@ -112,7 +112,7 @@ export class BoxifyChannelRuntime {
         emitDelta(text);
       },
       onReplyStart: () => {
-        this.logger?.info?.(`[boxify-channel] 原生流式回复开始，conversation=${conversationId}`);
+        this.logger?.info?.(`[boxify] 原生流式回复开始，conversation=${conversationId}`);
         writeSSE(res, "start", {
           eventType: "start",
           conversationId,
@@ -121,7 +121,7 @@ export class BoxifyChannelRuntime {
         });
       },
       onError: (error, info) => {
-        this.logger?.error?.(`[boxify-channel] ${info?.kind || "reply"} 流式回复失败: ${String(error)}`);
+        this.logger?.error?.(`[boxify] ${info?.kind || "reply"} 流式回复失败: ${String(error)}`);
       },
     });
 
@@ -161,7 +161,7 @@ export class BoxifyChannelRuntime {
       });
     } catch (error) {
       const message = String(error?.message || error || "OpenClaw 执行失败");
-      this.logger?.error?.(`[boxify-channel] 原生 channel 流式处理失败: ${message}`);
+      this.logger?.error?.(`[boxify] 原生 channel 流式处理失败: ${message}`);
       writeSSE(res, "error", {
         eventType: "error",
         conversationId,

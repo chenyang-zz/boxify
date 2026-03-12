@@ -1,5 +1,5 @@
 {
-  "name": "boxify-channel",
+  "name": "boxify",
   "version": "0.1.0",
   "private": true,
   "description": "Boxify native OpenClaw channel",
@@ -22,7 +22,7 @@
       "blurb": "Boxify local native channel for OpenClaw."
     },
     "install": {
-      "localPath": "plugins/experimental/boxify-channel",
+      "localPath": "plugins/experimental/boxify",
       "defaultChoice": "path"
     }
   }

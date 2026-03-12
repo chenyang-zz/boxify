@@ -1,6 +1,6 @@
 # Boxify Channel
 
-`boxify-channel` 是 Boxify 为 OpenClaw 提供的原生 `channel` 插件。
+`boxify` 是 Boxify 为 OpenClaw 提供的原生 `channel` 插件。
 
 它的职责很明确：把 Boxify 侧发来的本地聊天请求，翻译成 OpenClaw reply runtime 能理解的上下文，然后把 OpenClaw 的回复结果再回传给 Boxify。
 
@@ -23,7 +23,7 @@
 3. 聊天回复既可能是一次性结果，也可能是持续流式输出，两种模式都要统一封装。
 4. 插件需要能被 OpenClaw 识别、配置、启动、停止，并暴露运行状态。
 
-`boxify-channel` 的价值，就是在这两套系统之间建立一层职责清晰的协议适配层。
+`boxify` 的价值，就是在这两套系统之间建立一层职责清晰的协议适配层。
 
 ---
 
@@ -58,7 +58,7 @@ flowchart LR
 当前插件目录：
 
 ```text
-plugins/experimental/boxify-channel
+plugins/experimental/boxify
 ├── index.js
 ├── channel.js
 ├── config.js
@@ -649,7 +649,7 @@ agent:main:boxify_session_123
 它集中放了几个不会频繁变化的常量：
 
 - `CHANNEL_ID = "boxify"`
-- `PLUGIN_ID = "boxify-channel"`
+- `PLUGIN_ID = "boxify"`
 - `NATIVE_INBOX_PATH = "/channels/boxify/inbox"`
 - `NATIVE_STREAM_INBOX_PATH = "/channels/boxify/inbox/stream"`
 - `DEFAULT_LISTEN_URL = "http://127.0.0.1:32124"`
@@ -687,7 +687,7 @@ agent:main:boxify_session_123
 
 它负责提供更直接的插件声明：
 
-- 插件 id：`boxify-channel`
+- 插件 id：`boxify`
 - 支持的 channels：`["boxify"]`
 
 可以理解成：
@@ -1023,7 +1023,7 @@ stateDiagram-v2
 安装：
 
 ```bash
-openclaw plugins install /Users/sheepzhao/WorkSpace/Boxify/plugins/experimental/boxify-channel
+openclaw plugins install /Users/sheepzhao/WorkSpace/Boxify/plugins/experimental/boxify
 ```
 
 安装后，OpenClaw 会读取：
@@ -1050,7 +1050,7 @@ openclaw plugins install /Users/sheepzhao/WorkSpace/Boxify/plugins/experimental/
 
 也就是说：
 
-- `boxify-channel` 负责“接 OpenClaw”
+- `boxify` 负责“接 OpenClaw”
 - Boxify Go 服务负责“接 Boxify UI”
 
 这是一个双端分层设计，不是单插件包打天下。
@@ -1086,6 +1086,6 @@ openclaw plugins install /Users/sheepzhao/WorkSpace/Boxify/plugins/experimental/
 
 ## 14. 一句话总结
 
-`boxify-channel` 本质上是一个“本地 HTTP inbox + OpenClaw native reply runtime”的协议适配器。
+`boxify` 本质上是一个“本地 HTTP inbox + OpenClaw native reply runtime”的协议适配器。
 
 它通过 `index.js` 注册插件，通过 `channel.js` 声明 channel，通过 `config.js` 统一配置，通过 `gateway.js` 接收请求，通过 `runtime.js` 执行回复，再由 `protocol.js` 负责上下文、会话和流式协议细节，把 Boxify 与 OpenClaw 稳定连接起来。

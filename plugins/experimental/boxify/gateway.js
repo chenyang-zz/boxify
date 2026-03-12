@@ -20,7 +20,7 @@ export class NativeInboxGateway {
   async start(ctx) {
     const account = this.resolveAccount(ctx.cfg, ctx.accountId);
     if (!account.enabled) {
-      ctx.log?.info?.(`[boxify-channel] 账号 ${account.accountId} 已禁用，跳过启动`);
+      ctx.log?.info?.(`[boxify] 账号 ${account.accountId} 已禁用，跳过启动`);
       return;
     }
     if (!account.configured) {
@@ -63,7 +63,7 @@ export class NativeInboxGateway {
         res.end(JSON.stringify(result));
       } catch (error) {
         const message = String(error?.message || error || "unknown error");
-        ctx.log?.error?.(`[boxify-channel] inbox 处理失败: ${message}`);
+        ctx.log?.error?.(`[boxify] inbox 处理失败: ${message}`);
         res.statusCode = 500;
         res.setHeader("Content-Type", "application/json");
         res.end(JSON.stringify({ ok: false, error: message }));
@@ -85,7 +85,7 @@ export class NativeInboxGateway {
       lastStartAt: Date.now(),
       lastError: null,
     });
-    ctx.log?.info?.(`[boxify-channel] native inbox listening on ${inboxURL}`);
+    ctx.log?.info?.(`[boxify] native inbox listening on ${inboxURL}`);
 
     try {
       await waitForAbort(ctx.abortSignal);
@@ -96,7 +96,7 @@ export class NativeInboxGateway {
         running: false,
         lastStopAt: Date.now(),
       });
-      ctx.log?.info?.(`[boxify-channel] native inbox stopped for ${account.accountId}`);
+      ctx.log?.info?.(`[boxify] native inbox stopped for ${account.accountId}`);
     }
   }
 

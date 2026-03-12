@@ -2,7 +2,7 @@
 
 `internal/claw/chat` 负责承接 Boxify 内部聊天能力的后端链路：创建会话、保存消息、将用户输入投递到 OpenClaw 的 `boxify` 原生 channel inbox、消费插件返回的 SSE 流式事件，并把结果同步到本地状态与前端事件总线。
 
-更高层的双端通信背景可参考：[docs/boxify-channel-architecture.md](/Users/sheepzhao/WorkSpace/Boxify/docs/boxify-channel-architecture.md)。
+更高层的双端通信背景可参考：[docs/boxify-channel-architecture.md](/Users/sheepzhao/WorkSpace/Boxify/docs/boxify-channel-architecture.md)；其中提到的插件名已更新为 `boxify`。
 
 ## 目标与边界
 

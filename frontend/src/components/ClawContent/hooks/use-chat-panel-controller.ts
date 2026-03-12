@@ -280,7 +280,7 @@ export function useChatPanelController(): ChatPanelController {
       setPendingAssistantDraft({
         conversationId: selectedConversationId,
         runId: "",
-        content: "发送失败，请检查 boxify-channel 配置或 OpenClaw 运行状态。",
+        content: "发送失败，请检查 boxify 配置或 OpenClaw 运行状态。",
         status: "error",
       });
       throw error;
@@ -375,7 +375,7 @@ export function useChatPanelController(): ChatPanelController {
         runId: payload.runId ?? current?.runId ?? "",
         content:
           String(payload.payload?.error ?? "") ||
-          "发送失败，请检查 boxify-channel 配置或 OpenClaw 运行状态。",
+          "发送失败，请检查 boxify 配置或 OpenClaw 运行状态。",
         status: "error",
       }));
     }

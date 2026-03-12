@@ -34,26 +34,19 @@ export const ChatComposer: FC<ChatComposerProps> = ({
   onSendMessage,
 }) => {
   return (
-    <div className="border-t p-4">
+    <div className="absolute bottom-0 left-0 right-0 p-6 ">
       <div className="flex flex-col gap-3">
-        <Textarea
-          value={draft}
-          onChange={(event) => onDraftChange(event.target.value)}
-          onKeyDown={(event) => void onComposerKeyDown(event)}
-          placeholder="输入消息，按 Enter 发送，Shift+Enter 换行"
-          className="min-h-24 resize-none bg-background"
-          disabled={!selectedConversationId || isSending}
-        />
-        <div className="flex items-center justify-between gap-3">
-          <div className="text-xs text-muted-foreground">
-            {selectedConversation ? (
-              <>
-                当前 Agent: {selectedConversation.agentId || DEFAULT_AGENT_ID}
-              </>
-            ) : (
-              "请先创建会话"
-            )}
-          </div>
+        <div className="transition-all duration-300 ease-out motion-safe:will-change-transform focus-within:-translate-y-2 focus-within:scale-[1.01]">
+          <Textarea
+            value={draft}
+            onChange={(event) => onDraftChange(event.target.value)}
+            onKeyDown={(event) => void onComposerKeyDown(event)}
+            placeholder="输入消息，按 Enter 发送，Shift+Enter 换行"
+            className="min-h-24 resize-none rounded-lg border-border/70 bg-background/90 shadow-lg shadow-black/5 transition-[box-shadow,border-color,background-color] duration-300 ease-out focus-visible:border-primary/40 focus-visible:bg-background focus-visible:shadow-2xl focus-visible:shadow-primary/10"
+            disabled={!selectedConversationId || isSending}
+          />
+        </div>
+        <div className="flex items-center justify-end gap-3">
           <div className="flex items-center gap-3">
             <Button
               variant="outline"

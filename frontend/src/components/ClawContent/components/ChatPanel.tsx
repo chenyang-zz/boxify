@@ -12,15 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { FC } from "react";
+import { FC, useState } from "react";
 import {
   Clock3,
   Loader2,
   MessageSquarePlus,
+  PanelRightOpen,
   RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { PanelHeader } from "./PanelHeader";
 import { ChatComposer } from "./ChatComposer";
 import { ChatConversationList } from "./ChatConversationList";
@@ -33,6 +42,8 @@ import { useChatPanelController } from "../hooks/use-chat-panel-controller";
  * 负责对接本地聊天会话、消息列表与发送能力。
  */
 export const ChatPanel: FC = () => {
+  const [isConversationDrawerOpen, setIsConversationDrawerOpen] =
+    useState(false);
   const {
     conversations,
     selectedConversation,
@@ -53,9 +64,17 @@ export const ChatPanel: FC = () => {
     handleComposerKeyDown,
   } = useChatPanelController();
 
+  /**
+   * 切换会话后收起抽屉，避免内容区被持续遮挡。
+   */
+  async function handleSelectConversationFromDrawer(conversationId: string) {
+    await handleSelectConversation(conversationId);
+    setIsConversationDrawerOpen(false);
+  }
+
   return (
-    <div className="flex h-full w-full min-h-0 flex-col p-6">
-      <PanelHeader
+    <div className="flex h-full w-full min-h-0 flex-col">
+      {/* <PanelHeader
         className="mb-6"
         title="聊天"
         description="通过 Boxify 本地会话直接投递到 OpenClaw boxify channel。"
@@ -85,67 +104,67 @@ export const ChatPanel: FC = () => {
                 <RefreshCw className="size-4" />
               )}
             </Button>
+            <Sheet
+              open={isConversationDrawerOpen}
+              onOpenChange={setIsConversationDrawerOpen}
+            >
+              <SheetTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-10 px-4"
+                  disabled={isInitializing}
+                >
+                  <PanelRightOpen className="size-4" />
+                  会话列表
+                </Button>
+              </SheetTrigger>
+              <SheetContent
+                side="right"
+                className="w-[min(92vw,28rem)] p-0 sm:max-w-md"
+              >
+                <SheetHeader>
+                  <SheetTitle>会话列表</SheetTitle>
+                  <SheetDescription>
+                    当前只保存在 Boxify 进程内存中，可随时切换查看上下文。
+                  </SheetDescription>
+                </SheetHeader>
+                <div className="min-h-0 flex-1 p-4">
+                  <ChatConversationList
+                    className="h-full rounded-xl"
+                    conversations={conversations}
+                    selectedConversationId={selectedConversationId}
+                    isInitializing={isInitializing}
+                    onSelectConversation={handleSelectConversationFromDrawer}
+                  />
+                </div>
+              </SheetContent>
+            </Sheet>
             <Separator orientation="vertical" className="mx-1 h-6" />
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-10 px-4"
-              onClick={() => void handleCreateConversation()}
-              disabled={isCreatingConversation || isSending}
-            >
-              {isCreatingConversation ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <MessageSquarePlus className="size-4" />
-              )}
-              新建会话
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-10 px-4 text-muted-foreground"
-              disabled
-            >
-              <Clock3 className="size-4" />
-              {conversations.length} 个会话
-            </Button>
           </div>
         }
-      />
+      /> */}
 
-      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
-        <ChatConversationList
-          conversations={conversations}
-          selectedConversationId={selectedConversationId}
-          isInitializing={isInitializing}
-          onSelectConversation={handleSelectConversation}
+      <div className="flex min-h-0 flex-1 flex-col  relative">
+        <ChatMessageList
+          messages={renderedMessages}
+          isLoadingMessages={isLoadingMessages}
+          scrollToBottomToken={scrollToBottomToken}
         />
 
-        <div className="flex min-h-0 flex-col rounded-2xl border bg-card/60">
-          <div className="border-b px-4 py-3">
-            <div className="text-sm font-semibold">消息</div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              当前会在首个回复片段到达前显示骨架，占位后切换为流式文本。
-            </div>
-          </div>
-          <ChatMessageList
-            messages={renderedMessages}
-            isLoadingMessages={isLoadingMessages}
-            scrollToBottomToken={scrollToBottomToken}
-          />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-56 bg-linear-to-b from-background/0  via-background/95 to-background" />
 
-          <ChatComposer
-            draft={draft}
-            selectedConversation={selectedConversation}
-            selectedConversationId={selectedConversationId}
-            isSending={isSending}
-            isCreatingConversation={isCreatingConversation}
-            onDraftChange={setDraft}
-            onComposerKeyDown={handleComposerKeyDown}
-            onCreateConversation={handleCreateConversation}
-            onSendMessage={handleSendMessage}
-          />
-        </div>
+        <ChatComposer
+          draft={draft}
+          selectedConversation={selectedConversation}
+          selectedConversationId={selectedConversationId}
+          isSending={isSending}
+          isCreatingConversation={isCreatingConversation}
+          onDraftChange={setDraft}
+          onComposerKeyDown={handleComposerKeyDown}
+          onCreateConversation={handleCreateConversation}
+          onSendMessage={handleSendMessage}
+        />
       </div>
     </div>
   );

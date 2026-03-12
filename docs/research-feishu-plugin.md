@@ -1,12 +1,12 @@
 # OpenClaw 飞书插件调研整理
 
-本文基于本机已安装的 OpenClaw `@openclaw/feishu` 插件源码整理，目标是为 `boxify-channel` 后续演进提供可继续深入的阅读入口。
+本文基于本机已安装的 OpenClaw `@openclaw/feishu` 插件源码整理，目标是为 `boxify` 后续演进提供可继续深入的阅读入口。
 
 ## 结论速览
 
-当前 `boxify-channel` 已经迁移为 OpenClaw 原生 channel 插件，但与官方飞书插件相比，能力深度仍有明显差距：
+当前 `boxify` 已经迁移为 OpenClaw 原生 channel 插件，但与官方飞书插件相比，能力深度仍有明显差距：
 
-- `boxify-channel` 当前是原生 channel 的最小实现
+- `boxify` 当前是原生 channel 的最小实现
   - 通过 `registerChannel`
   - 自己监听本地 HTTP inbox
   - 通过 `finalizeInboundContext + dispatchReplyWithBufferedBlockDispatcher` 接入 reply runtime
@@ -18,8 +18,8 @@
 
 相关引用：
 
-- [plugins/experimental/boxify-channel/index.js](/Users/sheepzhao/WorkSpace/Boxify/plugins/experimental/boxify-channel/index.js)
-- [plugins/experimental/boxify-channel/README.md](/Users/sheepzhao/WorkSpace/Boxify/plugins/experimental/boxify-channel/README.md)
+- [plugins/experimental/boxify/index.js](/Users/sheepzhao/WorkSpace/Boxify/plugins/experimental/boxify/index.js)
+- [plugins/experimental/boxify/README.md](/Users/sheepzhao/WorkSpace/Boxify/plugins/experimental/boxify/README.md)
 - [extensions/feishu/index.ts](/Users/sheepzhao/.local/share/fnm/node-versions/v22.21.1/installation/lib/node_modules/openclaw/extensions/feishu/index.ts)
 
 ## 1. 飞书插件的注册方式
@@ -273,9 +273,9 @@
 
 `reply-dispatcher.ts` 中有 `FeishuStreamingSession`，配合 partial/final 回调逐步更新卡片内容。
 
-这和当前 `boxify-channel` 的“同步整段返回”是两个层级：
+这和当前 `boxify` 的“同步整段返回”是两个层级：
 
-- `boxify-channel` 当前只消费最终文本结果
+- `boxify` 当前只消费最终文本结果
 - 飞书插件已经接入更完整的 reply dispatcher，可消费 agent 的中间输出
 
 相关引用：
@@ -321,9 +321,9 @@
 - [extensions/feishu/src/dynamic-agent.ts](/Users/sheepzhao/.local/share/fnm/node-versions/v22.21.1/installation/lib/node_modules/openclaw/extensions/feishu/src/dynamic-agent.ts)
 - [extensions/feishu/src/bot.ts](/Users/sheepzhao/.local/share/fnm/node-versions/v22.21.1/installation/lib/node_modules/openclaw/extensions/feishu/src/bot.ts)
 
-## 9. 对 `boxify-channel` 的直接启发
+## 9. 对 `boxify` 的直接启发
 
-`boxify-channel` 已经完成了“从桥接式插件转到原生 channel 插件”这一步。
+`boxify` 已经完成了“从桥接式插件转到原生 channel 插件”这一步。
 
 当前更值得参考飞书插件的地方，不再是“是否改成 `registerChannel`”，而是后续怎么继续补齐 native channel 能力：
 
@@ -332,7 +332,7 @@
 - 根据需要补 `streaming / threading / directory / actions` 等 channel 能力
 - 继续减少 Boxify 私有协议，让 Boxify 更像一个标准 channel 宿主 UI
 
-当前 `boxify-channel` 的实现特征：
+当前 `boxify` 的实现特征：
 
 - 起本地 HTTP inbox
 - 收到消息后构造标准 inbound context
@@ -341,8 +341,8 @@
 
 相关引用：
 
-- [plugins/experimental/boxify-channel/index.js](/Users/sheepzhao/WorkSpace/Boxify/plugins/experimental/boxify-channel/index.js)
-- [plugins/experimental/boxify-channel/README.md](/Users/sheepzhao/WorkSpace/Boxify/plugins/experimental/boxify-channel/README.md)
+- [plugins/experimental/boxify/index.js](/Users/sheepzhao/WorkSpace/Boxify/plugins/experimental/boxify/index.js)
+- [plugins/experimental/boxify/README.md](/Users/sheepzhao/WorkSpace/Boxify/plugins/experimental/boxify/README.md)
 
 ## 10. 建议的继续阅读顺序
 
@@ -592,7 +592,7 @@ runtime 会把不同类型回复拆成三种：
 
 到这一层已经可以更具体地判断：
 
-`boxify-channel` 现在已经是原生 channel 模式，所以下一步更实际的判断是：
+`boxify` 现在已经是原生 channel 模式，所以下一步更实际的判断是：
 
 - 如果继续维持当前最小 native channel 方案
   - 实现简单

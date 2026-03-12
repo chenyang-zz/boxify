@@ -22,7 +22,7 @@ dist/
 .env.*.local
 
 # 忽略编译产物和测试覆盖率
-Boxify
+/Boxify
 coverage.out
 *.out
 *.test

@@ -75,7 +75,7 @@ export const ChatMessageList: FC<ChatMessageListProps> = ({
     <div
       ref={containerRef}
       onScroll={handleScroll}
-      className="min-h-0 flex-1 overflow-auto px-4 py-4"
+      className="min-h-0 flex-1 overflow-auto p-6 pb-52"
     >
       {isLoadingMessages ? (
         <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">

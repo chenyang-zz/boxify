@@ -1,5 +1,5 @@
 {
-  "id": "boxify-channel",
+  "id": "boxify",
   "channels": ["boxify"],
   "configSchema": {
     "type": "object",

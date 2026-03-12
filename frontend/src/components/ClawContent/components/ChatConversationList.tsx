@@ -6,6 +6,7 @@ import { formatTimeLabel, getConversationTitle } from "../domain/chat-panel";
 import { DEFAULT_AGENT_ID } from "../types/chat-panel";
 
 interface ChatConversationListProps {
+  className?: string;
   conversations: ChatConversation[];
   selectedConversationId: string;
   isInitializing: boolean;
@@ -16,13 +17,14 @@ interface ChatConversationListProps {
  * 渲染聊天会话列表，负责展示当前可切换的本地会话。
  */
 export const ChatConversationList: FC<ChatConversationListProps> = ({
+  className,
   conversations,
   selectedConversationId,
   isInitializing,
   onSelectConversation,
 }) => {
   return (
-    <div className="min-h-0 rounded-2xl border bg-card/70">
+    <div className={cn("min-h-0 rounded-2xl border bg-card/70", className)}>
       <div className="border-b px-4 py-3">
         <div className="text-sm font-semibold">会话列表</div>
         <div className="mt-1 text-xs text-muted-foreground">

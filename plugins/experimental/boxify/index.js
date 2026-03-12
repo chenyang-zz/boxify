@@ -7,7 +7,7 @@ const runtimeRef = { current: null };
 
 const plugin = {
   id: PLUGIN_ID,
-  name: "Boxify Channel",
+  name: "Boxify",
   description: "将 Boxify 作为 OpenClaw 原生本地聊天通道接入",
   configSchema: emptyPluginConfigSchema(),
   register(api) {
