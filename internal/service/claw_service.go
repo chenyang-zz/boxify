@@ -41,7 +41,7 @@ type ClawService struct {
 	taskManager   *clawtaskman.Manager       // 任务管理器
 	updater       *clawupdate.Updater        // 面板更新器
 	napcatMonitor *clawmonitor.NapCatMonitor // NapCat 监控器
-	chatService   *clawchat.Service          // Boxify 聊天服务
+	chatCoordinator *clawchat.ChannelCoordinator // Boxify 聊天 channel 协调器
 
 	openClawDir string // OpenClaw 配置目录
 	openClawApp string // OpenClaw 应用目录
@@ -1094,12 +1094,12 @@ func (s *ClawService) GetChatChannelInfo() *types.ClawChatChannelInfoResult {
 
 // CreateChatConversation 创建聊天会话。
 func (s *ClawService) CreateChatConversation(agentID string) *types.ClawChatConversationResult {
-	if s.chatService == nil {
+	if s.chatCoordinator == nil {
 		return &types.ClawChatConversationResult{
 			BaseResult: types.BaseResult{Success: false, Message: "聊天服务未初始化"},
 		}
 	}
-	item, err := s.chatService.CreateConversation(agentID)
+	item, err := s.chatCoordinator.CreateConversation(agentID)
 	if err != nil {
 		return &types.ClawChatConversationResult{
 			BaseResult: types.BaseResult{Success: false, Message: err.Error()},
@@ -1113,13 +1113,13 @@ func (s *ClawService) CreateChatConversation(agentID string) *types.ClawChatConv
 
 // ListChatConversations 返回聊天会话列表。
 func (s *ClawService) ListChatConversations() *types.ClawChatConversationsResult {
-	if s.chatService == nil {
+	if s.chatCoordinator == nil {
 		return &types.ClawChatConversationsResult{
 			BaseResult: types.BaseResult{Success: false, Message: "聊天服务未初始化"},
 			Items:      []clawchat.Conversation{},
 		}
 	}
-	items, err := s.chatService.ListConversations()
+	items, err := s.chatCoordinator.ListConversations()
 	if err != nil {
 		return &types.ClawChatConversationsResult{
 			BaseResult: types.BaseResult{Success: false, Message: err.Error()},
@@ -1134,13 +1134,13 @@ func (s *ClawService) ListChatConversations() *types.ClawChatConversationsResult
 
 // GetChatMessages 返回指定会话消息列表。
 func (s *ClawService) GetChatMessages(conversationID string) *types.ClawChatMessagesResult {
-	if s.chatService == nil {
+	if s.chatCoordinator == nil {
 		return &types.ClawChatMessagesResult{
 			BaseResult: types.BaseResult{Success: false, Message: "聊天服务未初始化"},
 			Items:      []clawchat.Message{},
 		}
 	}
-	items, err := s.chatService.ListMessages(conversationID)
+	items, err := s.chatCoordinator.ListMessages(conversationID)
 	if err != nil {
 		return &types.ClawChatMessagesResult{
 			BaseResult: types.BaseResult{Success: false, Message: err.Error()},
@@ -1155,12 +1155,12 @@ func (s *ClawService) GetChatMessages(conversationID string) *types.ClawChatMess
 
 // SendChatMessage 向指定会话发送消息。
 func (s *ClawService) SendChatMessage(conversationID, text string) *types.ClawChatSendResult {
-	if s.chatService == nil {
+	if s.chatCoordinator == nil {
 		return &types.ClawChatSendResult{
 			BaseResult: types.BaseResult{Success: false, Message: "聊天服务未初始化"},
 		}
 	}
-	runID, err := s.chatService.SendMessage(s.Context(), conversationID, text)
+	runID, err := s.chatCoordinator.SendMessage(s.Context(), conversationID, text)
 	if err != nil {
 		return &types.ClawChatSendResult{
 			BaseResult: types.BaseResult{Success: false, Message: err.Error()},
@@ -1221,7 +1221,7 @@ func (s *ClawService) rebuildManagers() {
 	s.skillManager = clawskill.NewManager(s.pluginCfg, s.openClawDir, s.openClawApp, s.Logger())
 	s.taskManager = clawtaskman.NewManager(nil, s.Logger())
 	s.updater = clawupdate.NewUpdater(resolveCurrentVersion(), s.dataDir, s.Logger())
-	s.chatService = clawchat.NewService(
+	s.chatCoordinator = clawchat.NewChannelCoordinator(
 		clawchat.NewMemoryConversationStore(),
 		clawchat.NewHTTPChannelClient(fmt.Sprintf("http://127.0.0.1:%d", s.pluginPort), s.chatToken),
 		clawchat.NewWailsEventPublisher(s.App(), s.Logger()),
