@@ -24,7 +24,14 @@ import { useClawMenuContent, useOpenClawCheck } from "./hooks";
 export const ClawContentCore: FC = () => {
   const selectedMenuItem = useSelectedMenuItem();
   const menuContent = useClawMenuContent(selectedMenuItem);
-  const { openClawCheck, checking, refreshOpenClawCheck } = useOpenClawCheck();
+  const {
+    openClawCheck,
+    checking,
+    starting,
+    gatewayRunning,
+    refreshOpenClawCheck,
+    startOpenClawGateway,
+  } = useOpenClawCheck();
 
   /**
    * 处理用户主动触发的 OpenClaw 状态刷新。
@@ -33,15 +40,26 @@ export const ClawContentCore: FC = () => {
     void refreshOpenClawCheck();
   }, [refreshOpenClawCheck]);
 
+  /**
+   * 处理用户主动启动 OpenClaw gateway。
+   */
+  const handleStartOpenClawGateway = useCallback(() => {
+    void startOpenClawGateway();
+  }, [startOpenClawGateway]);
+
   return (
     <div className="h-full w-full overflow-hidden bg-background">
-      {!openClawCheck?.configured ? (
+      {!openClawCheck?.configured || !gatewayRunning ? (
         <OpenClawPendingPanel
           installed={openClawCheck?.installed ?? false}
+          configured={openClawCheck?.configured ?? false}
           checking={checking}
+          starting={starting}
+          gatewayRunning={gatewayRunning}
           binaryPath={openClawCheck?.binaryPath ?? ""}
           configPath={openClawCheck?.configPath ?? ""}
           onRefresh={handleRefreshOpenClawCheck}
+          onStartGateway={handleStartOpenClawGateway}
         />
       ) : (
         menuContent

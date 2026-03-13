@@ -22,11 +22,13 @@ import (
 	clawtaskman "github.com/chenyang-zz/boxify/internal/claw/taskman"
 	clawupdate "github.com/chenyang-zz/boxify/internal/claw/update"
 	"github.com/chenyang-zz/boxify/internal/types"
+	"github.com/chenyang-zz/boxify/pkg/conversationstore"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 const defaultClawManagerPort = 19527
 const boxifyConfigFileName = "boxify.json"
+
 type boxifyLocalConfig struct {
 	ChatSharedToken string `json:"chatSharedToken,omitempty"` // Boxify 本地聊天共享令牌。
 }
@@ -34,22 +36,22 @@ type boxifyLocalConfig struct {
 // ClawService 提供 OpenClaw 相关能力（进程、配置、插件、任务、更新、NapCat 监控）。
 type ClawService struct {
 	BaseService
-	manager       *clawprocess.Manager       // OpenClaw 进程管理器
-	pluginCfg     *clawplugin.Config         // OpenClaw 配置读写器
-	pluginManager *clawplugin.Manager        // 插件管理器
-	skillManager  *clawskill.Manager         // 技能管理器
-	taskManager   *clawtaskman.Manager       // 任务管理器
-	updater       *clawupdate.Updater        // 面板更新器
-	napcatMonitor *clawmonitor.NapCatMonitor // NapCat 监控器
+	manager         *clawprocess.Manager         // OpenClaw 进程管理器
+	pluginCfg       *clawplugin.Config           // OpenClaw 配置读写器
+	pluginManager   *clawplugin.Manager          // 插件管理器
+	skillManager    *clawskill.Manager           // 技能管理器
+	taskManager     *clawtaskman.Manager         // 任务管理器
+	updater         *clawupdate.Updater          // 面板更新器
+	napcatMonitor   *clawmonitor.NapCatMonitor   // NapCat 监控器
 	chatCoordinator *clawchat.ChannelCoordinator // Boxify 聊天 channel 协调器
 
-	openClawDir string // OpenClaw 配置目录
-	openClawApp string // OpenClaw 应用目录
-	dataDir     string // Boxify 数据目录
-	managerPort int    // 本地管理端口
-	pluginPort  int    // 预期插件入站监听端口
-	chatToken   string // 插件 inbox 共享令牌
-	chatTokenGenerated bool // 是否在本次启动中首次生成了共享令牌
+	openClawDir        string // OpenClaw 配置目录
+	openClawApp        string // OpenClaw 应用目录
+	dataDir            string // Boxify 数据目录
+	managerPort        int    // 本地管理端口
+	pluginPort         int    // 预期插件入站监听端口
+	chatToken          string // 插件 inbox 共享令牌
+	chatTokenGenerated bool   // 是否在本次启动中首次生成了共享令牌
 }
 
 // NewClawService 创建 Claw 服务。
@@ -1222,7 +1224,7 @@ func (s *ClawService) rebuildManagers() {
 	s.taskManager = clawtaskman.NewManager(nil, s.Logger())
 	s.updater = clawupdate.NewUpdater(resolveCurrentVersion(), s.dataDir, s.Logger())
 	s.chatCoordinator = clawchat.NewChannelCoordinator(
-		clawchat.NewMemoryConversationStore(),
+		conversationstore.NewJSONConversationStore("", s.Logger()),
 		clawchat.NewHTTPChannelClient(fmt.Sprintf("http://127.0.0.1:%d", s.pluginPort), s.chatToken),
 		clawchat.NewWailsEventPublisher(s.App(), s.Logger()),
 		s.manager,

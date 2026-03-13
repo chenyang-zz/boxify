@@ -163,20 +163,13 @@ http://127.0.0.1:32124
 
 首次自动生成后，`ClawService` 还会尝试将该 token 同步写入 `openclaw.json` 的 `channels.boxify.sharedToken`。
 
-### OpenClaw 进程拉起
+### OpenClaw 进程要求
 
-如果 `ChannelCoordinator` 注入了 `clawprocess.Manager`，发送消息前会调用：
+聊天链路默认假定 OpenClaw gateway 已经处于可用状态。
 
-```go
-manager.Start()
-```
-
-这里的策略是“尽量拉起，但不阻断发送”：
-
-- 启动成功：继续请求插件
-- 启动失败：只记录 `Warn` 日志，仍然继续请求 HTTP inbox
-
-这样可以兼容 OpenClaw 已经由外部启动的场景。
+- `SendMessage()` 不会在发送前自动拉起 OpenClaw
+- 若网关未启动，请通过面板显式启动，或由外部环境预先启动
+- 若插件 inbox 不可达，请求会直接失败并返回错误
 
 ## 核心数据模型
 
@@ -403,17 +396,16 @@ chatCoordinator.SendMessage(ctx, conversationID, text)
 2. 校验 `conversationID` 非空
 3. 校验 `text` 非空
 4. 从 store 读取会话
-5. 尝试通过 `manager.Start()` 拉起 OpenClaw
-6. 调用 `BuildSendMessageEnvelope()` 生成：
+5. 调用 `BuildSendMessageEnvelope()` 生成：
    - `runId`
    - 用户消息
    - `ChannelInboxRequest`
-7. 先把用户消息写入 store
-8. 若未配置 `ChannelClient`，仅本地入库后直接返回 `runId`
-9. 若已配置 `ChannelClient`，调用 `SendMessageStream()`
-10. 将每个 SSE 事件交给 `StreamEventHandler.Handle()`
-11. 请求结束后，若聚合结果中带 `sessionId`，再更新一次会话映射
-12. 返回本次发送的 `runId`
+6. 先把用户消息写入 store
+7. 若未配置 `ChannelClient`，仅本地入库后直接返回 `runId`
+8. 若已配置 `ChannelClient`，调用 `SendMessageStream()`
+9. 将每个 SSE 事件交给 `StreamEventHandler.Handle()`
+10. 请求结束后，若聚合结果中带 `sessionId`，再更新一次会话映射
+11. 返回本次发送的 `runId`
 
 ### 第 3 步：构造发送载荷
 

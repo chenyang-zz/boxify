@@ -75,12 +75,6 @@ func (c *ChannelCoordinator) SendMessage(ctx context.Context, conversationID, te
 		return "", err
 	}
 
-	if c.manager != nil {
-		if err := c.manager.Start(); err != nil {
-			c.logger.Warn("OpenClaw 启动失败，继续尝试请求插件 inbox", "error", err)
-		}
-	}
-
 	envelope := BuildSendMessageEnvelope(SendMessageCommand{
 		ConversationID: conversationID,
 		AgentID:        conv.AgentID,

@@ -23,7 +23,10 @@ import type { ClawOpenClawCheckResult } from "@wails/types/models";
 interface OpenClawCheckState {
   openClawCheck: ClawOpenClawCheckResult | null;
   checking: boolean;
+  starting: boolean;
+  gatewayRunning: boolean;
   refreshOpenClawCheck: () => Promise<void>;
+  startOpenClawGateway: () => Promise<void>;
 }
 
 /**
@@ -33,6 +36,8 @@ export function useOpenClawCheck(): OpenClawCheckState {
   const [openClawCheck, setOpenClawCheck] =
     useState<ClawOpenClawCheckResult | null>(null);
   const [checking, setChecking] = useState(true);
+  const [starting, setStarting] = useState(false);
+  const [gatewayRunning, setGatewayRunning] = useState(false);
 
   /**
    * 拉取 OpenClaw 安装与配置状态。
@@ -40,16 +45,40 @@ export function useOpenClawCheck(): OpenClawCheckState {
   const refreshOpenClawCheck = useCallback(async () => {
     setChecking(true);
     try {
-      const result = await callWails(ClawService.CheckOpenClaw);
-      setOpenClawCheck(result ?? null);
+      const [checkResult, statusResult] = await Promise.all([
+        callWails(ClawService.CheckOpenClaw),
+        callWails(ClawService.GetStatus),
+      ]);
+      setOpenClawCheck(checkResult ?? null);
+      setGatewayRunning(Boolean(statusResult?.data?.running));
     } finally {
       setChecking(false);
     }
   }, []);
 
+  /**
+   * 显式启动 OpenClaw gateway，并在成功后刷新状态。
+   */
+  const startOpenClawGateway = useCallback(async () => {
+    setStarting(true);
+    try {
+      await callWails(ClawService.StartProcess);
+      await refreshOpenClawCheck();
+    } finally {
+      setStarting(false);
+    }
+  }, [refreshOpenClawCheck]);
+
   useEffect(() => {
     void refreshOpenClawCheck();
   }, [refreshOpenClawCheck]);
 
-  return { openClawCheck, checking, refreshOpenClawCheck };
+  return {
+    openClawCheck,
+    checking,
+    starting,
+    gatewayRunning,
+    refreshOpenClawCheck,
+    startOpenClawGateway,
+  };
 }
