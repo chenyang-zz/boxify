@@ -910,6 +910,70 @@ export class ClawOpenClawCheckResult {
              */
             this["configPath"] = undefined;
         }
+        if (!("nodeInstalled" in $$source)) {
+            /**
+             * 是否检测到 node 可执行文件
+             * @member
+             * @type {boolean}
+             */
+            this["nodeInstalled"] = false;
+        }
+        if (!("nodeVersionSatisfied" in $$source)) {
+            /**
+             * Node 版本是否满足 OpenClaw 最低要求
+             * @member
+             * @type {boolean}
+             */
+            this["nodeVersionSatisfied"] = false;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * node 可执行文件路径
+             * @member
+             * @type {string | undefined}
+             */
+            this["nodePath"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * node 版本号
+             * @member
+             * @type {string | undefined}
+             */
+            this["nodeVersion"] = undefined;
+        }
+        if (!("npmInstalled" in $$source)) {
+            /**
+             * 是否检测到 npm 可执行文件
+             * @member
+             * @type {boolean}
+             */
+            this["npmInstalled"] = false;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * npm 可执行文件路径
+             * @member
+             * @type {string | undefined}
+             */
+            this["npmPath"] = undefined;
+        }
+        if (!("autoInstallSupported" in $$source)) {
+            /**
+             * 当前环境是否支持自动安装
+             * @member
+             * @type {boolean}
+             */
+            this["autoInstallSupported"] = false;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * 自动安装受限时的提示
+             * @member
+             * @type {string | undefined}
+             */
+            this["autoInstallHint"] = undefined;
+        }
 
         Object.assign(this, $$source);
     }

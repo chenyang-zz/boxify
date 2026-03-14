@@ -51,6 +51,14 @@ export class Task {
              */
             this["status"] = TaskStatus.$zero;
         }
+        if (!("paused" in $$source)) {
+            /**
+             * 当前任务是否已暂停。
+             * @member
+             * @type {boolean}
+             */
+            this["paused"] = false;
+        }
         if (!("progress" in $$source)) {
             /**
              * 当前进度，范围 0-100。
@@ -58,6 +66,46 @@ export class Task {
              * @type {number}
              */
             this["progress"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * 当前执行阶段，如 node/openclaw/done。
+             * @member
+             * @type {string | undefined}
+             */
+            this["stage"] = undefined;
+        }
+        if (!("nodeProgress" in $$source)) {
+            /**
+             * Node.js 安装阶段进度，范围 0-100。
+             * @member
+             * @type {number}
+             */
+            this["nodeProgress"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * Node.js 安装阶段说明。
+             * @member
+             * @type {string | undefined}
+             */
+            this["nodeMessage"] = undefined;
+        }
+        if (!("openClawProgress" in $$source)) {
+            /**
+             * OpenClaw 安装阶段进度，范围 0-100。
+             * @member
+             * @type {number}
+             */
+            this["openClawProgress"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * OpenClaw 安装阶段说明。
+             * @member
+             * @type {string | undefined}
+             */
+            this["openClawMessage"] = undefined;
         }
         if (!("log" in $$source)) {
             /**
@@ -101,10 +149,10 @@ export class Task {
      * @returns {Task}
      */
     static createFrom($$source = {}) {
-        const $$createField5_0 = $$createType0;
+        const $$createField11_0 = $$createType0;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("log" in $$parsedSource) {
-            $$parsedSource["log"] = $$createField5_0($$parsedSource["log"]);
+            $$parsedSource["log"] = $$createField11_0($$parsedSource["log"]);
         }
         return new Task(/** @type {Partial<Task>} */($$parsedSource));
     }
@@ -123,6 +171,7 @@ export const TaskStatus = {
 
     StatusPending: "pending",
     StatusRunning: "running",
+    StatusPaused: "paused",
     StatusSuccess: "success",
     StatusFailed: "failed",
     StatusCanceled: "canceled",

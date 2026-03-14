@@ -48,12 +48,23 @@ export function AppManager() {
 }
 
 /**
+ * CancelTask 取消指定任务。
+ * @param {string} id
+ * @returns {$CancellablePromise<types$0.BaseResult | null>}
+ */
+export function CancelTask(id) {
+    return $Call.ByID(1759430791, id).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType5($result);
+    }));
+}
+
+/**
  * CheckOpenClaw 检查 OpenClaw 是否已安装并完成基础配置。
  * @returns {$CancellablePromise<types$0.ClawOpenClawCheckResult | null>}
  */
 export function CheckOpenClaw() {
     return $Call.ByID(2841486999).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType5($result);
+        return $$createType7($result);
     }));
 }
 
@@ -63,7 +74,7 @@ export function CheckOpenClaw() {
  */
 export function CheckPanelUpdate() {
     return $Call.ByID(2937758095).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType7($result);
+        return $$createType9($result);
     }));
 }
 
@@ -74,7 +85,7 @@ export function CheckPanelUpdate() {
  */
 export function Configure(cfg) {
     return $Call.ByID(4118344372, cfg).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType9($result);
+        return $$createType5($result);
     }));
 }
 
@@ -120,7 +131,7 @@ export function DefaultServiceStartup(options) {
  */
 export function DoPanelUpdate() {
     return $Call.ByID(2860250088).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType9($result);
+        return $$createType5($result);
     }));
 }
 
@@ -345,7 +356,7 @@ export function GetUpdatePopup() {
  */
 export function InstallPlugin(pluginID, source) {
     return $Call.ByID(4164125592, pluginID, source).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType9($result);
+        return $$createType5($result);
     }));
 }
 
@@ -375,7 +386,7 @@ export function Logger() {
  */
 export function MarkUpdatePopupShown() {
     return $Call.ByID(824730491).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType9($result);
+        return $$createType5($result);
     }));
 }
 
@@ -386,7 +397,7 @@ export function MarkUpdatePopupShown() {
  */
 export function NapCatMonitorConfig(payload) {
     return $Call.ByID(1566608267, payload).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType9($result);
+        return $$createType5($result);
     }));
 }
 
@@ -396,7 +407,7 @@ export function NapCatMonitorConfig(payload) {
  */
 export function NapCatReconnect() {
     return $Call.ByID(95604678).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType9($result);
+        return $$createType5($result);
     }));
 }
 
@@ -407,6 +418,17 @@ export function NapCatReconnect() {
 export function PanelUpdateProgress() {
     return $Call.ByID(123677464).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType57($result);
+    }));
+}
+
+/**
+ * PauseTask 暂停指定任务。
+ * @param {string} id
+ * @returns {$CancellablePromise<types$0.BaseResult | null>}
+ */
+export function PauseTask(id) {
+    return $Call.ByID(2466651695, id).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType5($result);
     }));
 }
 
@@ -446,7 +468,7 @@ export function Registry() {
  */
 export function Restart() {
     return $Call.ByID(3066425723).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType9($result);
+        return $$createType5($result);
     }));
 }
 
@@ -456,7 +478,18 @@ export function Restart() {
  */
 export function RestartProcess() {
     return $Call.ByID(1319926960).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType9($result);
+        return $$createType5($result);
+    }));
+}
+
+/**
+ * ResumeTask 恢复指定任务。
+ * @param {string} id
+ * @returns {$CancellablePromise<types$0.BaseResult | null>}
+ */
+export function ResumeTask(id) {
+    return $Call.ByID(3016346210, id).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType5($result);
     }));
 }
 
@@ -468,7 +501,7 @@ export function RestartProcess() {
  */
 export function SaveChannel(id, payload) {
     return $Call.ByID(3511102620, id, payload).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType9($result);
+        return $$createType5($result);
     }));
 }
 
@@ -479,7 +512,7 @@ export function SaveChannel(id, payload) {
  */
 export function SaveModels(providers) {
     return $Call.ByID(616286499, providers).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType9($result);
+        return $$createType5($result);
     }));
 }
 
@@ -490,7 +523,7 @@ export function SaveModels(providers) {
  */
 export function SaveOpenClawConfig(cfg) {
     return $Call.ByID(1816196008, cfg).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType9($result);
+        return $$createType5($result);
     }));
 }
 
@@ -502,7 +535,7 @@ export function SaveOpenClawConfig(cfg) {
  */
 export function SavePlugin(id, payload) {
     return $Call.ByID(1344614258, id, payload).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType9($result);
+        return $$createType5($result);
     }));
 }
 
@@ -550,7 +583,17 @@ export function SetRegistry(registry) {
  */
 export function Start() {
     return $Call.ByID(391052524).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType9($result);
+        return $$createType5($result);
+    }));
+}
+
+/**
+ * StartOpenClawSetup 启动 OpenClaw 自动安装与初始化任务。
+ * @returns {$CancellablePromise<types$0.ClawTaskDetailResult | null>}
+ */
+export function StartOpenClawSetup() {
+    return $Call.ByID(1180186788).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType47($result);
     }));
 }
 
@@ -560,7 +603,7 @@ export function Start() {
  */
 export function StartProcess() {
     return $Call.ByID(3302587713).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType9($result);
+        return $$createType5($result);
     }));
 }
 
@@ -570,7 +613,7 @@ export function StartProcess() {
  */
 export function Stop() {
     return $Call.ByID(567698888).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType9($result);
+        return $$createType5($result);
     }));
 }
 
@@ -580,7 +623,7 @@ export function Stop() {
  */
 export function StopProcess() {
     return $Call.ByID(1948308485).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType9($result);
+        return $$createType5($result);
     }));
 }
 
@@ -592,7 +635,7 @@ export function StopProcess() {
  */
 export function ToggleChannel(id, enabled) {
     return $Call.ByID(1200616767, id, enabled).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType9($result);
+        return $$createType5($result);
     }));
 }
 
@@ -604,7 +647,7 @@ export function ToggleChannel(id, enabled) {
  */
 export function TogglePlugin(id, enabled) {
     return $Call.ByID(1637441743, id, enabled).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType9($result);
+        return $$createType5($result);
     }));
 }
 
@@ -616,7 +659,7 @@ export function TogglePlugin(id, enabled) {
  */
 export function ToggleSkill(id, enabled) {
     return $Call.ByID(3040047825, id, enabled).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType9($result);
+        return $$createType5($result);
     }));
 }
 
@@ -627,7 +670,7 @@ export function ToggleSkill(id, enabled) {
  */
 export function UninstallPlugin(id) {
     return $Call.ByID(2680098029, id).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType9($result);
+        return $$createType5($result);
     }));
 }
 
@@ -639,7 +682,7 @@ export function UninstallPlugin(id) {
  */
 export function UpdatePluginConfig(id, cfg) {
     return $Call.ByID(2511145424, id, cfg).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType9($result);
+        return $$createType5($result);
     }));
 }
 
@@ -650,7 +693,7 @@ export function UpdatePluginConfig(id, cfg) {
  */
 export function UpdatePluginVersion(id) {
     return $Call.ByID(1221368698, id).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType9($result);
+        return $$createType5($result);
     }));
 }
 
@@ -659,11 +702,11 @@ const $$createType0 = application$0.App.createFrom;
 const $$createType1 = $Create.Nullable($$createType0);
 const $$createType2 = window$0.AppManager.createFrom;
 const $$createType3 = $Create.Nullable($$createType2);
-const $$createType4 = types$0.ClawOpenClawCheckResult.createFrom;
+const $$createType4 = types$0.BaseResult.createFrom;
 const $$createType5 = $Create.Nullable($$createType4);
-const $$createType6 = types$0.ClawCheckUpdateResult.createFrom;
+const $$createType6 = types$0.ClawOpenClawCheckResult.createFrom;
 const $$createType7 = $Create.Nullable($$createType6);
-const $$createType8 = types$0.BaseResult.createFrom;
+const $$createType8 = types$0.ClawCheckUpdateResult.createFrom;
 const $$createType9 = $Create.Nullable($$createType8);
 const $$createType10 = types$0.ClawChatConversationResult.createFrom;
 const $$createType11 = $Create.Nullable($$createType10);

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	clawchat "github.com/chenyang-zz/boxify/internal/claw/chat"
+	clawinstall "github.com/chenyang-zz/boxify/internal/claw/install"
 	clawmonitor "github.com/chenyang-zz/boxify/internal/claw/monitor"
 	clawplugin "github.com/chenyang-zz/boxify/internal/claw/plugin"
 	clawprocess "github.com/chenyang-zz/boxify/internal/claw/process"
@@ -246,22 +247,70 @@ func (s *ClawService) ToggleSkill(id string, enabled bool) *types.BaseResult {
 
 // CheckOpenClaw 检查 OpenClaw 是否已安装并完成基础配置。
 func (s *ClawService) CheckOpenClaw() *types.ClawOpenClawCheckResult {
-	bin := strings.TrimSpace(clawprocess.DetectOpenClawBinaryPath())
-	cfgPath := filepath.Join(s.openClawDir, "openclaw.json")
-	configured := false
-	if st, err := os.Stat(cfgPath); err == nil && !st.IsDir() {
-		if s.pluginCfg != nil {
-			if cfg, readErr := s.pluginCfg.ReadOpenClawJSON(); readErr == nil && cfg != nil {
-				configured = true
-			}
+	inspection := clawinstall.InspectOpenClawSetup(s.openClawDir)
+	cfgPath := inspection.ConfigPath
+	if strings.TrimSpace(cfgPath) == "" {
+		cfgPath = filepath.Join(s.openClawDir, "openclaw.json")
+	}
+	configured := inspection.Configured
+	if configured {
+		cfgDir := inspection.ConfigDir
+		if strings.TrimSpace(cfgDir) == "" {
+			cfgDir = s.openClawDir
+		}
+		cfgReader := &clawplugin.Config{OpenClawDir: cfgDir, DataDir: s.dataDir}
+		if cfg, readErr := cfgReader.ReadOpenClawJSON(); readErr == nil && cfg != nil {
+			configured = true
+		} else {
+			configured = false
 		}
 	}
 	return &types.ClawOpenClawCheckResult{
-		BaseResult: types.BaseResult{Success: true, Message: "OpenClaw 检查完成"},
-		Installed:  bin != "",
-		Configured: configured,
-		BinaryPath: bin,
-		ConfigPath: cfgPath,
+		BaseResult:           types.BaseResult{Success: true, Message: "OpenClaw 检查完成"},
+		Installed:            inspection.OpenClawInstalled,
+		Configured:           configured,
+		BinaryPath:           inspection.OpenClawPath,
+		ConfigPath:           cfgPath,
+		NodeInstalled:        inspection.NodeInstalled,
+		NodeVersionSatisfied: inspection.NodeVersionSatisfied,
+		NodePath:             inspection.NodePath,
+		NodeVersion:          inspection.NodeVersion,
+		NpmInstalled:         inspection.NpmInstalled,
+		NpmPath:              inspection.NpmPath,
+		AutoInstallSupported: inspection.AutoInstallSupported,
+		AutoInstallHint:      inspection.AutoInstallHint,
+	}
+}
+
+// StartOpenClawSetup 启动 OpenClaw 自动安装与初始化任务。
+func (s *ClawService) StartOpenClawSetup() *types.ClawTaskDetailResult {
+	if s.taskManager.HasRunningTask("install_openclaw") {
+		return &types.ClawTaskDetailResult{
+			BaseResult: types.BaseResult{Success: false, Message: "已有 OpenClaw 安装任务正在执行"},
+		}
+	}
+
+	inspection := clawinstall.InspectOpenClawSetup(s.openClawDir)
+	if inspection.OpenClawInstalled && inspection.Configured {
+		return &types.ClawTaskDetailResult{
+			BaseResult: types.BaseResult{Success: false, Message: "OpenClaw 已安装并初始化，无需重复执行"},
+		}
+	}
+	if !inspection.AutoInstallSupported {
+		message := strings.TrimSpace(inspection.AutoInstallHint)
+		if message == "" {
+			message = "当前环境不支持自动安装"
+		}
+		return &types.ClawTaskDetailResult{
+			BaseResult: types.BaseResult{Success: false, Message: message},
+		}
+	}
+
+	task := s.taskManager.CreateTask("安装 OpenClaw", "install_openclaw")
+	go s.runOpenClawSetupTask(task)
+	return &types.ClawTaskDetailResult{
+		BaseResult: types.BaseResult{Success: true, Message: "OpenClaw 安装任务已启动"},
+		Task:       task,
 	}
 }
 
@@ -961,6 +1010,30 @@ func (s *ClawService) GetTaskDetail(id string) *types.ClawTaskDetailResult {
 	}
 }
 
+// PauseTask 暂停指定任务。
+func (s *ClawService) PauseTask(id string) *types.BaseResult {
+	if err := s.taskManager.PauseTask(strings.TrimSpace(id)); err != nil {
+		return &types.BaseResult{Success: false, Message: err.Error()}
+	}
+	return &types.BaseResult{Success: true, Message: "任务已暂停"}
+}
+
+// ResumeTask 恢复指定任务。
+func (s *ClawService) ResumeTask(id string) *types.BaseResult {
+	if err := s.taskManager.ResumeTask(strings.TrimSpace(id)); err != nil {
+		return &types.BaseResult{Success: false, Message: err.Error()}
+	}
+	return &types.BaseResult{Success: true, Message: "任务已恢复"}
+}
+
+// CancelTask 取消指定任务。
+func (s *ClawService) CancelTask(id string) *types.BaseResult {
+	if err := s.taskManager.CancelTask(strings.TrimSpace(id)); err != nil {
+		return &types.BaseResult{Success: false, Message: err.Error()}
+	}
+	return &types.BaseResult{Success: true, Message: "任务已取消"}
+}
+
 // CheckPanelUpdate 检查面板更新。
 func (s *ClawService) CheckPanelUpdate() *types.ClawCheckUpdateResult {
 	info, hasUpdate, err := s.updater.CheckUpdate()
@@ -1237,6 +1310,118 @@ func (s *ClawService) rebuildManagers() {
 		DataDir:     s.dataDir,
 		OpenClawDir: s.openClawDir,
 	}, nil, s.Logger())
+}
+
+// runOpenClawSetupTask 按顺序执行 Node、OpenClaw 安装与初始化。
+func (s *ClawService) runOpenClawSetupTask(task *clawtaskman.Task) {
+	task.AppendLog("开始自动安装 OpenClaw")
+	task.SetStatus(clawtaskman.StatusRunning)
+	task.SetProgress(5)
+	task.SetStageProgress("node", 0, "等待 Node.js 环境检查")
+
+	inspection := clawinstall.InspectOpenClawSetup(s.openClawDir)
+	if !inspection.NodeInstalled || !inspection.NodeVersionSatisfied || !inspection.NpmInstalled {
+		nodeSteps, hint := clawinstall.ResolveNodeInstallSteps()
+		if len(nodeSteps) == 0 {
+			s.taskManager.FinishTask(task, fmt.Errorf("Node.js 自动安装不可用: %s", strings.TrimSpace(hint)))
+			return
+		}
+
+		for idx, step := range nodeSteps {
+			if task.IsCanceled() {
+				s.taskManager.FinishTask(task, clawtaskman.ErrTaskCanceled)
+				return
+			}
+			stepStart := 5 + (idx * 25 / len(nodeSteps))
+			stepEnd := 5 + ((idx + 1) * 25 / len(nodeSteps))
+			task.SetProgress(stepStart)
+			task.SetStageProgress("node", stepStart*100/35, step.Name)
+			task.AppendLog("执行步骤：" + step.Name)
+			var err error
+			if strings.TrimSpace(step.Script) != "" {
+				err = s.taskManager.RunScript(task, step.Script)
+			} else {
+				err = s.taskManager.RunCommand(task, step.Command, step.Args...)
+			}
+			if err != nil {
+				s.taskManager.FinishTask(task, fmt.Errorf("%s失败: %w", step.Name, err))
+				return
+			}
+			task.SetProgress(stepEnd)
+			task.SetStageProgress("node", stepEnd*100/35, step.Name+"完成")
+		}
+		task.SetProgress(35)
+		task.SetStageProgress("node", 100, "Node.js 与 npm 已就绪")
+		task.AppendLog("Node.js 安装步骤完成，开始重新检测运行环境")
+	} else {
+		task.SetProgress(35)
+		task.SetStageProgress("node", 100, "Node.js 环境已满足要求")
+	}
+
+	npmBin := strings.TrimSpace(clawinstall.ResolveNpmInstallCommand())
+	if npmBin == "" {
+		s.taskManager.FinishTask(task, fmt.Errorf("未检测到 npm，可先确认 Node.js 是否安装成功"))
+		return
+	}
+	if task.IsCanceled() {
+		s.taskManager.FinishTask(task, clawtaskman.ErrTaskCanceled)
+		return
+	}
+
+	openClawBin := strings.TrimSpace(inspection.OpenClawPath)
+	if openClawBin == "" {
+		task.SetProgress(45)
+		task.SetStageProgress("openclaw", 10, "开始安装 OpenClaw")
+		task.AppendLog("开始安装 OpenClaw")
+		if err := s.taskManager.RunCommand(task, npmBin, "install", "-g", "openclaw@latest"); err != nil {
+			s.taskManager.FinishTask(task, fmt.Errorf("安装 OpenClaw 失败: %w", err))
+			return
+		}
+		task.SetProgress(80)
+		task.SetStageProgress("openclaw", 70, "OpenClaw 安装完成，检查初始化配置")
+		openClawBin = strings.TrimSpace(clawinstall.ResolveOpenClawOnboardCommand())
+	} else {
+		task.SetProgress(80)
+		task.SetStageProgress("openclaw", 70, "检测到已安装 OpenClaw，跳过重复安装")
+		task.AppendLog("检测到已安装 OpenClaw，跳过安装步骤")
+	}
+
+	if openClawBin == "" {
+		s.taskManager.FinishTask(task, fmt.Errorf("OpenClaw 安装后仍未检测到可执行文件"))
+		return
+	}
+
+	configPath := inspection.ConfigPath
+	if strings.TrimSpace(configPath) == "" {
+		configPath = filepath.Join(s.openClawDir, "openclaw.json")
+	}
+	if _, err := os.Stat(configPath); err != nil {
+		if task.IsCanceled() {
+			s.taskManager.FinishTask(task, clawtaskman.ErrTaskCanceled)
+			return
+		}
+		task.SetStageProgress("openclaw", 82, "开始初始化 OpenClaw 配置")
+		task.AppendLog("开始初始化 OpenClaw 配置")
+		if initErr := s.taskManager.RunCommand(
+			task,
+			openClawBin,
+			"onboard",
+			"--install-daemon",
+			"--non-interactive",
+			"--accept-risk",
+		); initErr != nil {
+			s.taskManager.FinishTask(task, fmt.Errorf("初始化 OpenClaw 失败: %w", initErr))
+			return
+		}
+		task.SetStageProgress("openclaw", 95, "OpenClaw 配置初始化完成")
+	} else {
+		task.SetStageProgress("openclaw", 95, "检测到现有 OpenClaw 配置")
+	}
+
+	task.SetProgress(95)
+	task.SetStageProgress("done", 100, "OpenClaw 环境已就绪")
+	task.AppendLog("自动安装完成，正在刷新环境状态")
+	s.taskManager.FinishTask(task, nil)
 }
 
 func generateChatSharedToken() string {

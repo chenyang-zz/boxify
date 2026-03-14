@@ -2,16 +2,19 @@ package taskman
 
 import (
 	"bufio"
+	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
-	"os"
 	"os/exec"
 	"runtime"
 	"strings"
 	"sync"
 	"time"
+
+	clawprocess "github.com/chenyang-zz/boxify/internal/claw/process"
 )
 
 // TaskStatus 任务状态
@@ -20,24 +23,34 @@ type TaskStatus string
 const (
 	StatusPending  TaskStatus = "pending"
 	StatusRunning  TaskStatus = "running"
+	StatusPaused   TaskStatus = "paused"
 	StatusSuccess  TaskStatus = "success"
 	StatusFailed   TaskStatus = "failed"
 	StatusCanceled TaskStatus = "canceled"
 )
 
+var ErrTaskCanceled = errors.New("任务已取消")
+
 // Task 安装任务
 type Task struct {
-	ID        string     `json:"id"`              // 任务唯一标识。
-	Name      string     `json:"name"`            // 任务名称。
-	Type      string     `json:"type"`            // 任务类型，如 install_software/install_openclaw。
-	Status    TaskStatus `json:"status"`          // 当前任务状态。
-	Progress  int        `json:"progress"`        // 当前进度，范围 0-100。
-	Log       []string   `json:"log"`             // 任务日志列表。
-	Error     string     `json:"error,omitempty"` // 任务失败时的错误信息。
-	CreatedAt time.Time  `json:"createdAt"`       // 任务创建时间。
-	UpdatedAt time.Time  `json:"updatedAt"`       // 任务最近更新时间。
-	cancel    func()     // 任务取消函数。
-	mu        sync.Mutex // 保护任务可变字段的互斥锁。
+	ID               string             `json:"id"`                        // 任务唯一标识。
+	Name             string             `json:"name"`                      // 任务名称。
+	Type             string             `json:"type"`                      // 任务类型，如 install_software/install_openclaw。
+	Status           TaskStatus         `json:"status"`                    // 当前任务状态。
+	Paused           bool               `json:"paused"`                    // 当前任务是否已暂停。
+	Progress         int                `json:"progress"`                  // 当前进度，范围 0-100。
+	Stage            string             `json:"stage,omitempty"`           // 当前执行阶段，如 node/openclaw/done。
+	NodeProgress     int                `json:"nodeProgress"`              // Node.js 安装阶段进度，范围 0-100。
+	NodeMessage      string             `json:"nodeMessage,omitempty"`     // Node.js 安装阶段说明。
+	OpenClawProgress int                `json:"openClawProgress"`          // OpenClaw 安装阶段进度，范围 0-100。
+	OpenClawMessage  string             `json:"openClawMessage,omitempty"` // OpenClaw 安装阶段说明。
+	Log              []string           `json:"log"`                       // 任务日志列表。
+	Error            string             `json:"error,omitempty"`           // 任务失败时的错误信息。
+	CreatedAt        time.Time          `json:"createdAt"`                 // 任务创建时间。
+	UpdatedAt        time.Time          `json:"updatedAt"`                 // 任务最近更新时间。
+	cancel           context.CancelFunc // 任务取消函数。
+	cmd              *exec.Cmd          // 当前正在执行的命令。
+	mu               sync.Mutex         // 保护任务可变字段的互斥锁。
 }
 
 // Broadcaster 用于向外广播任务事件。
@@ -79,14 +92,20 @@ func (m *Manager) CreateTask(name, taskType string) *Task {
 
 	id := fmt.Sprintf("task-%d", time.Now().UnixMilli())
 	task := &Task{
-		ID:        id,
-		Name:      name,
-		Type:      taskType,
-		Status:    StatusPending,
-		Progress:  0,
-		Log:       []string{},
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		ID:               id,
+		Name:             name,
+		Type:             taskType,
+		Status:           StatusPending,
+		Paused:           false,
+		Progress:         0,
+		Stage:            "",
+		NodeProgress:     0,
+		NodeMessage:      "",
+		OpenClawProgress: 0,
+		OpenClawMessage:  "",
+		Log:              []string{},
+		CreatedAt:        time.Now(),
+		UpdatedAt:        time.Now(),
 	}
 	m.tasks[id] = task
 	m.logger.Info("创建任务", "task_id", task.ID, "task_name", task.Name, "task_type", task.Type)
@@ -159,6 +178,54 @@ func (t *Task) SetProgress(p int) {
 	t.UpdatedAt = time.Now()
 }
 
+// BindCommand 绑定当前执行命令与取消函数。
+func (t *Task) BindCommand(cmd *exec.Cmd, cancel context.CancelFunc) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.cmd = cmd
+	t.cancel = cancel
+	t.Paused = false
+	t.UpdatedAt = time.Now()
+}
+
+// ClearCommand 清理当前执行命令上下文。
+func (t *Task) ClearCommand() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.cmd = nil
+	t.cancel = nil
+	t.Paused = false
+	t.UpdatedAt = time.Now()
+}
+
+// MarkPaused 更新暂停状态。
+func (t *Task) MarkPaused(paused bool) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.Paused = paused
+	t.UpdatedAt = time.Now()
+}
+
+// SetStageProgress 设置安装阶段进度与说明。
+func (t *Task) SetStageProgress(stage string, progress int, message string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.Stage = stage
+	switch stage {
+	case "node":
+		t.NodeProgress = progress
+		t.NodeMessage = message
+	case "openclaw", "done":
+		t.OpenClawProgress = progress
+		t.OpenClawMessage = message
+	}
+	t.UpdatedAt = time.Now()
+}
+
 // SetStatus 设置状态
 func (t *Task) SetStatus(s TaskStatus) {
 	t.mu.Lock()
@@ -168,50 +235,58 @@ func (t *Task) SetStatus(s TaskStatus) {
 	t.UpdatedAt = time.Now()
 }
 
+// Snapshot 返回任务状态快照，避免外部直接读取内部运行字段。
+func (t *Task) Snapshot() Task {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	return Task{
+		ID:               t.ID,
+		Name:             t.Name,
+		Type:             t.Type,
+		Status:           t.Status,
+		Paused:           t.Paused,
+		Progress:         t.Progress,
+		Stage:            t.Stage,
+		NodeProgress:     t.NodeProgress,
+		NodeMessage:      t.NodeMessage,
+		OpenClawProgress: t.OpenClawProgress,
+		OpenClawMessage:  t.OpenClawMessage,
+		Log:              append([]string(nil), t.Log...),
+		Error:            t.Error,
+		CreatedAt:        t.CreatedAt,
+		UpdatedAt:        t.UpdatedAt,
+	}
+}
+
+// IsCanceled 判断任务是否已取消。
+func (t *Task) IsCanceled() bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.Status == StatusCanceled
+}
+
+// currentCommand 返回当前命令与取消函数快照。
+func (t *Task) currentCommand() (*exec.Cmd, context.CancelFunc, bool) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.cmd, t.cancel, t.Paused
+}
+
 // RunCommand 运行命令并实时推送输出
 func (m *Manager) RunCommand(task *Task, name string, args ...string) error {
+	if task.IsCanceled() {
+		return ErrTaskCanceled
+	}
 	m.logger.Info("开始执行任务命令", "task_id", task.ID, "task_type", task.Type, "command", name, "args", args)
 	task.SetStatus(StatusRunning)
+	task.MarkPaused(false)
 	m.broadcastTaskUpdate(task)
 
-	cmd := exec.Command(name, args...)
-	env := cmd.Environ()
-
-	if runtime.GOOS == "windows" {
-		if os.Getenv("USERPROFILE") == "" {
-			if home, err := os.UserHomeDir(); err == nil && home != "" {
-				m.logger.Debug("检测到 USERPROFILE 缺失，使用用户目录补齐", "task_id", task.ID, "home", home)
-				env = append(env, "USERPROFILE="+home)
-			}
-		}
-	} else {
-		home := os.Getenv("HOME")
-		if home == "" {
-			home, _ = os.UserHomeDir()
-		}
-		if home == "" {
-			if runtime.GOOS == "darwin" {
-				home = "/var/root"
-			} else {
-				home = "/root"
-			}
-		}
-		if os.Getenv("HOME") == "" && home != "" {
-			m.logger.Debug("检测到 HOME 缺失，使用回退目录补齐", "task_id", task.ID, "home", home)
-			env = append(env, "HOME="+home)
-		}
-	}
-
-	if os.Getenv("PATH") == "" {
-		m.logger.Warn("检测到 PATH 缺失，使用默认 PATH 兜底", "task_id", task.ID, "os", runtime.GOOS)
-		if runtime.GOOS == "windows" {
-			env = append(env, "PATH=C:\\Windows\\System32;C:\\Windows;C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\")
-		} else {
-			env = append(env, "PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin")
-		}
-	}
-
-	env = append(env,
+	ctx, cancel := context.WithCancel(context.Background())
+	cmd := exec.CommandContext(ctx, name, args...)
+	configureTaskCommand(cmd)
+	env := append(clawprocess.BuildExecEnv(),
 		"DEBIAN_FRONTEND=noninteractive",
 		"LANG=en_US.UTF-8",
 	)
@@ -226,9 +301,12 @@ func (m *Manager) RunCommand(task *Task, name string, args ...string) error {
 	cmd.Stderr = cmd.Stdout // merge stderr into stdout
 
 	if err := cmd.Start(); err != nil {
+		cancel()
 		m.logger.Error("启动命令失败", "task_id", task.ID, "command", name, "error", err)
 		return fmt.Errorf("启动命令失败: %w", err)
 	}
+	task.BindCommand(cmd, cancel)
+	defer task.ClearCommand()
 
 	scanner := bufio.NewScanner(stdout)
 	scanner.Buffer(make([]byte, 1024*64), 1024*64)
@@ -238,11 +316,19 @@ func (m *Manager) RunCommand(task *Task, name string, args ...string) error {
 		m.broadcastTaskLog(task, line)
 	}
 	if err := scanner.Err(); err != nil {
+		if task.IsCanceled() || errors.Is(ctx.Err(), context.Canceled) {
+			m.logger.Warn("命令读取因任务取消而结束", "task_id", task.ID, "command", name)
+			return ErrTaskCanceled
+		}
 		m.logger.Error("读取命令输出失败", "task_id", task.ID, "command", name, "error", err)
 		return fmt.Errorf("读取命令输出失败: %w", err)
 	}
 
 	if err := cmd.Wait(); err != nil {
+		if task.IsCanceled() || errors.Is(ctx.Err(), context.Canceled) {
+			m.logger.Warn("命令因任务取消而终止", "task_id", task.ID, "command", name)
+			return ErrTaskCanceled
+		}
 		m.logger.Error("命令执行失败", "task_id", task.ID, "command", name, "error", err)
 		return fmt.Errorf("命令执行失败: %w", err)
 	}
@@ -291,6 +377,86 @@ func (m *Manager) RunScriptWithSudo(task *Task, sudoPass, script string) error {
 	return m.RunCommand(task, "bash", "-c", fullScript)
 }
 
+// PauseTask 暂停正在执行的任务。
+func (m *Manager) PauseTask(id string) error {
+	task := m.GetTask(strings.TrimSpace(id))
+	if task == nil {
+		return fmt.Errorf("任务不存在")
+	}
+
+	cmd, _, paused := task.currentCommand()
+	if cmd == nil || cmd.Process == nil {
+		return fmt.Errorf("当前任务没有可暂停的下载进程")
+	}
+	if paused {
+		return fmt.Errorf("任务已暂停")
+	}
+	if err := pauseProcess(cmd); err != nil {
+		return fmt.Errorf("暂停任务失败: %w", err)
+	}
+
+	task.MarkPaused(true)
+	task.SetStatus(StatusPaused)
+	task.AppendLog("⏸️ 已暂停当前下载")
+	m.broadcastTaskUpdate(task)
+	m.logger.Info("任务已暂停", "task_id", task.ID, "task_type", task.Type)
+	return nil
+}
+
+// ResumeTask 恢复已暂停的任务。
+func (m *Manager) ResumeTask(id string) error {
+	task := m.GetTask(strings.TrimSpace(id))
+	if task == nil {
+		return fmt.Errorf("任务不存在")
+	}
+
+	cmd, _, paused := task.currentCommand()
+	if cmd == nil || cmd.Process == nil {
+		return fmt.Errorf("当前任务没有可恢复的下载进程")
+	}
+	if !paused {
+		return fmt.Errorf("任务当前未暂停")
+	}
+	if err := resumeProcess(cmd); err != nil {
+		return fmt.Errorf("恢复任务失败: %w", err)
+	}
+
+	task.MarkPaused(false)
+	task.SetStatus(StatusRunning)
+	task.AppendLog("▶️ 已恢复当前下载")
+	m.broadcastTaskUpdate(task)
+	m.logger.Info("任务已恢复", "task_id", task.ID, "task_type", task.Type)
+	return nil
+}
+
+// CancelTask 取消正在执行的任务。
+func (m *Manager) CancelTask(id string) error {
+	task := m.GetTask(strings.TrimSpace(id))
+	if task == nil {
+		return fmt.Errorf("任务不存在")
+	}
+
+	cmd, cancel, _ := task.currentCommand()
+	if cancel == nil && (cmd == nil || task.Status != StatusPending) {
+		return fmt.Errorf("当前任务不可取消")
+	}
+
+	task.SetStatus(StatusCanceled)
+	task.MarkPaused(false)
+	task.AppendLog("🛑 用户取消了当前任务")
+	if cancel != nil {
+		cancel()
+	}
+	if cmd != nil {
+		if err := terminateProcess(cmd); err != nil {
+			m.logger.Warn("终止任务进程失败", "task_id", task.ID, "error", err)
+		}
+	}
+	m.broadcastTaskUpdate(task)
+	m.logger.Info("任务已取消", "task_id", task.ID, "task_type", task.Type)
+	return nil
+}
+
 // broadcastTaskUpdate 广播任务状态更新
 func (m *Manager) broadcastTaskUpdate(task *Task) {
 	if m.hub == nil {
@@ -300,15 +466,21 @@ func (m *Manager) broadcastTaskUpdate(task *Task) {
 	msg := map[string]interface{}{
 		"type": "task_update",
 		"task": map[string]interface{}{
-			"id":        task.ID,
-			"name":      task.Name,
-			"type":      task.Type,
-			"status":    task.Status,
-			"progress":  task.Progress,
-			"error":     task.Error,
-			"createdAt": task.CreatedAt.Format(time.RFC3339),
-			"updatedAt": task.UpdatedAt.Format(time.RFC3339),
-			"logCount":  len(task.Log),
+			"id":               task.ID,
+			"name":             task.Name,
+			"type":             task.Type,
+			"status":           task.Status,
+			"paused":           task.Paused,
+			"progress":         task.Progress,
+			"stage":            task.Stage,
+			"nodeProgress":     task.NodeProgress,
+			"nodeMessage":      task.NodeMessage,
+			"openClawProgress": task.OpenClawProgress,
+			"openClawMessage":  task.OpenClawMessage,
+			"error":            task.Error,
+			"createdAt":        task.CreatedAt.Format(time.RFC3339),
+			"updatedAt":        task.UpdatedAt.Format(time.RFC3339),
+			"logCount":         len(task.Log),
 		},
 	}
 	task.mu.Unlock()
@@ -341,7 +513,12 @@ func (m *Manager) broadcastTaskLog(task *Task, line string) {
 
 // FinishTask 完成任务
 func (m *Manager) FinishTask(task *Task, err error) {
-	if err != nil {
+	if errors.Is(err, ErrTaskCanceled) || task.IsCanceled() {
+		task.SetStatus(StatusCanceled)
+		task.MarkPaused(false)
+		task.AppendLog("🛑 已取消")
+		m.logger.Warn("任务已取消结束", "task_id", task.ID, "task_type", task.Type)
+	} else if err != nil {
 		task.SetStatus(StatusFailed)
 		task.mu.Lock()
 		task.Error = err.Error()
@@ -350,6 +527,7 @@ func (m *Manager) FinishTask(task *Task, err error) {
 		m.logger.Error("任务执行失败", "task_id", task.ID, "task_type", task.Type, "error", err)
 	} else {
 		task.SetStatus(StatusSuccess)
+		task.MarkPaused(false)
 		task.SetProgress(100)
 		task.AppendLog("✅ 完成")
 		m.logger.Info("任务执行完成", "task_id", task.ID, "task_type", task.Type)

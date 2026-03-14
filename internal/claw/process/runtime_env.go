@@ -47,13 +47,43 @@ func BuildAugmentedPath(currentPath string) string {
 
 // DetectOpenClawBinaryPath 检测 openclaw 可执行文件路径。
 func DetectOpenClawBinaryPath() string {
-	if p, err := exec.LookPath("openclaw"); err == nil && p != "" {
+	return detectRuntimeBinaryPath("openclaw", "openclaw.cmd", []string{
+		"/usr/local/bin/openclaw",
+		"/usr/bin/openclaw",
+		"/snap/bin/openclaw",
+		"/opt/homebrew/bin/openclaw",
+	})
+}
+
+// DetectNodeBinaryPath 检测 node 可执行文件路径。
+func DetectNodeBinaryPath() string {
+	return detectRuntimeBinaryPath("node", "node.exe", []string{
+		"/usr/local/bin/node",
+		"/usr/bin/node",
+		"/snap/bin/node",
+		"/opt/homebrew/bin/node",
+	})
+}
+
+// DetectNpmBinaryPath 检测 npm 可执行文件路径。
+func DetectNpmBinaryPath() string {
+	return detectRuntimeBinaryPath("npm", "npm.cmd", []string{
+		"/usr/local/bin/npm",
+		"/usr/bin/npm",
+		"/snap/bin/npm",
+		"/opt/homebrew/bin/npm",
+	})
+}
+
+// detectRuntimeBinaryPath 结合扩展 PATH 与常见目录检测运行时命令。
+func detectRuntimeBinaryPath(commandName, windowsCommandName string, unixCandidates []string) string {
+	if p, err := exec.LookPath(commandName); err == nil && p != "" {
 		return p
 	}
 
-	exeName := "openclaw"
+	exeName := commandName
 	if runtime.GOOS == "windows" {
-		exeName = "openclaw.cmd"
+		exeName = windowsCommandName
 	}
 
 	var candidates []string
@@ -65,11 +95,12 @@ func DetectOpenClawBinaryPath() string {
 	}
 	if runtime.GOOS == "windows" {
 		candidates = append(candidates,
-			filepath.Join(home, "AppData", "Roaming", "npm", "openclaw.cmd"),
-			`C:\Program Files\nodejs\openclaw.cmd`,
+			filepath.Join(home, "AppData", "Roaming", "npm", exeName),
+			filepath.Join(home, ".local", "bin", exeName),
+			filepath.Join(`C:\Program Files\nodejs`, exeName),
 		)
 	} else {
-		candidates = append(candidates, "/usr/local/bin/openclaw", "/usr/bin/openclaw", "/snap/bin/openclaw")
+		candidates = append(candidates, unixCandidates...)
 	}
 
 	for _, c := range dedupeNonEmpty(candidates) {

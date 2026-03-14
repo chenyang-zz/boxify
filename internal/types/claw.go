@@ -36,10 +36,18 @@ type ClawStatusResult struct {
 // ClawOpenClawCheckResult OpenClaw 安装与配置检查结果。
 type ClawOpenClawCheckResult struct {
 	BaseResult
-	Installed  bool   `json:"installed"`            // 是否检测到 openclaw 可执行文件
-	Configured bool   `json:"configured"`           // 是否检测到可读 openclaw.json
-	BinaryPath string `json:"binaryPath,omitempty"` // openclaw 可执行文件路径
-	ConfigPath string `json:"configPath,omitempty"` // openclaw.json 路径
+	Installed            bool   `json:"installed"`                 // 是否检测到 openclaw 可执行文件
+	Configured           bool   `json:"configured"`                // 是否检测到可读 openclaw.json
+	BinaryPath           string `json:"binaryPath,omitempty"`      // openclaw 可执行文件路径
+	ConfigPath           string `json:"configPath,omitempty"`      // openclaw.json 路径
+	NodeInstalled        bool   `json:"nodeInstalled"`             // 是否检测到 node 可执行文件
+	NodeVersionSatisfied bool   `json:"nodeVersionSatisfied"`      // Node 版本是否满足 OpenClaw 最低要求
+	NodePath             string `json:"nodePath,omitempty"`        // node 可执行文件路径
+	NodeVersion          string `json:"nodeVersion,omitempty"`     // node 版本号
+	NpmInstalled         bool   `json:"npmInstalled"`              // 是否检测到 npm 可执行文件
+	NpmPath              string `json:"npmPath,omitempty"`         // npm 可执行文件路径
+	AutoInstallSupported bool   `json:"autoInstallSupported"`      // 当前环境是否支持自动安装
+	AutoInstallHint      string `json:"autoInstallHint,omitempty"` // 自动安装受限时的提示
 }
 
 // ClawOverviewChannel 概览页通道卡片数据。
