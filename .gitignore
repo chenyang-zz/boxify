@@ -8,6 +8,7 @@ frontend/release/
 **/build/
 !/build/
 !/build/**
+.pnpm-store
 
 # wails / node artifacts (按需)
 node_modules/
