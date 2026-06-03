@@ -31,3 +31,6 @@ coverage.out
 # 忽略构建产物
 .task/
 bin/
+
+frontend/bindings
+.gitnexus
