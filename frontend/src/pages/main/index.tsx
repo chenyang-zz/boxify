@@ -39,7 +39,7 @@ function MainApp() {
               </>
             )}
             <ResizablePanel>
-              {activeView === "control" ? <ClawContent /> : <Tabs />}
+              {activeView === "boxclaw" ? <ClawContent /> : <Tabs />}
             </ResizablePanel>
           </ResizablePanelGroup>
         </main>

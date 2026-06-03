@@ -13,10 +13,23 @@
 // limitations under the License.
 
 import { FC } from "react";
+import { Monitor } from "lucide-react";
 import { useActiveView } from "./store";
 import { NavigationTabs } from "./components/NavigationTabs";
 import { FileTreeView } from "./components/FileTreeView";
 import { ClawMenu } from "./components/ClawMenu";
+
+/**
+ * Computer 视图占位组件
+ */
+const ComputerView: FC = () => {
+  return (
+    <div className="h-full w-full flex flex-col items-center justify-center text-muted-foreground">
+      <Monitor className="size-12 mb-3 opacity-40" />
+      <span className="text-sm">Computer</span>
+    </div>
+  );
+};
 
 /**
  * Sidebar 核心渲染组件
@@ -28,8 +41,9 @@ export const SidebarCore: FC = () => {
   return (
     <>
       <NavigationTabs />
-      {activeView === "files" && <FileTreeView />}
-      {activeView === "control" && <ClawMenu />}
+      {activeView === "tools" && <FileTreeView />}
+      {activeView === "boxclaw" && <ClawMenu />}
+      {activeView === "computer" && <ComputerView />}
     </>
   );
 };

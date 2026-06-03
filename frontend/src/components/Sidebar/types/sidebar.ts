@@ -17,7 +17,7 @@ import type { FC } from "react";
 /**
  * Sidebar 视图类型
  */
-export type SidebarView = "files" | "control";
+export type SidebarView = "tools" | "boxclaw" | "computer";
 
 /**
  * 菜单项接口

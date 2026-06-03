@@ -46,7 +46,7 @@ interface SidebarStore {
  * 初始状态
  */
 const initialState = {
-  activeView: "files" as SidebarView,
+  activeView: "tools" as SidebarView,
   selectedMenuItem: DEFAULT_SELECTED_ITEM,
   expandedCategories: DEFAULT_EXPANDED_CATEGORIES,
 };
