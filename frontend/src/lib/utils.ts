@@ -7,6 +7,19 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+const FILE_SIZE_UNITS = ["B", "KB", "MB", "GB", "TB"];
+
+/**
+ * 将字节数格式化为人类可读的文件大小字符串。
+ */
+export function formatFileSize(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const k = 1024;
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  const value = bytes / Math.pow(k, i);
+  return `${value.toFixed(i === 0 ? 0 : 1)} ${FILE_SIZE_UNITS[i]}`;
+}
+
 interface BaseResult {
   success: boolean;
   message: string;

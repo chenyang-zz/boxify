@@ -279,3 +279,29 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background-color: var(--secondary);
 }
+
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Composer shadow token */
+.shadow-composer {
+  box-shadow:
+    0 18px 46px hsl(0 0% 0% / 0.1),
+    0 5px 16px hsl(0 0% 0% / 0.06);
+}
+.dark .shadow-composer {
+  box-shadow:
+    0 28px 78px hsl(0 0% 0% / 0.45),
+    0 0 0 1px hsl(0 0% 100% / 0.06);
+}
+
+/* Chat column adaptive inset */
+.chat-column-inset {
+  padding-inline: clamp(0.75rem, calc((100% - 48rem) / 2 + 1rem), 2rem);
+}
