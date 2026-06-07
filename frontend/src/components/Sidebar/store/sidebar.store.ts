@@ -14,10 +14,7 @@
 
 import { create } from "zustand";
 import type { SidebarView } from "../types";
-import {
-  DEFAULT_EXPANDED_CATEGORIES,
-  DEFAULT_SELECTED_ITEM,
-} from "../domain";
+import { DEFAULT_EXPANDED_CATEGORIES, DEFAULT_SELECTED_ITEM } from "../domain";
 import {
   selectActiveView,
   selectSelectedMenuItem,
@@ -46,7 +43,7 @@ interface SidebarStore {
  * 初始状态
  */
 const initialState = {
-  activeView: "tools" as SidebarView,
+  activeView: "computer" as SidebarView,
   selectedMenuItem: DEFAULT_SELECTED_ITEM,
   expandedCategories: DEFAULT_EXPANDED_CATEGORIES,
 };
