@@ -13,7 +13,8 @@
 // limitations under the License.
 
 import { FC, useState } from "react";
-import { Settings, Languages, Wrench, LayoutGrid } from "lucide-react";
+import { Settings } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -24,7 +25,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Separator } from "@/components/ui/separator";
+import { CommonSetting } from "./CommonSetting";
+import { LLMSetting } from "./LLMSetting";
+import { A2ASetting } from "./A2ASetting";
+import { MCPSetting } from "./MCPSetting";
 
 /**
  * 设置选项卡类型
@@ -36,13 +40,12 @@ type SettingTab = "common-setting" | "llm-setting" | "a2a-setting" | "mcp-settin
  */
 const SETTING_MENUS: Array<{
   key: SettingTab;
-  icon: React.ComponentType<{ className?: string }>;
   title: string;
 }> = [
-  { key: "common-setting", icon: Settings, title: "通用配置" },
-  { key: "llm-setting", icon: Languages, title: "模型提供商" },
-  { key: "a2a-setting", icon: LayoutGrid, title: "A2A Agent 配置" },
-  { key: "mcp-setting", icon: Wrench, title: "MCP 服务器" },
+  { key: "common-setting", title: "通用配置" },
+  { key: "llm-setting", title: "模型提供商" },
+  { key: "a2a-setting", title: "A2A Agent" },
+  { key: "mcp-setting", title: "MCP 服务器" },
 ];
 
 /**
@@ -62,47 +65,56 @@ export const ComputerSettings: FC = () => {
       </DialogTrigger>
 
       {/* 弹窗内容 */}
-      <DialogContent className="!max-w-[850px] p-0 gap-0 overflow-hidden">
+      <DialogContent className="!max-w-[850px] p-0 gap-0 overflow-hidden rounded-2xl border shadow-2xl">
         {/* 头部 */}
-        <DialogHeader className="px-6 py-4 border-b border-border">
-          <DialogTitle>设置</DialogTitle>
-          <DialogDescription>管理您的 Computer 配置。</DialogDescription>
+        <DialogHeader className="px-6 py-5 !text-left border-b border-border">
+          <DialogTitle className="text-xl">设置</DialogTitle>
+          <DialogDescription className="text-muted-foreground/70">
+            管理您的 Computer 配置。
+          </DialogDescription>
         </DialogHeader>
 
-        {/* 中间主体 */}
-        <div className="flex flex-row min-h-[400px]">
+        {/* 中间主体 — 固定高度，右侧内部滚动 */}
+        <div className="flex flex-row h-[500px]">
           {/* 左侧导航菜单 */}
-          <div className="w-[180px] p-3 shrink-0">
-            <div className="flex flex-col gap-1">
+          <div className="w-[200px] p-3 shrink-0 overflow-y-auto bg-muted/40 border-r border-border">
+            <div className="flex flex-col gap-0.5">
               {SETTING_MENUS.map((menu) => (
-                <Button
+                <button
                   key={menu.key}
-                  variant={activeSetting === menu.key ? "default" : "ghost"}
-                  className="w-full cursor-pointer justify-start gap-2"
+                  className={cn(
+                    "w-full text-left cursor-pointer px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                    activeSetting === menu.key
+                      ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/60",
+                  )}
                   onClick={() => setActiveSetting(menu.key)}
                 >
-                  <menu.icon className="size-4" />
                   {menu.title}
-                </Button>
+                </button>
               ))}
             </div>
           </div>
 
-          {/* 分隔符 */}
-          <Separator orientation="vertical" />
-
           {/* 右侧内容区域 */}
-          <div className="flex-1 p-6 overflow-y-auto">
-            {/* TODO: 根据 activeSetting 渲染不同内容 */}
+          <div className="flex-1 p-6 overflow-y-auto bg-background">
+            {activeSetting === "common-setting" && <CommonSetting />}
+            {activeSetting === "llm-setting" && <LLMSetting />}
+            {activeSetting === "a2a-setting" && <A2ASetting />}
+            {activeSetting === "mcp-setting" && <MCPSetting />}
           </div>
         </div>
 
         {/* 底部 */}
-        <DialogFooter className="px-6 py-4 border-t border-border">
-          <Button variant="outline" className="cursor-pointer" onClick={() => setOpen(false)}>
+        <DialogFooter className="px-6 py-4 border-t border-border/50">
+          <Button
+            variant="ghost"
+            className="cursor-pointer text-muted-foreground hover:text-foreground"
+            onClick={() => setOpen(false)}
+          >
             取消
           </Button>
-          <Button className="cursor-pointer">保存</Button>
+          <Button className="cursor-pointer px-6">保存</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
