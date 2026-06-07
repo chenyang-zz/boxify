@@ -11,6 +11,7 @@ import { useAppStore } from "@/store/app.store";
 import Tabs from "@/components/Tabs";
 import Sidebar, { useActiveView } from "@/components/Sidebar";
 import ClawContent from "@/components/ClawContent";
+import ComputerContent from "@/components/ComputerContent";
 
 function MainApp() {
   const isOpen = useAppStore(useShallow((state) => state.isPropertyOpen));
@@ -39,7 +40,13 @@ function MainApp() {
               </>
             )}
             <ResizablePanel>
-              {activeView === "boxclaw" ? <ClawContent /> : <Tabs />}
+              {activeView === "boxclaw" ? (
+                <ClawContent />
+              ) : activeView === "computer" ? (
+                <ComputerContent />
+              ) : (
+                <Tabs />
+              )}
             </ResizablePanel>
           </ResizablePanelGroup>
         </main>
