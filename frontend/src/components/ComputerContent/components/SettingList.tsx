@@ -48,7 +48,7 @@ export const SettingList: FC<SettingListProps> = ({
 
   if (empty) {
     return (
-      <div className="bg-muted rounded-xl p-8 text-center">
+      <div className="bg-card rounded-xl p-8 text-center border border-border">
         <p className="text-sm font-medium text-foreground">{emptyText}</p>
         {emptyDescription && (
           <p className="text-sm text-muted-foreground mt-1">{emptyDescription}</p>

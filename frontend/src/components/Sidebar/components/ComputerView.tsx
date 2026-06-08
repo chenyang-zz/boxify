@@ -29,6 +29,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
 
 /**
  * 会话数据接口
@@ -123,15 +124,14 @@ const SessionItem: FC<SessionItemProps> = ({
 
   const description = session.latest_message || "暂无消息";
   const dateLabel = formatRelativeDate(session.latest_message_at);
-  const isRunning = session.status === "running" || session.status === "waiting";
+  const isRunning =
+    session.status === "running" || session.status === "waiting";
 
   return (
     <div
       className={cn(
         "group/item flex items-center gap-2 p-2 rounded-md cursor-pointer transition-colors",
-        isActive
-          ? "bg-card shadow-sm"
-          : "hover:bg-accent/50",
+        isActive ? "bg-card shadow-sm" : "hover:bg-accent/50",
       )}
       onClick={handleClick}
     >
@@ -146,8 +146,12 @@ const SessionItem: FC<SessionItemProps> = ({
 
       {/* 中间内容 */}
       <div className="flex-1 flex flex-col gap-0 min-w-0">
-        <p className="text-sm font-medium truncate text-left">{session.title || "新任务"}</p>
-        <p className="text-xs text-muted-foreground truncate text-left">{description}</p>
+        <p className="text-sm font-medium truncate text-left">
+          {session.title || "新任务"}
+        </p>
+        <p className="text-xs text-muted-foreground truncate text-left">
+          {description}
+        </p>
       </div>
 
       {/* 右侧操作区 */}
@@ -218,10 +222,10 @@ export const ComputerView: FC = () => {
             新建任务
           </span>
           <span className="flex items-center gap-0.5 ml-2">
-            <kbd className="inline-flex items-center justify-center rounded border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+            <kbd className="inline-flex items-center justify-center rounded  bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
               ⌘
             </kbd>
-            <kbd className="inline-flex items-center justify-center rounded border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+            <kbd className="inline-flex items-center justify-center rounded  bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
               K
             </kbd>
           </span>

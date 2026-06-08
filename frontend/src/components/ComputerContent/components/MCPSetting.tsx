@@ -68,7 +68,9 @@ const MCPServerCard: FC<{
   <div className="bg-muted rounded-xl p-4 flex flex-col gap-2">
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
-        <span className="text-sm font-medium text-foreground">{server.server_name}</span>
+        <span className="text-sm font-medium text-foreground">
+          {server.server_name}
+        </span>
         <Badge variant="secondary">{server.transport}</Badge>
         {!server.enabled && <Badge>禁用</Badge>}
       </div>
@@ -151,7 +153,7 @@ const MCPAddDialog: FC<{
               placeholder={MCP_CONFIG_PLACEHOLDER}
               value={config}
               onChange={(e) => setConfig(e.target.value)}
-              className="min-h-[200px] font-mono text-xs"
+              className="min-h-50 font-mono text-xs"
               disabled={adding}
             />
           </div>

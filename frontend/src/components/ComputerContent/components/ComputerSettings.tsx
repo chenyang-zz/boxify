@@ -33,7 +33,11 @@ import { MCPSetting } from "./MCPSetting";
 /**
  * 设置选项卡类型
  */
-type SettingTab = "common-setting" | "llm-setting" | "a2a-setting" | "mcp-setting";
+type SettingTab =
+  | "common-setting"
+  | "llm-setting"
+  | "a2a-setting"
+  | "mcp-setting";
 
 /**
  * 设置菜单配置
@@ -53,7 +57,8 @@ const SETTING_MENUS: Array<{
  */
 export const ComputerSettings: FC = () => {
   const [open, setOpen] = useState(false);
-  const [activeSetting, setActiveSetting] = useState<SettingTab>("common-setting");
+  const [activeSetting, setActiveSetting] =
+    useState<SettingTab>("common-setting");
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -65,39 +70,39 @@ export const ComputerSettings: FC = () => {
       </DialogTrigger>
 
       {/* 弹窗内容 */}
-      <DialogContent className="!max-w-[850px] p-0 gap-0 overflow-hidden rounded-2xl border shadow-2xl">
+      <DialogContent className="max-w-212.5! p-0 gap-0 overflow-hidden rounded-2xl border">
         {/* 头部 */}
-        <DialogHeader className="px-6 py-5 !text-left border-b border-border">
+        <DialogHeader className="px-6 py-5 text-left! border-b">
           <DialogTitle className="text-xl">设置</DialogTitle>
-          <DialogDescription className="text-muted-foreground/70">
-            管理您的 Computer 配置。
-          </DialogDescription>
+          <DialogDescription>管理您的 Computer 配置。</DialogDescription>
         </DialogHeader>
 
         {/* 中间主体 — 固定高度，右侧内部滚动 */}
-        <div className="flex flex-row h-[500px]">
+        <div className="flex flex-row h-125">
           {/* 左侧导航菜单 */}
-          <div className="w-[200px] p-3 shrink-0 overflow-y-auto bg-muted/40 border-r border-border">
-            <div className="flex flex-col gap-0.5">
+          <div className="w-50 p-3 shrink-0 overflow-y-auto border-r bg-sidebar">
+            <div className="flex flex-col gap-1">
               {SETTING_MENUS.map((menu) => (
-                <button
+                <Button
                   key={menu.key}
+                  variant={activeSetting === menu.key ? "secondary" : "ghost"}
+                  size="sm"
                   className={cn(
-                    "w-full text-left cursor-pointer px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                    "w-full justify-start cursor-pointer text-sm font-medium transition-colors",
                     activeSetting === menu.key
                       ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/60",
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent hover:text-accent-foreground",
                   )}
                   onClick={() => setActiveSetting(menu.key)}
                 >
                   {menu.title}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
 
           {/* 右侧内容区域 */}
-          <div className="flex-1 p-6 overflow-y-auto bg-background">
+          <div className="flex-1 p-6 overflow-y-auto">
             {activeSetting === "common-setting" && <CommonSetting />}
             {activeSetting === "llm-setting" && <LLMSetting />}
             {activeSetting === "a2a-setting" && <A2ASetting />}
@@ -106,10 +111,10 @@ export const ComputerSettings: FC = () => {
         </div>
 
         {/* 底部 */}
-        <DialogFooter className="px-6 py-4 border-t border-border/50">
+        <DialogFooter className="px-6 py-4 border-t">
           <Button
-            variant="ghost"
-            className="cursor-pointer text-muted-foreground hover:text-foreground"
+            variant="outline"
+            className="cursor-pointer text-foreground"
             onClick={() => setOpen(false)}
           >
             取消

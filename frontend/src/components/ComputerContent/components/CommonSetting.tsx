@@ -56,7 +56,7 @@ export const CommonSetting: FC<CommonSettingProps> = ({
       </p>
 
       {/* 配置卡片 */}
-      <div className="bg-muted rounded-xl p-5 space-y-6">
+      <div className="bg-card rounded-xl p-5 space-y-6 border border-border">
         <SettingField
           id="max_iterations"
           label="最大计划迭代次数"

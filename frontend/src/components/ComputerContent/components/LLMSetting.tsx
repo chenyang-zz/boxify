@@ -66,7 +66,7 @@ export const LLMSetting: FC<LLMSettingProps> = ({
       </p>
 
       {/* 配置卡片 */}
-      <div className="bg-muted rounded-xl p-5 space-y-6">
+      <div className="bg-card rounded-xl p-5 space-y-6 border border-border">
         <SettingField
           id="base_url"
           label="提供商基础地址"

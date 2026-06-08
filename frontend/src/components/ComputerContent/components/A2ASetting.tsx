@@ -64,7 +64,9 @@ const A2AServerCard: FC<{
   <div className="bg-muted rounded-xl p-4 flex flex-col gap-2">
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
-        <span className="text-sm font-medium text-foreground">{server.name}</span>
+        <span className="text-sm font-medium text-foreground">
+          {server.name}
+        </span>
         {!server.enabled && <Badge>禁用</Badge>}
       </div>
       <div className="flex items-center gap-2">
@@ -79,9 +81,7 @@ const A2AServerCard: FC<{
         </Button>
         <Switch
           checked={server.enabled}
-          onCheckedChange={(checked) =>
-            onToggleEnabled?.(server.id, checked)
-          }
+          onCheckedChange={(checked) => onToggleEnabled?.(server.id, checked)}
         />
       </div>
     </div>
@@ -103,9 +103,7 @@ const A2AServerCard: FC<{
       <Badge variant={server.streaming ? "secondary" : "outline"}>
         流式输出: {server.streaming ? "开启" : "关闭"}
       </Badge>
-      <Badge
-        variant={server.push_notifications ? "secondary" : "outline"}
-      >
+      <Badge variant={server.push_notifications ? "secondary" : "outline"}>
         推送通知: {server.push_notifications ? "开启" : "关闭"}
       </Badge>
     </div>
