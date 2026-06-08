@@ -16,6 +16,7 @@ import { FC, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ComputerSettings } from "./components/ComputerSettings";
 import { ChatInput, ChatInputFile, ChatInputRef } from "./components/ChatInput";
+import { SessionHeader } from "./components/SessionHeader";
 
 const SUGGESTIONS = [
   "与最高的建筑相比，埃菲尔铁塔有多高？",
@@ -52,15 +53,11 @@ export const ComputerContentCore: FC = () => {
   };
 
   return (
-    <div className="h-full w-full flex flex-col relative">
-      {/* 顶部工具栏 */}
-      <div className="absolute right-2 top-2 z-10">
-        <ComputerSettings />
-      </div>
-
+    <div className="h-full w-full flex flex-col">
       {hasMessages ? (
-        /* 有消息时：消息列表 + 底部输入框 */
+        /* 有消息时：会话标题 + 消息列表 + 底部输入框 */
         <>
+          <SessionHeader title="新任务" rightSlot={<ComputerSettings />} />
           <div className="flex-1 overflow-y-auto p-4">
             <div className="mx-auto max-w-3xl">
               <p className="text-sm text-muted-foreground">消息列表区域</p>
@@ -81,7 +78,9 @@ export const ComputerContentCore: FC = () => {
           <div className="mx-auto max-w-3xl w-full flex flex-col items-center gap-8">
             {/* 问候语 */}
             <div className="text-center w-full">
-              <h1 className="text-3xl font-bold text-foreground">您想要做什么？</h1>
+              <h1 className="text-3xl font-bold text-foreground">
+                您想要做什么？
+              </h1>
             </div>
 
             {/* 输入框 */}
