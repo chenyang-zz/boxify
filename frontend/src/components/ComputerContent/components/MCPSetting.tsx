@@ -133,7 +133,7 @@ const MCPAddDialog: FC<{
         </Button>
       </DialogTrigger>
       <DialogContent>
-        <DialogHeader className="!text-left">
+        <DialogHeader className="text-left!">
           <DialogTitle>添加新的 MCP 服务器</DialogTitle>
           <DialogDescription>
             使用标准的 JSON MCP 配置来创建新服务器。

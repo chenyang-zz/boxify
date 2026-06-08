@@ -91,7 +91,7 @@ export const ComputerSettings: FC = () => {
                     "w-full justify-start cursor-pointer text-sm font-medium transition-colors",
                     activeSetting === menu.key
                       ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                      : "text-muted-foreground hover:text-foreground hover:bg-accent hover:text-accent-foreground",
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent",
                   )}
                   onClick={() => setActiveSetting(menu.key)}
                 >

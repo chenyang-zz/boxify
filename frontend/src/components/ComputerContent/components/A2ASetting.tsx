@@ -49,12 +49,6 @@ interface A2ASettingProps {
   onAdd?: (baseUrl: string) => Promise<boolean>;
 }
 
-/** A2A 能力标签映射 */
-const A2A_CAPABILITY_LABELS: Record<string, string> = {
-  streaming: "流式输出",
-  push_notifications: "推送通知",
-};
-
 /** 单条 A2A 服务器卡片 */
 const A2AServerCard: FC<{
   server: A2AServerItem;
@@ -138,7 +132,7 @@ const A2AAddDialog: FC<{
         </Button>
       </DialogTrigger>
       <DialogContent>
-        <DialogHeader className="!text-left">
+        <DialogHeader className="text-left!">
           <DialogTitle>添加远程 Agent</DialogTitle>
           <DialogDescription>
             使用标准的 A2A 协议来连接远程 Agent。

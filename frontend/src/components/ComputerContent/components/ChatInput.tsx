@@ -22,14 +22,7 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  ArrowUp,
-  FileText,
-  Loader2,
-  Paperclip,
-  Pause,
-  X,
-} from "lucide-react";
+import { ArrowUp, FileText, Loader2, Paperclip, Pause, X } from "lucide-react";
 import { cn, formatFileSize } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -242,7 +235,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                   className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs font-normal text-secondary-foreground"
                 >
                   <FileText className="size-3.5 text-muted-foreground" />
-                  <span className="max-w-[160px] truncate">{file.name}</span>
+                  <span className="max-w-40 truncate">{file.name}</span>
                   <span className="text-muted-foreground">
                     · {formatFileSize(file.size)}
                   </span>
@@ -271,7 +264,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             placeholder={placeholder}
             disabled={isBusy}
             className={cn(
-              "min-h-[44px] w-full resize-none bg-transparent pb-2.5 text-[14px] text-foreground outline-none placeholder:text-muted-foreground",
+              "min-h-11 w-full resize-none bg-transparent pb-2.5 text-[14px] text-foreground outline-none placeholder:text-muted-foreground",
               "scrollbar-hide disabled:cursor-not-allowed disabled:opacity-60",
             )}
           />
@@ -293,7 +286,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
               onClick={() => fileInputRef.current?.click()}
               disabled={isBusy}
             >
-              <Paperclip className="size-[18px]" />
+              <Paperclip className="size-4.5" />
             </ToolbarIcon>
           </div>
 

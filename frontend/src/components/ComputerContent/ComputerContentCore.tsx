@@ -18,6 +18,10 @@ import { ComputerSettings } from "./components/ComputerSettings";
 import { ChatInput, ChatInputFile, ChatInputRef } from "./components/ChatInput";
 import { SessionHeader } from "./components/SessionHeader";
 import { PlanPanel, PlanStep } from "./components/PlanPanel";
+import {
+  ChatMessage,
+  ChatMessageItem,
+} from "./components/chat";
 
 const SUGGESTIONS = [
   "与最高的建筑相比，埃菲尔铁塔有多高？",
@@ -31,8 +35,27 @@ const SUGGESTIONS = [
  */
 export const ComputerContentCore: FC = () => {
   const [sending, setSending] = useState(false);
-  const [hasMessages, setHasMessages] = useState(false);
+  const [hasMessages, setHasMessages] = useState(true);
   const chatInputRef = useRef<ChatInputRef>(null);
+
+  // Demo 消息数据 — TODO: 接入真实消息数据
+  const messages: ChatMessageItem[] = [
+    {
+      id: "msg-1",
+      kind: "user",
+      data: { message: "帮我分析一下当前项目的代码结构" },
+      createdAt: "2026-06-08T10:00:00Z",
+    },
+    {
+      id: "msg-2",
+      kind: "assistant",
+      data: {
+        message:
+          "好的，我来为您分析项目代码结构。\n\n首先，让我查看项目根目录的文件列表...\n\n项目采用了以下架构：\n1. 前端使用 React + TypeScript + Tailwind CSS\n2. 后端使用 Go + Wails 框架\n3. 组件库使用 shadcn/ui\n\n主要目录结构：\n- frontend/src/components/  UI 组件\n- frontend/src/lib/         工具函数\n- backend/                  Go 后端代码",
+      },
+      createdAt: "2026-06-08T10:00:05Z",
+    },
+  ];
 
   // Demo plan steps — TODO: 接入真实计划数据
   const planSteps: PlanStep[] = [
@@ -67,9 +90,12 @@ export const ComputerContentCore: FC = () => {
         /* 有消息时：会话标题 + 消息列表 + 底部输入框 */
         <>
           <SessionHeader title="新任务" rightSlot={<ComputerSettings />} />
+          {/* 消息列表 */}
           <div className="flex-1 overflow-y-auto p-4">
             <div className="mx-auto max-w-3xl">
-              <p className="text-sm text-muted-foreground">消息列表区域</p>
+              {messages.map((item) => (
+                <ChatMessage key={item.id} item={item} />
+              ))}
             </div>
           </div>
           {/* 计划面板 — 固定在输入框上方 */}
