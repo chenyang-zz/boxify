@@ -95,7 +95,7 @@ export function PlanPanel({
 
           {/* 右侧：进度 + 展开图标 */}
           <div className="flex shrink-0 items-center gap-2">
-            <Badge variant="secondary" className="text-xs font-normal">
+            <Badge className="text-xs font-normal ">
               {completedCount} / {totalCount}
             </Badge>
             <ChevronUp className="size-4 text-muted-foreground" />
@@ -126,7 +126,7 @@ export function PlanPanel({
                 <span className="text-sm font-semibold text-foreground">
                   任务进度
                 </span>
-                <Badge variant="secondary" className="text-xs font-normal">
+                <Badge className="text-xs font-normal">
                   {completedCount} / {totalCount}
                 </Badge>
               </div>

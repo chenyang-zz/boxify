@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { cn, formatRelativeDate } from "@/lib/utils";
+import { AttachmentsMessage, AttachmentFile } from "./AttachmentsMessage";
 
 /**
  * 用户消息数据
@@ -27,7 +28,7 @@ export interface UserMessageProps {
   /** 消息数据 */
   data: UserMessageData;
   /** 附件列表（可选） */
-  attachments?: string[];
+  attachments?: AttachmentFile[];
   /** 创建时间 */
   createdAt?: string;
 }
@@ -44,10 +45,11 @@ export function UserMessage({
   createdAt,
 }: UserMessageProps) {
   const timeLabel = createdAt ? formatRelativeDate(createdAt) : undefined;
+  const hasAttachments = attachments && attachments.length > 0;
 
   return (
     <div
-      className={cn("group flex w-auto flex-col items-end gap-1", className)}
+      className={cn("group flex w-auto flex-col items-end gap-2", className)}
     >
       <div className="relative flex max-w-[90%] flex-col items-end gap-2">
         {/* 时间标签 — hover 时显示 */}
@@ -63,22 +65,15 @@ export function UserMessage({
         )}
 
         {/* 消息气泡 */}
-        <div className="text-foreground flex items-center rounded-lg border bg-card p-3 text-sm shadow-sm">
-          {data.message}
-        </div>
-
-        {/* 附件预览 */}
-        {attachments && attachments.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {attachments.map((file, idx) => (
-              <div
-                key={idx}
-                className="flex items-center gap-1.5 rounded-md border bg-muted px-2 py-1 text-xs text-muted-foreground"
-              >
-                <span className="truncate max-w-30">{file}</span>
-              </div>
-            ))}
+        {data.message && (
+          <div className="text-foreground flex items-center rounded-lg border bg-card p-3 text-sm shadow-sm">
+            {data.message}
           </div>
+        )}
+
+        {/* 附件列表 */}
+        {hasAttachments && (
+          <AttachmentsMessage role="user" files={attachments} />
         )}
       </div>
     </div>

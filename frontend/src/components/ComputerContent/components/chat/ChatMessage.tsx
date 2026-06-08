@@ -15,11 +15,13 @@
 import { cn } from "@/lib/utils";
 import { UserMessage, UserMessageData } from "./UserMessage";
 import { AIMessage, AIMessageData } from "./AIMessage";
+import { StepBlock, StepBlockData } from "./StepBlock";
+import { AttachmentsMessage, AttachmentFile } from "./AttachmentsMessage";
 
 /**
  * 消息类型
  */
-export type ChatMessageKind = "user" | "assistant";
+export type ChatMessageKind = "user" | "assistant" | "step" | "attachments";
 
 /**
  * 统一消息项
@@ -29,10 +31,16 @@ export interface ChatMessageItem {
   id: string;
   /** 消息类型 */
   kind: ChatMessageKind;
-  /** 消息数据 */
-  data: UserMessageData | AIMessageData;
+  /** 消息数据 — user/assistant 使用，step 类型可省略 */
+  data?: UserMessageData | AIMessageData;
+  /** 步骤数据 — step 类型使用 */
+  step?: StepBlockData;
   /** 附件列表（可选，仅 user 类型） */
-  attachments?: string[];
+  attachments?: AttachmentFile[];
+  /** 附件消息专用 — 角色 */
+  role?: "user" | "assistant";
+  /** 附件消息专用 — 文件列表 */
+  files?: AttachmentFile[];
   /** 创建时间 */
   createdAt?: string;
 }
@@ -70,6 +78,25 @@ export function ChatMessage({ className, item }: ChatMessageProps) {
           data={item.data as AIMessageData}
           createdAt={item.createdAt}
         />
+      </div>
+    );
+  }
+
+  if (item.kind === "attachments" && item.files && item.files.length > 0) {
+    return (
+      <div className={cn("mt-4", className)}>
+        <AttachmentsMessage
+          role={item.role ?? "assistant"}
+          files={item.files}
+        />
+      </div>
+    );
+  }
+
+  if (item.kind === "step" && item.step) {
+    return (
+      <div className={cn("mt-3", className)}>
+        <StepBlock stepItem={item.step} />
       </div>
     );
   }

@@ -18,6 +18,7 @@
  * 每种消息类型独立成组件，便于后续扩展：
  * - UserMessage: 人类消息（右对齐气泡）
  * - AIMessage: AI 消息（左对齐，带头像）
+ * - AttachmentsMessage: 附件消息（用户/AI 通用）
  * - ChatMessage: 统一分发器，根据 kind 渲染对应组件
  */
 
@@ -34,8 +35,23 @@ export {
 } from "./AIMessage";
 
 export {
+  AttachmentsMessage,
+  type AttachmentsMessageProps,
+  type AttachmentFile,
+} from "./AttachmentsMessage";
+
+export {
   ChatMessage,
   type ChatMessageProps,
   type ChatMessageItem,
   type ChatMessageKind,
 } from "./ChatMessage";
+
+export {
+  StepBlock,
+  type StepBlockProps,
+  type StepBlockData,
+  type StepData,
+  type ToolEvent,
+  type StepStatus,
+} from "./StepBlock";

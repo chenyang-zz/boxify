@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { useCallback, useState } from "react";
-import { Download, FileText, PanelLeft } from "lucide-react";
+import { Download, FileIcon, FileText, PanelLeft } from "lucide-react";
 import { cn, formatFileSize } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +23,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 
 /**
  * 会话文件描述
@@ -124,7 +130,6 @@ export function SessionHeader({
   const handleFileClick = useCallback(
     (file: SessionFile) => {
       onFileClick?.(file);
-      setOpenState(false);
     },
     [onFileClick, setOpenState],
   );
@@ -146,28 +151,32 @@ export function SessionHeader({
             <FileText className="size-4" />
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
+        <DialogContent className="flex h-100 max-w-lg flex-col px-0">
+          <DialogHeader className="shrink-0 px-6">
             <DialogTitle>此任务中的所有文件</DialogTitle>
           </DialogHeader>
-          <div className="max-h-125 overflow-y-auto flex flex-col gap-1 py-2">
+          <div className="flex flex-1 flex-col gap-1 overflow-y-auto py-2 px-6">
             {uniqueFileList.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                暂无文件
-              </p>
+              <Empty>
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <FileIcon />
+                  </EmptyMedia>
+                  <EmptyTitle>暂无文件</EmptyTitle>
+                </EmptyHeader>
+              </Empty>
             ) : (
               uniqueFileList.map((file) => (
                 <div
                   key={file.id}
                   className={cn(
-                    "flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors",
-                    "hover:bg-muted",
+                    "flex items-center gap-3 p-2 rounded-lg cursor-pointer",
                   )}
                   onClick={() => handleFileClick(file)}
                 >
                   {/* 文件图标 */}
-                  <div className="size-8 rounded-full bg-muted flex items-center justify-center shrink-0">
-                    <FileText className="size-4 text-muted-foreground" />
+                  <div className="size-8 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <FileText className="size-4" />
                   </div>
 
                   {/* 文件信息 */}
@@ -184,8 +193,8 @@ export function SessionHeader({
                   {/* 下载按钮 */}
                   <Button
                     variant="ghost"
-                    size="icon-xs"
-                    className="cursor-pointer shrink-0 text-muted-foreground hover:text-foreground"
+                    size="icon-sm"
+                    className="cursor-pointer shrink-0 "
                     onClick={(e) => handleDownload(file, e)}
                     disabled={downloadingId === file.id}
                     aria-label={`下载 ${file.filename}`}
