@@ -113,7 +113,7 @@ export function SessionHeader({
       if (downloadingId) return;
       setDownloadingId(file.id);
       try {
-        await onDownload?.(file);
+        onDownload?.(file);
       } finally {
         setDownloadingId(null);
       }
@@ -130,20 +130,7 @@ export function SessionHeader({
   );
 
   return (
-    <header className="flex items-center justify-between gap-2 sticky top-0 z-10 flex-shrink-0  bg-background/95 backdrop-blur-sm px-4 py-3">
-      {/* 左侧：侧边栏切换 */}
-      {showSidebarToggle && (
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="cursor-pointer flex-shrink-0 text-muted-foreground hover:text-foreground"
-          onClick={onToggleSidebar}
-        >
-          <PanelLeft className="size-4" />
-        </Button>
-      )}
-
-      {/* 中间：标题 */}
+    <header className="flex items-center justify-between gap-2 sticky top-0 z-10 shrink-0  bg-background/95 backdrop-blur-sm px-4 py-3">
       <div className="text-foreground text-lg font-medium whitespace-nowrap text-ellipsis overflow-hidden flex-1 min-w-0 text-left">
         {title || "未命名任务"}
       </div>
@@ -154,7 +141,7 @@ export function SessionHeader({
           <Button
             variant="ghost"
             size="icon-sm"
-            className="cursor-pointer flex-shrink-0 text-muted-foreground hover:text-foreground"
+            className="cursor-pointer shrink-0 text-muted-foreground"
           >
             <FileText className="size-4" />
           </Button>
@@ -163,7 +150,7 @@ export function SessionHeader({
           <DialogHeader>
             <DialogTitle>此任务中的所有文件</DialogTitle>
           </DialogHeader>
-          <div className="max-h-[500px] overflow-y-auto flex flex-col gap-1 py-2">
+          <div className="max-h-125 overflow-y-auto flex flex-col gap-1 py-2">
             {uniqueFileList.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">
                 暂无文件
@@ -179,7 +166,7 @@ export function SessionHeader({
                   onClick={() => handleFileClick(file)}
                 >
                   {/* 文件图标 */}
-                  <div className="size-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                  <div className="size-8 rounded-full bg-muted flex items-center justify-center shrink-0">
                     <FileText className="size-4 text-muted-foreground" />
                   </div>
 
@@ -198,7 +185,7 @@ export function SessionHeader({
                   <Button
                     variant="ghost"
                     size="icon-xs"
-                    className="cursor-pointer flex-shrink-0 text-muted-foreground hover:text-foreground"
+                    className="cursor-pointer shrink-0 text-muted-foreground hover:text-foreground"
                     onClick={(e) => handleDownload(file, e)}
                     disabled={downloadingId === file.id}
                     aria-label={`下载 ${file.filename}`}

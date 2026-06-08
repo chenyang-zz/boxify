@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { ComputerSettings } from "./components/ComputerSettings";
 import { ChatInput, ChatInputFile, ChatInputRef } from "./components/ChatInput";
 import { SessionHeader } from "./components/SessionHeader";
+import { PlanPanel, PlanStep } from "./components/PlanPanel";
 
 const SUGGESTIONS = [
   "与最高的建筑相比，埃菲尔铁塔有多高？",
@@ -32,6 +33,14 @@ export const ComputerContentCore: FC = () => {
   const [sending, setSending] = useState(false);
   const [hasMessages, setHasMessages] = useState(false);
   const chatInputRef = useRef<ChatInputRef>(null);
+
+  // Demo plan steps — TODO: 接入真实计划数据
+  const planSteps: PlanStep[] = [
+    { id: "1", description: "分析任务需求并制定执行计划", status: "completed" },
+    { id: "2", description: "搜索相关资料和参考文档", status: "completed" },
+    { id: "3", description: "编写核心代码实现", status: "in_progress" },
+    { id: "4", description: "测试并验证结果", status: "pending" },
+  ];
 
   const handleSend = async (message: string, files: ChatInputFile[]) => {
     setSending(true);
@@ -63,7 +72,11 @@ export const ComputerContentCore: FC = () => {
               <p className="text-sm text-muted-foreground">消息列表区域</p>
             </div>
           </div>
-          <div className="shrink-0 p-4 chat-column-inset">
+          {/* 计划面板 — 固定在输入框上方 */}
+          <div className="shrink-0 px-4 pb-2 chat-column-inset">
+            <PlanPanel steps={planSteps} />
+          </div>
+          <div className="shrink-0 p-4 pt-2 chat-column-inset">
             <ChatInput
               ref={chatInputRef}
               placeholder="分配一个任务或提问任何问题…"

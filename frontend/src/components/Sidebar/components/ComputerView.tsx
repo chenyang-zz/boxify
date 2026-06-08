@@ -30,6 +30,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { Kbd } from "@/components/ui/kbd";
 
 /**
  * 会话数据接口
@@ -222,12 +223,8 @@ export const ComputerView: FC = () => {
             新建任务
           </span>
           <span className="flex items-center gap-0.5 ml-2">
-            <kbd className="inline-flex items-center justify-center rounded  bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-              ⌘
-            </kbd>
-            <kbd className="inline-flex items-center justify-center rounded  bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-              K
-            </kbd>
+            <Kbd>⌘</Kbd>
+            <Kbd>K</Kbd>
           </span>
         </Button>
 
