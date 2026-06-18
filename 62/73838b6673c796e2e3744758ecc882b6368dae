@@ -1,0 +1,81 @@
+frontend/src/components/Sidebar/SidebarCore.tsx
+  s_473ff6e99c875c::t_9e223f0b0e4ffc 21,33
+frontend/src/components/Sidebar/components/ComputerView.tsx
+  s_473ff6e99c875c::t_32e4118be69e66 173,230
+frontend/src/App.tsx
+  s_bea5cd2faa410f::t_8470a1afd8517f 31
+frontend/src/components/ChatContent/index.tsx
+  s_473ff6e99c875c::t_50410109902fb3 42
+  s_473ff6e99c875c::t_8339a56aabe612 1-41,43-69
+frontend/src/components/Sidebar/components/NavigationTabs.tsx
+  s_473ff6e99c875c::t_f9e2f6f84f9483 15,47-53,58
+  s_473ff6e99c875c::t_177410be4d2a85 34
+  s_473ff6e99c875c::t_f9eaf6c346d0e0 16,28,30-33,35-37,42,56,63,66-67,73
+  s_473ff6e99c875c::t_711ab2bf6f3add 29
+frontend/src/components/Sidebar/types/sidebar.ts
+  s_473ff6e99c875c::t_c5c872f16ec4b3 20
+frontend/src/pages/login/index.tsx
+  s_bea5cd2faa410f::t_3e018fa115dc31 23,25,29,33-34,41,51,61
+  s_bea5cd2faa410f::t_ff86a8bb64a0ef 5,26
+  s_bea5cd2faa410f::t_ef402ffb87f7ec 1-4,6-22,24,27-28,30-32,35-40,42-50,52-60,62-73
+frontend/src/components/Sidebar/components/ChatView.tsx
+  s_473ff6e99c875c::t_79ebb9ab0dfaa7 16-17,19,22-25,28,31-35,38,43-46,49-52,54-59,61-62,117-122,124-127,129-134,136-155,159,161-174,178-180,183,185,187-190,205-220,222-227,229,236-240,242-245,268-271,273,282,312
+  s_473ff6e99c875c::t_a5f5b70b738c67 15,39-42,48,63-74,76-90,92-95,97-103,105-111,113-115,175-177,181-182,193-194,197,246-264
+  s_473ff6e99c875c::t_66f350a72e6653 186
+  s_473ff6e99c875c::t_27e843477f8146 267,272
+  s_473ff6e99c875c::t_94b3a173c6efb4 18,20-21,184,202,204,221,228,230-235,266
+  s_473ff6e99c875c::t_bd0e3fe50ce6e8 274-281,283-311,313-318,320-322
+  s_473ff6e99c875c::t_5bf6db458c31e6 1-14,26-27,29-30,36-37,47,112,116,156-158,160,241,265,319,323-328
+.superpowers/brainstorm/22807-1781768737/content/login-entry-options.html
+  s_bea5cd2faa410f::t_44ce58fc1056df 1-42
+frontend/src/components/Tabs/index.tsx
+  s_473ff6e99c875c::t_f0c22b81509386 16,19,22,30-34,36,47
+  s_473ff6e99c875c::t_6ce3a6d7ffe64a 37-45
+frontend/src/pages/main/index.tsx
+  s_473ff6e99c875c::t_5327c3b7364000 15,44-46
+  s_473ff6e99c875c::t_17172bcb45b13c 35-36
+page.config.json
+  s_bea5cd2faa410f::t_871c3affe5628e 68-97
+frontend/login.html
+  s_bea5cd2faa410f::t_b83be015cedf11 1-14
+frontend/src/components/ComputerContent/components/ComputerSettings.tsx
+  s_473ff6e99c875c::t_f6638d19aebcd0 56,77
+frontend/src/components/TitleBar/index.tsx
+  s_473ff6e99c875c::t_bd7394efaa087c 115-120
+  s_473ff6e99c875c::t_50ec0ef04fc3c0 19,23,52,55-83,97-101,103-105,107,110-114,121-139
+  s_76b8f3a6375c8f::t_ead838b4bc5737 20,94-95
+  s_76b8f3a6375c8f::t_d698415ac86e73 84-93
+  s_76b8f3a6375c8f::t_49057a0adf4f30 18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "6273838b6673c796e2e3744758ecc882b6368dae",
+  "prompts": {},
+  "sessions": {
+    "s_473ff6e99c875c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ed945-da92-72c0-83e2-4588b73cbc4f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "chenyang <904852749@qq.com>"
+    },
+    "s_76b8f3a6375c8f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ed99c-ae6a-77d1-b4d8-a4f97a795454",
+        "model": "gpt-5.5"
+      },
+      "human_author": "chenyang <904852749@qq.com>"
+    },
+    "s_bea5cd2faa410f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ed9ae-5f41-77e2-b208-e51808d3f62c",
+        "model": "gpt-5.5"
+      },
+      "human_author": "chenyang <904852749@qq.com>"
+    }
+  }
+}
