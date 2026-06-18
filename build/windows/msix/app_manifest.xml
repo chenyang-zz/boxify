@@ -42,7 +42,11 @@
       
       <Extensions>
         <desktop:Extension Category="windows.fullTrustProcess" Executable="tst" />
-        
+        <uap:Extension Category="windows.protocol">
+          <uap:Protocol Name="boxify">
+            <uap:DisplayName>Boxify OAuth Callback</uap:DisplayName>
+          </uap:Protocol>
+        </uap:Extension>
         
       </Extensions>
     </Application>

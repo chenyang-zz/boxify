@@ -14,9 +14,18 @@
 
 import { FC } from "react";
 import { System, Window } from "@wailsio/runtime";
+import { AuthService, WindowService } from "@wails/service";
 import { Button } from "../ui/button";
-import { Bell, Search } from "lucide-react";
+import { Bell, LogOut, Search } from "lucide-react";
 import { Input } from "../ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
+import { toast } from "sonner";
+import { callWails } from "@/lib/utils";
 import boxifyLogo from "../../../../boxify-logo-transparent.png";
 
 const macControlButtonClass =
@@ -45,6 +54,17 @@ const TitleBar: FC = () => {
     Window.ToggleMaximise().catch((err) => {
       console.error("切换窗口最大化失败:", err);
     });
+  };
+
+  // 退出当前登录状态，并切回登录窗口。
+  const handleLogout = async () => {
+    try {
+      await callWails(AuthService.Logout);
+      await callWails(WindowService.OpenPage, "login");
+      await callWails(WindowService.ClosePage, "index");
+    } catch {
+      // callWails 已展示中文错误提示，这里只阻止未处理的异步异常。
+    }
   };
 
   return (
@@ -121,22 +141,38 @@ const TitleBar: FC = () => {
           <Bell />
           <span className="absolute right-2 top-2 size-1.5 rounded-full bg-destructive" />
         </Button>
-        <div
-          className="flex min-w-0 items-center gap-3 border-l pl-3"
-          aria-label="当前用户"
-        >
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-secondary-foreground">
-            B
-          </div>
-          <div className="hidden min-w-0 text-left sm:block">
-            <div className="truncate text-xs font-semibold leading-none">
-              Boxify User
-            </div>
-            <div className="mt-1 truncate text-[11px] leading-none text-muted-foreground">
-              Local Admin
-            </div>
-          </div>
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="flex min-w-0 items-center gap-3  border-l  pl-3 pr-1 outline-none transition-colors "
+              aria-label="当前用户菜单"
+            >
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-secondary-foreground">
+                B
+              </div>
+              <div className="hidden min-w-0 text-left sm:block">
+                <div className="truncate text-xs font-semibold leading-none">
+                  Boxify User
+                </div>
+                <div className="mt-1 truncate text-[11px] leading-none text-muted-foreground">
+                  Local Admin
+                </div>
+              </div>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => {
+                void handleLogout();
+              }}
+            >
+              <LogOut />
+              <span>退出登录</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );
