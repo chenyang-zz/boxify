@@ -13,12 +13,13 @@
 // limitations under the License.
 
 import { FC } from "react";
-import { useTabsStore } from "@/store/tabs.store";
+import { tabStoreMethods, useTabsStore } from "@/store/tabs.store";
 import TabContent from "./TabContent";
 import { useShallow } from "zustand/react/shallow";
+import TabBar from "./TabBar";
 
 const Tabs: FC = () => {
-  // 内容区只依赖标签数据和激活项，标题栏中的 TabBar 负责交互控制。
+  // 内容区托管标签数据，保证顶栏独立后仍可完整操作标签。
   const { tabs, activeTabId } = useTabsStore(
     useShallow((state) => ({
       tabs: state.tabs,
@@ -26,10 +27,24 @@ const Tabs: FC = () => {
     })),
   );
 
+  // 切换当前激活标签。
+  const handleTabSelect = (tabId: string) => {
+    tabStoreMethods.setActiveTab(tabId);
+  };
+
   return (
-    <div className="h-full w-full flex flex-col overflow-hidden ">
+    <div className="flex h-full w-full flex-col overflow-hidden">
+      {tabs.length > 0 && (
+        <div className="shrink-0 border-b bg-card px-2">
+          <TabBar
+            tabs={tabs}
+            activeTabId={activeTabId}
+            onTabSelect={handleTabSelect}
+          />
+        </div>
+      )}
       {/* 标签内容区 */}
-      <div className="flex-1 h-full overflow-hidden bg-background shadow-sm">
+      <div className="h-full flex-1 overflow-hidden bg-background shadow-sm">
         <TabContent tabs={tabs} activeTabId={activeTabId} />
       </div>
     </div>

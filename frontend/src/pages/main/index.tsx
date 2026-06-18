@@ -12,6 +12,7 @@ import Tabs from "@/components/Tabs";
 import Sidebar, { useActiveView } from "@/components/Sidebar";
 import ClawContent from "@/components/ClawContent";
 import ComputerContent from "@/components/ComputerContent";
+import ChatContent from "@/components/ChatContent";
 
 function MainApp() {
   const isOpen = useAppStore(useShallow((state) => state.isPropertyOpen));
@@ -31,8 +32,8 @@ function MainApp() {
                 <ResizablePanel
                   defaultSize="250px"
                   minSize="250px"
-                  maxSize="70%"
-                  className="border-r"
+                  maxSize="320px"
+                  className="min-w-[250px] max-w-80 border-r"
                 >
                   <Sidebar />
                 </ResizablePanel>
@@ -40,7 +41,9 @@ function MainApp() {
               </>
             )}
             <ResizablePanel>
-              {activeView === "boxclaw" ? (
+              {activeView === "chat" ? (
+                <ChatContent />
+              ) : activeView === "boxclaw" ? (
                 <ClawContent />
               ) : activeView === "computer" ? (
                 <ComputerContent />

@@ -14,29 +14,17 @@
 
 import { FC } from "react";
 import { System, Window } from "@wailsio/runtime";
-import { useShallow } from "zustand/react/shallow";
-import { tabStoreMethods, useTabsStore } from "@/store/tabs.store";
-import TabBar from "../Tabs/TabBar";
 import { Button } from "../ui/button";
-import { LayoutGrid, PanelLeftIcon } from "lucide-react";
-import { appStoreMethods, useAppStore } from "@/store/app.store";
-import { cn } from "@/lib/utils";
+import { Bell, Search } from "lucide-react";
+import { Input } from "../ui/input";
+import boxifyLogo from "../../../../boxify-logo-transparent.png";
 
 const macControlButtonClass =
-  "h-3 w-3 rounded-full transition-opacity hover:opacity-85";
+  "size-3 rounded-full transition-opacity hover:opacity-85";
 
 const TitleBar: FC = () => {
   // 仅在 macOS 渲染窗口控制按钮，保持各平台原生习惯一致。
   const isMac = System.IsMac();
-  const isOpen = useAppStore(useShallow((state) => state.isPropertyOpen));
-
-  // 标题栏托管标签状态，保证 TabBar 放在窗口顶部时仍可完整操作标签。
-  const { tabs, activeTabId } = useTabsStore(
-    useShallow((state) => ({
-      tabs: state.tabs,
-      activeTabId: state.activeTabId,
-    })),
-  );
 
   // 关闭当前窗口。
   const handleWindowClose = () => {
@@ -59,62 +47,96 @@ const TitleBar: FC = () => {
     });
   };
 
-  const handleTabSelect = (tabId: string) => {
-    tabStoreMethods.setActiveTab(tabId);
-  };
-
   return (
     <header
-      className="w-full shrink-0 cursor-default pl-4 bg-card border-b flex items-center"
+      className="grid h-14 w-full shrink-0 cursor-default grid-cols-[minmax(210px,1fr)_minmax(260px,520px)_minmax(210px,1fr)] items-center border-b bg-card px-5 text-card-foreground"
       style={{ "--wails-draggable": "drag" } as React.CSSProperties}
     >
-      {isMac && (
-        <div
-          className="flex items-center gap-2 mr-3"
-          style={{ "--wails-draggable": "no-drag" } as React.CSSProperties}
-        >
-          <button
-            type="button"
-            aria-label="关闭窗口"
-            title="关闭"
-            className={`${macControlButtonClass} bg-[#FF5F57]`}
-            onClick={handleWindowClose}
-          />
-          <button
-            type="button"
-            aria-label="最小化窗口"
-            title="最小化"
-            className={`${macControlButtonClass} bg-[#FEBC2E]`}
-            onClick={handleWindowMinimise}
-          />
-          <button
-            type="button"
-            aria-label="缩放窗口"
-            title="缩放"
-            className={`${macControlButtonClass} bg-[#28C840]`}
-            onClick={handleWindowToggleMaximise}
-          />
-        </div>
-      )}
-      <Button
-        size="icon-xs"
-        variant="ghost"
-        className={cn("text-foreground mr-1", isOpen && "bg-accent")}
-        onClick={() => {
-          appStoreMethods.setIsPropertyOpen(!isOpen);
-        }}
+      <div
+        className="flex min-w-0 items-center gap-4"
+        style={{ "--wails-draggable": "no-drag" } as React.CSSProperties}
       >
-        <PanelLeftIcon className="size-4" />
-      </Button>
-      <Button size="icon-xs" variant="ghost" className="text-foreground mr-1">
-        <LayoutGrid className="size-4" />
-      </Button>
-      <div className="ml-2 flex-1 overflow-hidden">
-        <TabBar
-          tabs={tabs}
-          activeTabId={activeTabId}
-          onTabSelect={handleTabSelect}
+        {isMac && (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              aria-label="关闭窗口"
+              title="关闭"
+              className={`${macControlButtonClass} bg-[#FF5F57]`}
+              onClick={handleWindowClose}
+            />
+            <button
+              type="button"
+              aria-label="最小化窗口"
+              title="最小化"
+              className={`${macControlButtonClass} bg-[#FEBC2E]`}
+              onClick={handleWindowMinimise}
+            />
+            <button
+              type="button"
+              aria-label="缩放窗口"
+              title="缩放"
+              className={`${macControlButtonClass} bg-[#28C840]`}
+              onClick={handleWindowToggleMaximise}
+            />
+          </div>
+        )}
+        <div className="flex min-w-0 items-center gap-3" aria-label="Boxify">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[#2f6df6] shadow-sm">
+            <img
+              src={boxifyLogo}
+              alt=""
+              aria-hidden="true"
+              className="size-7 object-contain"
+            />
+          </div>
+          <span className="truncate text-[18px] font-semibold leading-none tracking-normal text-foreground">
+            Boxify
+          </span>
+        </div>
+      </div>
+
+      <div
+        className="relative"
+        style={{ "--wails-draggable": "no-drag" } as React.CSSProperties}
+      >
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          aria-label="搜索"
+          placeholder="搜索会话、任务..."
+          className="h-9 rounded-md bg-background pl-9 text-sm shadow-xs"
         />
+      </div>
+
+      <div
+        className="flex min-w-0 items-center justify-end gap-3"
+        style={{ "--wails-draggable": "no-drag" } as React.CSSProperties}
+      >
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          className="relative"
+          aria-label="通知"
+        >
+          <Bell />
+          <span className="absolute right-2 top-2 size-1.5 rounded-full bg-destructive" />
+        </Button>
+        <div
+          className="flex min-w-0 items-center gap-3 border-l pl-3"
+          aria-label="当前用户"
+        >
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-secondary-foreground">
+            B
+          </div>
+          <div className="hidden min-w-0 text-left sm:block">
+            <div className="truncate text-xs font-semibold leading-none">
+              Boxify User
+            </div>
+            <div className="mt-1 truncate text-[11px] leading-none text-muted-foreground">
+              Local Admin
+            </div>
+          </div>
+        </div>
       </div>
     </header>
   );

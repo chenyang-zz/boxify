@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { FC } from "react";
-import { Wrench, Boxes, Monitor } from "lucide-react";
+import { FC, useEffect } from "react";
+import { BriefcaseBusiness, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useActiveView, useSidebarStore } from "../store";
 import type { SidebarView } from "../types";
@@ -25,38 +25,52 @@ interface TabConfig {
 }
 
 const tabs: TabConfig[] = [
-  { view: "tools", icon: <Wrench className="size-4 shrink-0" />, label: "工具" },
-  { view: "boxclaw", icon: <Boxes className="size-4 shrink-0" />, label: "BoxClaw" },
-  { view: "computer", icon: <Monitor className="size-4 shrink-0" />, label: "Computer" },
+  {
+    view: "chat",
+    icon: <MessageCircle className="size-3.5 shrink-0" />,
+    label: "Chat",
+  },
+  {
+    view: "computer",
+    icon: <BriefcaseBusiness className="size-3.5 shrink-0" />,
+    label: "Work",
+  },
 ];
 
 /**
  * 导航标签组件
- * 选中的 tab 显示完整文字和白色背景，未选中的只显示图标
+ * 渲染侧边栏顶部的轻量分段切换，当前只暴露 Chat 与 Work。
  */
 export const NavigationTabs: FC = () => {
   const activeView = useActiveView();
   const setActiveView = useSidebarStore((state) => state.setActiveView);
+  const hasVisibleActiveView = tabs.some((tab) => tab.view === activeView);
+
+  useEffect(() => {
+    if (!hasVisibleActiveView) {
+      setActiveView("computer");
+    }
+  }, [hasVisibleActiveView, setActiveView]);
 
   return (
-    <div className="flex mx-2 mt-2 mb-1.5 rounded-xl bg-muted p-1 gap-1">
+    <div className="mx-3 mt-3 mb-2 flex h-9 items-center gap-1 rounded-md border bg-muted/35 p-1">
       {tabs.map((tab) => {
-        const isActive = activeView === tab.view;
+        const isActive = hasVisibleActiveView && activeView === tab.view;
         return (
           <button
             key={tab.view}
             className={cn(
-              "flex-1 flex items-center justify-center rounded-lg py-2 text-sm font-medium",
+              "flex h-7 flex-1 items-center justify-center gap-1.5 rounded-md px-3 text-xs font-medium transition-colors",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               isActive
-                ? "bg-card text-foreground shadow-sm px-3"
-                : "text-muted-foreground hover:text-foreground px-2"
+                ? "bg-card text-primary shadow-xs"
+                : "text-muted-foreground hover:bg-card/60 hover:text-foreground"
             )}
             onClick={() => setActiveView(tab.view)}
             aria-label={tab.label}
           >
             {tab.icon}
-            {isActive && <span className="ml-1.5 whitespace-nowrap">{tab.label}</span>}
+            <span className="whitespace-nowrap">{tab.label}</span>
           </button>
         );
       })}

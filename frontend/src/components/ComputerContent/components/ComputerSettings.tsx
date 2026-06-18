@@ -53,7 +53,7 @@ const SETTING_MENUS: Array<{
 ];
 
 /**
- * Computer 设置弹窗组件
+ * Work 设置弹窗组件
  */
 export const ComputerSettings: FC = () => {
   const [open, setOpen] = useState(false);
@@ -74,7 +74,7 @@ export const ComputerSettings: FC = () => {
         {/* 头部 */}
         <DialogHeader className="px-6 py-5 text-left! border-b">
           <DialogTitle className="text-xl">设置</DialogTitle>
-          <DialogDescription>管理您的 Computer 配置。</DialogDescription>
+          <DialogDescription>管理您的 Work 配置。</DialogDescription>
         </DialogHeader>
 
         {/* 中间主体 — 固定高度，右侧内部滚动 */}

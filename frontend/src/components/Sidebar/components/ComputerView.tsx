@@ -170,7 +170,7 @@ const SessionItem: FC<SessionItemProps> = ({
 };
 
 /**
- * Computer 视图组件
+ * Work 视图组件
  * 参照 left-panel 样式实现，包含新建任务按钮和会话列表
  */
 export const ComputerView: FC = () => {
@@ -227,7 +227,7 @@ export const ComputerView: FC = () => {
       {/* 底部状态栏 */}
       <div className="flex items-center justify-center gap-1.5 py-2 border-t border-border">
         <Monitor className="size-3.5 text-muted-foreground" />
-        <span className="text-xs text-muted-foreground">Computer 已连接</span>
+        <span className="text-xs text-muted-foreground">Work 已连接</span>
       </div>
     </div>
   );
