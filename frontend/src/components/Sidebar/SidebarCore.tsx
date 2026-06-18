@@ -18,6 +18,7 @@ import { NavigationTabs } from "./components/NavigationTabs";
 import { FileTreeView } from "./components/FileTreeView";
 import { ClawMenu } from "./components/ClawMenu";
 import { ComputerView } from "./components/ComputerView";
+import { ChatView } from "./components/ChatView";
 
 /**
  * Sidebar 核心渲染组件
@@ -29,6 +30,7 @@ export const SidebarCore: FC = () => {
   return (
     <>
       <NavigationTabs />
+      {activeView === "chat" && <ChatView />}
       {activeView === "tools" && <FileTreeView />}
       {activeView === "boxclaw" && <ClawMenu />}
       {activeView === "computer" && <ComputerView />}

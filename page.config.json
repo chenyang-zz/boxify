@@ -65,6 +65,37 @@
       }
     },
     {
+      "id": "login",
+      "type": "singleton",
+      "title": "Boxify - 登录",
+      "entry": "main.tsx",
+      "containerId": "root",
+      "isMain": false,
+      "center": true,
+      "window": {
+        "name": "login",
+        "title": "Login",
+        "url": "/login",
+        "width": 540,
+        "height": 482,
+        "minWidth": 420,
+        "minHeight": 420,
+        "maxWidth": 0,
+        "maxHeight": 0,
+        "x": 0,
+        "y": 0,
+        "disableResize": true,
+        "alwaysOnTop": false,
+        "hidden": false,
+        "frameless": true,
+        "mac": {
+          "titleBar": {
+            "hide": true
+          }
+        }
+      }
+    },
+    {
       "id": "settings",
       "type": "singleton",
       "title": "Boxify - 设置",

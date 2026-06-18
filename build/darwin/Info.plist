@@ -14,6 +14,17 @@
 		<string>com.mycompany.myproduct</string>
 		<key>CFBundleName</key>
 		<string>My Product</string>
+		<key>CFBundleURLTypes</key>
+		<array>
+			<dict>
+				<key>CFBundleURLName</key>
+				<string>Boxify OAuth Callback</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>boxify</string>
+				</array>
+			</dict>
+		</array>
 		<key>CFBundlePackageType</key>
 		<string>APPL</string>
 		<key>CFBundleShortVersionString</key>

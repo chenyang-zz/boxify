@@ -23,6 +23,9 @@ func init() {
 	// 初始数据事件
 	application.RegisterEvent[service.InitialDataEntry]("initial-data:received")
 
+	// 认证事件
+	application.RegisterEvent[service.AuthOAuthCompletedEvent]("auth:oauth-completed")
+
 	// 菜单事件
 	application.RegisterEvent[service.MenuClickEvent]("menu:clicked")
 
@@ -60,6 +63,9 @@ func main() {
 		},
 		func(app *application.App) application.Service {
 			return application.NewService(service.NewWindowService(deps))
+		},
+		func(app *application.App) application.Service {
+			return application.NewService(service.NewAuthService(deps))
 		},
 		func(app *application.App) application.Service {
 			return application.NewService(service.NewDataSyncService(deps))

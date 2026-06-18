@@ -28,6 +28,7 @@ const pageComponents: Record<
   React.LazyExoticComponent<() => JSX.Element>
 > = {
   index: lazy(() => import("./pages/main")),
+  login: lazy(() => import("./pages/login")),
   settings: lazy(() => import("./pages/settings")),
   "connection-edit": lazy(() => import("./pages/connectionEdit")),
 };

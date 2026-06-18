@@ -23,6 +23,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/chenyang-zz/boxify/internal/auth"
 	"github.com/chenyang-zz/boxify/internal/config"
 	"github.com/chenyang-zz/boxify/internal/logger"
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -35,6 +36,7 @@ type AppManager struct {
 	logger     *slog.Logger
 	pageConfig *config.PageConfigFile // 页面配置
 	ctx        context.Context        // 应用上下文，包含 buildType
+	authStore  *auth.AuthStateStore   // 登录状态存储
 }
 
 func InitApplication(assets fs.FS) *AppManager {
@@ -60,9 +62,10 @@ func InitApplication(assets fs.FS) *AppManager {
 	defaultLogger := logger.GetDefaultLogger()
 
 	am := &AppManager{
-		app: app,
-		ctx: ctx,
-		logger: defaultLogger,
+		app:       app,
+		ctx:       ctx,
+		logger:    defaultLogger,
+		authStore: auth.NewAuthStateStore("", defaultLogger),
 	}
 
 	// 创建窗口注册表
@@ -78,8 +81,8 @@ func InitApplication(assets fs.FS) *AppManager {
 	}
 	am.pageConfig = pageConfig
 
-	// 从配置创建主窗口
-	am.CreateMainWindowFromConfig()
+	// 根据登录状态创建启动窗口
+	am.CreateStartupWindowFromConfig()
 
 	// 加载保存的布局
 	am.LoadLayout()
@@ -97,14 +100,30 @@ func (am *AppManager) Run() error {
 	return am.app.Run()
 }
 
-// CreateMainWindowFromConfig 从配置创建主窗口
+// CreateStartupWindowFromConfig 根据登录状态从配置创建启动窗口。
+func (am *AppManager) CreateStartupWindowFromConfig() {
+	loggedIn, err := am.authStore.IsLoggedIn()
+	if err != nil {
+		am.logger.Warn("读取登录状态失败，启动登录窗口", "error", err)
+		loggedIn = false
+	}
+
+	pageID := SelectStartupPageID(loggedIn)
+	pageConfig := am.pageConfig.GetPageConfig(pageID)
+	if pageConfig == nil {
+		panic(fmt.Sprintf("启动页面配置不存在: %s", pageID))
+	}
+
+	am.logger.Info("创建启动窗口", "pageId", pageID, "loggedIn", loggedIn)
+	am.registry.Register(pageConfig)
+}
+
+// CreateMainWindowFromConfig 从配置创建主窗口。
 func (am *AppManager) CreateMainWindowFromConfig() {
 	mainConfig := am.pageConfig.GetMainPageConfig()
-
 	if mainConfig == nil {
 		panic("主窗口配置不存在")
 	}
-
 	am.registry.Register(mainConfig)
 }
 
