@@ -1,0 +1,30 @@
+frontend/src/types/api/session.ts
+  s_473ff6e99c875c::t_67932d9b1b6868 14-15,23-24,57-58
+frontend/src/components/Sidebar/components/ChatView/utils.ts
+  s_473ff6e99c875c::t_5cc9b3455cd45e 248-266
+  s_473ff6e99c875c::t_1468542a42a2f1 221,225-228
+  s_473ff6e99c875c::t_67932d9b1b6868 20,70-71,76,82-83,180-181,187,193,208-209,214,220,222-224,229-244
+frontend/src/components/Sidebar/components/ChatView/components.tsx
+  s_473ff6e99c875c::t_67932d9b1b6868 99-101
+  s_473ff6e99c875c::t_712fba9dcba392 102-114
+frontend/src/components/Sidebar/components/ChatView/index.tsx
+  s_473ff6e99c875c::t_43c97d44a17a03 69,182-203,385,661-673,687-689,725-737,752,754-755
+  s_473ff6e99c875c::t_1ef3568aa36f0a 443-448
+  s_473ff6e99c875c::t_67932d9b1b6868 73,165,169
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "a3411df53038d8d523dc35a6373e61d3b98ef647",
+  "prompts": {},
+  "sessions": {
+    "s_473ff6e99c875c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ed945-da92-72c0-83e2-4588b73cbc4f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "chenyang <904852749@qq.com>"
+    }
+  }
+}
