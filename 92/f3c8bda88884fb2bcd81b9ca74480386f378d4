@@ -1,0 +1,53 @@
+frontend/package.json
+  s_86fc7c2bf537dc::t_060dff2dbea8aa 51
+frontend/src/store/chat-session.store.ts
+  s_86fc7c2bf537dc::t_7b76aa8b3b42d8 5-6,18,21-27,29-35,39
+  s_86fc7c2bf537dc::t_b3e0a3e50cd112 1-4,7-17,19-20,28,36-38,40-47
+frontend/src/components/Sidebar/components/ChatView/types.ts
+  s_86fc7c2bf537dc::t_564ef4cdac73e1 45
+frontend/src/style.css
+  s_86fc7c2bf537dc::t_a05c6f5ff54c3f 14,37,42,44,46
+  s_86fc7c2bf537dc::t_1251248f9b9f8b 5-10,13,15-36,38-41,43,45,47-58
+frontend/src/components/Sidebar/components/ChatView/components.tsx
+  s_86fc7c2bf537dc::t_cc8fe44dea13b5 108
+frontend/src/components/ChatContent/index.tsx
+  s_86fc7c2bf537dc::t_a4c1a330e94753 333,347,397-399
+  s_86fc7c2bf537dc::t_695e3131a0e7d3 209
+  s_86fc7c2bf537dc::t_2620145083b8cd 74-80,192-198,328,424-426,463-467
+  s_86fc7c2bf537dc::t_56faa3bb04743a 290-297
+  s_86fc7c2bf537dc::t_4bfc0e15b6f1f6 31,164-165,167-169,219,238,342,411,427,431,433-435,437-446,450
+  s_86fc7c2bf537dc::t_3e0670e0eece7b 26-27,33,35-36,38-39,41,56,59-61,63-71,153,495,508,515,530-531,533
+  s_86fc7c2bf537dc::t_f53bc613b55744 451
+  s_86fc7c2bf537dc::t_0e91652cfbb271 479,489,514,539,546,554,563,577,587,597
+  s_86fc7c2bf537dc::t_f089a41d50a28f 16-22,28,40,44-51,57-58,62,72-73,81-152,154-155,161-163,166,170-191,199-208,210-218,220-237,239-246,248-289,298-319,321-327,329-332,334-341,343-346,348-396,400-410,412-423,429,452-462,468-478,480-484,503,532,534,543-545,595-596,600
+frontend/src/types/api/session.ts
+  s_86fc7c2bf537dc::t_c7a7bb2aca4020 54-108
+frontend/src/api/client.ts
+  s_86fc7c2bf537dc::t_f7a8aa18e74508 14-15,149-177
+frontend/src/api/sessions.ts
+  s_86fc7c2bf537dc::t_5e729a8d5f872c 1-5,7,10-11,13,16,29-39,56-82,90-196,198,200-269
+  s_86fc7c2bf537dc::t_165f47509ab786 83-89
+  s_86fc7c2bf537dc::t_dde4b388e83b65 197,199
+frontend/src/components/Sidebar/components/ChatView/index.tsx
+  s_86fc7c2bf537dc::t_67aeeb4195a2eb 38,93-95,98,102-107,136-140,356,366
+  s_86fc7c2bf537dc::t_1c2b4b9808f788 70,96-97,99-101,244,258,272,276-283,324-325
+  s_86fc7c2bf537dc::t_7eb840bc1dd0e8 430,489
+frontend/src/App.tsx
+  s_86fc7c2bf537dc::t_dd4a6069357e3a 16,47-58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "92f3c8bda88884fb2bcd81b9ca74480386f378d4",
+  "prompts": {},
+  "sessions": {
+    "s_86fc7c2bf537dc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019edebb-343d-7b21-89ef-502aa75296b5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "chenyang <904852749@qq.com>"
+    }
+  }
+}
