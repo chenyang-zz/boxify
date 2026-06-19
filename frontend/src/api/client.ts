@@ -7,6 +7,10 @@ interface AuthAccessTokenResponse {
   tokenType?: string;
 }
 
+interface RequestWithAuthOptions extends RequestInit {
+  allowEmptyData?: boolean;
+}
+
 const DEFAULT_API_BASE_URL = "http://localhost:8000";
 const LOGIN_EXPIRED_REASON = "登录已过期，请重新登录";
 
@@ -104,20 +108,21 @@ export async function handleApiAuthError(error: unknown): Promise<boolean> {
  */
 export async function requestWithAuth<T>(
   path: string,
-  init: RequestInit = {},
+  init: RequestWithAuthOptions = {},
 ): Promise<T> {
+  const { allowEmptyData = false, ...requestInit } = init;
   const token = await getAccessToken();
-  const headers = new Headers(init.headers);
+  const headers = new Headers(requestInit.headers);
   headers.set(
     "Authorization",
     `${normalizeBearerScheme(token.tokenType)} ${token.accessToken}`,
   );
-  if (init.body && !headers.has("Content-Type")) {
+  if (requestInit.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
 
   const response = await fetch(`${getApiBaseUrl()}${path}`, {
-    ...init,
+    ...requestInit,
     headers,
   });
   if (response.status === 401 || response.status === 403) {
@@ -132,6 +137,9 @@ export async function requestWithAuth<T>(
     throw new Error(payload.msg || "接口返回失败");
   }
   if (payload.data === undefined || payload.data === null) {
+    if (allowEmptyData) {
+      return undefined as T;
+    }
     throw new Error("接口响应缺少 data");
   }
   return payload.data;

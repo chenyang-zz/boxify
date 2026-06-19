@@ -2,8 +2,10 @@ import { handleApiAuthError, requestWithAuth } from "@/api/client";
 import type {
   CreateSessionProjectRequest,
   CreateSessionResponse,
+  ListSessionItem,
   SessionProjectResponse,
   SessionSidebarResponse,
+  UpdateSessionRequest,
 } from "@/types/api/session";
 
 export { handleApiAuthError as handleSessionAuthError };
@@ -47,4 +49,46 @@ export async function createSessionProject(
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+/**
+ * updateChatSession 更新指定 Chat 会话的基础信息。
+ */
+export async function updateChatSession(
+  sessionId: string,
+  body: UpdateSessionRequest,
+): Promise<ListSessionItem> {
+  return requestWithAuth<ListSessionItem>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/update`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+/**
+ * deleteChatSession 删除指定 Chat 会话。
+ */
+export async function deleteChatSession(sessionId: string): Promise<void> {
+  await requestWithAuth<void>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/delete`,
+    {
+      method: "POST",
+      allowEmptyData: true,
+    },
+  );
+}
+
+/**
+ * deleteSessionProject 删除指定 Chat 项目及其会话。
+ */
+export async function deleteSessionProject(projectId: string): Promise<void> {
+  await requestWithAuth<void>(
+    `/api/sessions/projects/${encodeURIComponent(projectId)}/delete`,
+    {
+      method: "POST",
+      allowEmptyData: true,
+    },
+  );
 }

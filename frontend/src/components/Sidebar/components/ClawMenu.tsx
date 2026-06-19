@@ -40,7 +40,7 @@ export const ClawMenu: FC = () => {
             {/* Category Header */}
             <button
               onClick={() => toggleCategory(category.id)}
-              className="w-full flex items-center gap-1 px-2 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-accent/50 rounded transition-colors"
+              className="w-full flex items-center gap-1 px-2 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-accent-foreground rounded transition-colors"
             >
               {isExpanded ? (
                 <ChevronDown className="size-3" />
@@ -63,13 +63,11 @@ export const ClawMenu: FC = () => {
                       className={cn(
                         "w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded transition-colors",
                         isSelected
-                          ? "bg-primary/20  text-foreground"
-                          : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
+                          ? "bg-accent text-accent-foreground"
+                          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
                       )}
                     >
-                      <Icon
-                        className={cn("size-4", isSelected && "text-primary")}
-                      />
+                      <Icon className="size-4" />
                       <span>{item.label}</span>
                     </button>
                   );

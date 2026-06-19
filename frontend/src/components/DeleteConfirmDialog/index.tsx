@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Loader2Icon, TriangleAlertIcon } from "lucide-react";
+import { Loader2Icon } from "lucide-react";
 import { useState } from "react";
 
 import {
@@ -19,10 +19,12 @@ export interface DeleteConfirmDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title?: string;
+  description?: string;
   checkboxLabel?: string;
   onConfirm: () => void | Promise<void>;
   cancelText?: string;
   confirmText?: string;
+  variant?: "default" | "chat" | "project";
 }
 
 const DEFAULT_PROPS = {
@@ -36,10 +38,12 @@ export function DeleteConfirmDialog({
   open,
   onOpenChange,
   title = DEFAULT_PROPS.title,
+  description,
   checkboxLabel = DEFAULT_PROPS.checkboxLabel,
   onConfirm,
   cancelText = DEFAULT_PROPS.cancelText,
   confirmText = DEFAULT_PROPS.confirmText,
+  variant = "default",
 }: DeleteConfirmDialogProps) {
   const [checked, setChecked] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -62,6 +66,52 @@ export function DeleteConfirmDialog({
       setIsLoading(false);
     }
   };
+
+  const isCompact = variant !== "default";
+  const confirmLoadingContent = (
+    <>
+      <Loader2Icon data-icon="inline-start" className="animate-spin" />
+      处理中...
+    </>
+  );
+
+  if (isCompact) {
+    const cancelButton = (
+      <AlertDialogCancel variant="outline" disabled={isLoading} className="h-9">
+        {cancelText}
+      </AlertDialogCancel>
+    );
+    const actionButton = (
+      <AlertDialogAction
+        variant={variant === "project" ? "destructive" : "secondary"}
+        disabled={isLoading}
+        className="h-9"
+        onClick={(e) => {
+          e.preventDefault();
+          void handleConfirm();
+        }}
+      >
+        {isLoading ? confirmLoadingContent : confirmText}
+      </AlertDialogAction>
+    );
+
+    return (
+      <AlertDialog open={open} onOpenChange={onOpenChange}>
+        <AlertDialogContent className="w-100">
+          <AlertDialogHeader>
+            <AlertDialogTitle> {title}</AlertDialogTitle>
+            {description ? (
+              <AlertDialogDescription>{description}</AlertDialogDescription>
+            ) : null}
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            {variant === "chat" ? actionButton : cancelButton}
+            {variant === "chat" ? cancelButton : actionButton}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    );
+  }
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -96,14 +146,7 @@ export function DeleteConfirmDialog({
               handleConfirm();
             }}
           >
-            {isLoading ? (
-              <>
-                <Loader2Icon className="mr-2 size-4 animate-spin" />
-                处理中...
-              </>
-            ) : (
-              confirmText
-            )}
+            {isLoading ? confirmLoadingContent : confirmText}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

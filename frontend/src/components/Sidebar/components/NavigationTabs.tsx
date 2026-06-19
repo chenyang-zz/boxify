@@ -53,7 +53,7 @@ export const NavigationTabs: FC = () => {
   }, [hasVisibleActiveView, setActiveView]);
 
   return (
-    <div className="mx-3 mt-3 mb-2 flex h-9 items-center gap-1 rounded-md border bg-muted/35 p-1">
+    <div className="mx-3 mt-3 mb-2 flex h-9 items-center gap-1 rounded-md border bg-muted p-1">
       {tabs.map((tab) => {
         const isActive = hasVisibleActiveView && activeView === tab.view;
         return (
@@ -63,8 +63,8 @@ export const NavigationTabs: FC = () => {
               "flex h-7 flex-1 items-center justify-center gap-1.5 rounded-md px-3 text-xs font-medium transition-colors",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               isActive
-                ? "bg-card text-primary shadow-xs"
-                : "text-muted-foreground hover:bg-card/60 hover:text-foreground",
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
             )}
             onClick={() => setActiveView(tab.view)}
             aria-label={tab.label}

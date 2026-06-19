@@ -29,7 +29,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
 import { Kbd } from "@/components/ui/kbd";
 
 /**
@@ -114,14 +113,16 @@ const SessionItem: FC<SessionItemProps> = ({
     <div
       className={cn(
         "group/item flex items-center gap-2 p-2 rounded-md cursor-pointer transition-colors",
-        isActive ? "bg-card shadow-sm" : "hover:bg-accent/50",
+        isActive
+          ? "bg-accent text-accent-foreground"
+          : "hover:bg-accent hover:text-accent-foreground",
       )}
       onClick={handleClick}
     >
       {/* 左侧图标 */}
       <div className="flex shrink-0 items-center justify-center size-8 rounded-sm bg-muted">
         {isRunning ? (
-          <Loader2 className="size-4 animate-spin text-primary" />
+          <Loader2 className="size-4 animate-spin text-muted-foreground" />
         ) : (
           <CircuitBoard className="size-4 text-muted-foreground" />
         )}

@@ -45,3 +45,9 @@ export interface SessionProjectResponse {
   sort_order: number;
   is_pinned?: boolean;
 }
+
+export interface UpdateSessionRequest {
+  title?: string | null;
+  project_id?: string | null;
+  is_pinned?: boolean | null;
+}
