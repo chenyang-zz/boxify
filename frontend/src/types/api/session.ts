@@ -11,6 +11,8 @@ export interface ListSessionItem {
   type?: SessionType;
   project_id?: string | null;
   is_pinned?: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface SidebarProjectItem {
@@ -18,6 +20,8 @@ export interface SidebarProjectItem {
   name: string;
   sort_order: number;
   is_pinned?: boolean;
+  created_at?: string;
+  updated_at?: string;
   sessions?: ListSessionItem[];
 }
 
@@ -50,6 +54,8 @@ export interface SessionProjectResponse {
   name: string;
   sort_order: number;
   is_pinned?: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface UpdateSessionRequest {

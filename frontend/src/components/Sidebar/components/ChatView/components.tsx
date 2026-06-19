@@ -96,20 +96,22 @@ export const ProjectBlock: FC<ProjectBlockProps> = ({
         <ProjectRow item={project} expanded={expanded} onClick={onToggle} />
       </SidebarItemContextMenu>
       {expanded
-        ? (project.sessions ?? []).map((session) => (
-            <SidebarItemContextMenu
-              key={session.session_id}
-              session={session}
-              onDelete={() => onRequestDeleteSession(session)}
-            >
-              <SessionRow
-                item={session}
-                inset
-                active={session.session_id === selectedSessionId}
-                onClick={() => onSelectSession(session)}
-              />
-            </SidebarItemContextMenu>
-          ))
+        ? (project.sessions ?? [])
+            .filter((session) => !session.is_pinned)
+            .map((session) => (
+              <SidebarItemContextMenu
+                key={session.session_id}
+                session={session}
+                onDelete={() => onRequestDeleteSession(session)}
+              >
+                <SessionRow
+                  item={session}
+                  inset
+                  active={session.session_id === selectedSessionId}
+                  onClick={() => onSelectSession(session)}
+                />
+              </SidebarItemContextMenu>
+            ))
         : null}
     </div>
   );

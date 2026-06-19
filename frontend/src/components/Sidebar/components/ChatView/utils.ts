@@ -17,6 +17,7 @@ import type {
   SessionSidebarResponse,
   SidebarProjectItem,
 } from "@/types/api/session";
+import type { PinnedItem } from "./types";
 
 /**
  * normalizeSidebar 将远端或本地数据规整为稳定数组结构。
@@ -66,16 +67,20 @@ export function formatSessionTime(value?: string | null): string {
  * createOptimisticSession 生成本地临时会话。
  */
 export function createOptimisticSession(sessionId: string): ListSessionItem {
+  const now = new Date().toISOString();
+
   return {
     session_id: sessionId,
     title: "新对话",
     latest_message: "",
-    latest_message_at: new Date().toISOString(),
+    latest_message_at: now,
     status: "pending",
     unread_message_count: 0,
     type: "chat",
     project_id: null,
     is_pinned: false,
+    created_at: now,
+    updated_at: now,
   };
 }
 
@@ -172,18 +177,20 @@ export function updateSessionPinned(
   isPinned: boolean,
 ): Required<SessionSidebarResponse> {
   const current = normalizeSidebar(sidebar);
+  const updatedAt = new Date().toISOString();
+
   return {
     projects: current.projects.map((project) => ({
       ...project,
       sessions: (project.sessions ?? []).map((session) =>
         session.session_id === sessionId
-          ? { ...session, is_pinned: isPinned }
+          ? { ...session, is_pinned: isPinned, updated_at: updatedAt }
           : session,
       ),
     })),
     standalone_conversations: current.standalone_conversations.map((session) =>
       session.session_id === sessionId
-        ? { ...session, is_pinned: isPinned }
+        ? { ...session, is_pinned: isPinned, updated_at: updatedAt }
         : session,
     ),
   };
@@ -198,14 +205,63 @@ export function updateProjectPinned(
   isPinned: boolean,
 ): Required<SessionSidebarResponse> {
   const current = normalizeSidebar(sidebar);
+  const updatedAt = new Date().toISOString();
+
   return {
     ...current,
     projects: current.projects.map((project) =>
       project.project_id === projectId
-        ? { ...project, is_pinned: isPinned }
+        ? { ...project, is_pinned: isPinned, updated_at: updatedAt }
         : project,
     ),
   };
+}
+
+/**
+ * sortPinnedItemsByUpdatedAt 先按类型再按更新时间升序排列置顶条目。
+ */
+export function sortPinnedItemsByUpdatedAt(items: PinnedItem[]): PinnedItem[] {
+  return [...items].sort((left, right) => {
+    if (left.kind !== right.kind) {
+      return left.kind === "session" ? -1 : 1;
+    }
+
+    const leftTime = timestampForPinnedItem(left);
+    const rightTime = timestampForPinnedItem(right);
+    return leftTime - rightTime;
+  });
+}
+
+/**
+ * timestampForPinnedItem 获取置顶条目的排序时间。
+ */
+function timestampForPinnedItem(item: PinnedItem): number {
+  const value = item.item.updated_at ?? item.item.created_at;
+  if (!value) {
+    return 0;
+  }
+  const time = new Date(value).getTime();
+  return Number.isNaN(time) ? 0 : time;
+}
+
+/**
+ * projectNameExists 判断项目名称是否已被其他项目使用。
+ */
+export function projectNameExists(
+  projects: SidebarProjectItem[],
+  name: string,
+  exceptProjectId?: string,
+): boolean {
+  const normalizedName = name.trim();
+  if (!normalizedName) {
+    return false;
+  }
+
+  return projects.some(
+    (project) =>
+      project.project_id !== exceptProjectId &&
+      project.name.trim() === normalizedName,
+  );
 }
 
 /**

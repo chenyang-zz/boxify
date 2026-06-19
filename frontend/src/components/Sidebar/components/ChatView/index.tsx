@@ -66,9 +66,11 @@ import {
   moveSessionToProject,
   normalizeSidebar,
   projectContainsSession,
+  projectNameExists,
   removeOptimisticSession,
   replaceOptimisticSession,
   sessionTitle,
+  sortPinnedItemsByUpdatedAt,
   updateProjectPinned,
   updateSessionPinned,
 } from "./utils";
@@ -160,11 +162,11 @@ export const ChatView: FC = () => {
       .filter((project) => project.is_pinned)
       .map((item): PinnedItem => ({ kind: "project", item }));
 
-    return [
+    return sortPinnedItemsByUpdatedAt([
       ...pinnedStandaloneSessions,
       ...pinnedProjectSessions,
       ...pinnedProjects,
-    ];
+    ]);
   }, [projects, standaloneConversations]);
 
   const regularProjects = useMemo(
@@ -176,6 +178,28 @@ export const ChatView: FC = () => {
     () => standaloneConversations.filter((session) => !session.is_pinned),
     [standaloneConversations],
   );
+
+  const projectNameDuplicated = useMemo(
+    () => projectNameExists(projects, projectName),
+    [projects, projectName],
+  );
+  const renameCurrentName = renameTarget
+    ? renameTarget.kind === "session"
+      ? sessionTitle(renameTarget.item)
+      : renameTarget.item.name
+    : "";
+  const renameNameTrimmed = renameName.trim();
+  const renameNameUnchanged =
+    renameTarget !== null && renameNameTrimmed === renameCurrentName.trim();
+  const renameProjectNameDuplicated = useMemo(() => {
+    if (!renameTarget || renameTarget.kind !== "project") {
+      return false;
+    }
+    if (renameName.trim() === renameTarget.item.name.trim()) {
+      return false;
+    }
+    return projectNameExists(projects, renameName, renameTarget.item.project_id);
+  }, [projects, renameName, renameTarget]);
 
   /**
    * handleTogglePinned 乐观切换会话或项目的置顶状态。
@@ -358,7 +382,7 @@ export const ChatView: FC = () => {
    */
   const handleCreateProject = async () => {
     const name = projectName.trim();
-    if (!name || projectCreating) {
+    if (!name || projectCreating || projectNameDuplicated) {
       return;
     }
 
@@ -416,7 +440,12 @@ export const ChatView: FC = () => {
       renameTarget.kind === "session"
         ? sessionTitle(renameTarget.item)
         : renameTarget.item.name;
-    if (!name || name === currentName || renameSaving) {
+    if (
+      !name ||
+      name === currentName.trim() ||
+      renameSaving ||
+      renameProjectNameDuplicated
+    ) {
       return;
     }
 
@@ -629,13 +658,19 @@ export const ChatView: FC = () => {
               </DialogDescription>
             </DialogHeader>
 
-            <Input
-              autoFocus
-              disabled={projectCreating}
-              value={projectName}
-              onChange={(event) => setProjectName(event.target.value)}
-              placeholder="项目名称"
-            />
+            <div className="flex flex-col gap-1.5">
+              <Input
+                autoFocus
+                disabled={projectCreating}
+                value={projectName}
+                onChange={(event) => setProjectName(event.target.value)}
+                placeholder="项目名称"
+                aria-invalid={projectNameDuplicated || undefined}
+              />
+              {projectNameDuplicated ? (
+                <p className="text-xs text-destructive">项目名称已存在</p>
+              ) : null}
+            </div>
 
             <DialogFooter>
               <DialogClose asChild>
@@ -649,7 +684,9 @@ export const ChatView: FC = () => {
               </DialogClose>
               <Button
                 type="submit"
-                disabled={!projectName.trim() || projectCreating}
+                disabled={
+                  !projectName.trim() || projectCreating || projectNameDuplicated
+                }
               >
                 {projectCreating ? <Spinner data-icon="inline-start" /> : null}
                 创建项目
@@ -685,13 +722,19 @@ export const ChatView: FC = () => {
               </DialogDescription>
             </DialogHeader>
 
-            <Input
-              autoFocus
-              disabled={renameSaving}
-              value={renameName}
-              onChange={(event) => setRenameName(event.target.value)}
-              placeholder="名称"
-            />
+            <div className="flex flex-col gap-1.5">
+              <Input
+                autoFocus
+                disabled={renameSaving}
+                value={renameName}
+                onChange={(event) => setRenameName(event.target.value)}
+                placeholder="名称"
+                aria-invalid={renameProjectNameDuplicated || undefined}
+              />
+              {renameProjectNameDuplicated ? (
+                <p className="text-xs text-destructive">项目名称已存在</p>
+              ) : null}
+            </div>
 
             <DialogFooter>
               <DialogClose asChild>
@@ -706,11 +749,10 @@ export const ChatView: FC = () => {
               <Button
                 type="submit"
                 disabled={
-                  !renameName.trim() ||
+                  !renameNameTrimmed ||
                   renameSaving ||
-                  (renameTarget?.kind === "session"
-                    ? renameName.trim() === sessionTitle(renameTarget.item)
-                    : renameName.trim() === renameTarget?.item.name)
+                  renameNameUnchanged ||
+                  renameProjectNameDuplicated
                 }
               >
                 {renameSaving ? <Spinner data-icon="inline-start" /> : null}
