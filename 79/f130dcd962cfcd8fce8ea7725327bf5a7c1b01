@@ -1,0 +1,39 @@
+frontend/src/components/Sidebar/components/ChatView.tsx
+  s_473ff6e99c875c::t_c2d0e9c79aa816 22,29,37-48,52,66-82,87,115-164,187-198,257-272,340,345,347-348,350,353,355,359,369-371,376,379-380,427,430,433-449,452-461,465-466,473-477,479-481,483-485,487-490,493-498,512-522,525-533,535-548,550-557,559-576,578-596,598-600,602,611-627,629-635,641-643,649-655
+  s_473ff6e99c875c::t_73941e2323c139 349,486,491-492,500,603-610,628,636-640,644-648
+  s_473ff6e99c875c::t_9fab24b83543f5 478,482
+CLAUDE.md
+  s_7651ddb018f2f4::t_6370b71766c026 6
+frontend/src/components/Sidebar/components/NavigationTabs.tsx
+  s_473ff6e99c875c::t_71644846cef016 34
+AGENTS.md
+  s_7651ddb018f2f4::t_6370b71766c026 147
+frontend/src/components/Sidebar/SidebarCore.tsx
+  s_473ff6e99c875c::t_71644846cef016 36
+frontend/src/pages/main/index.tsx
+  s_473ff6e99c875c::t_71644846cef016 48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "79f130dcd962cfcd8fce8ea7725327bf5a7c1b01",
+  "prompts": {},
+  "sessions": {
+    "s_473ff6e99c875c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ed945-da92-72c0-83e2-4588b73cbc4f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "chenyang <904852749@qq.com>"
+    },
+    "s_7651ddb018f2f4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2006b97d-4a30-4825-8fd7-8ad96ec3b335",
+        "model": "kimi-for-coding"
+      },
+      "human_author": "chenyang <904852749@qq.com>"
+    }
+  }
+}
