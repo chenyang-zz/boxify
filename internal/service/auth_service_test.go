@@ -2,9 +2,11 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/url"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -90,6 +92,71 @@ func TestAuthServiceMarkLoggedInAndLogout(t *testing.T) {
 	stateResult = service.GetLoginState()
 	if loggedIn, ok := stateResult.Data.(bool); !ok || loggedIn {
 		t.Fatalf("GetLoginState().Data = %#v, want false after Logout", stateResult.Data)
+	}
+}
+
+func TestAuthServiceGetAccessTokenReturnsSavedToken(t *testing.T) {
+	service := newAuthServiceForTest(t)
+	if err := service.store.SaveLogin("github", auth.LoginResponse{
+		AccessToken: "token-123",
+		TokenType:   "bearer",
+		ExpiresIn:   3600,
+		User: auth.AuthUser{
+			ID:       "user-1",
+			Username: "octocat",
+			IsActive: true,
+			IsAdmin:  false,
+		},
+	}); err != nil {
+		t.Fatalf("SaveLogin() error = %v", err)
+	}
+
+	result := service.GetAccessToken()
+	if !result.Success {
+		t.Fatalf("GetAccessToken().Success = false, message = %q", result.Message)
+	}
+	data, ok := result.Data.(AuthAccessTokenResponse)
+	if !ok {
+		t.Fatalf("GetAccessToken().Data = %#v, want AuthAccessTokenResponse", result.Data)
+	}
+	if data.AccessToken != "token-123" || data.TokenType != "bearer" {
+		t.Fatalf("GetAccessToken().Data = %#v", data)
+	}
+}
+
+func TestAuthServiceGetAccessTokenRejectsLoggedOutState(t *testing.T) {
+	service := newAuthServiceForTest(t)
+
+	result := service.GetAccessToken()
+	if result.Success {
+		t.Fatal("GetAccessToken().Success = true, want false")
+	}
+	if result.Message == "" {
+		t.Fatal("GetAccessToken().Message is empty")
+	}
+}
+
+func TestAuthServiceGetAccessTokenRejectsExpiredToken(t *testing.T) {
+	service := newAuthServiceForTest(t)
+	state := auth.AuthState{
+		LoggedIn:    true,
+		Provider:    "github",
+		AccessToken: "expired-token",
+		TokenType:   "bearer",
+		ExpiresAt:   time.Now().Add(-time.Minute),
+		UpdatedAt:   time.Now().Add(-time.Hour),
+	}
+	data, err := json.Marshal(state)
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	if err := os.WriteFile(service.store.Path(), data, 0600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	result := service.GetAccessToken()
+	if result.Success {
+		t.Fatal("GetAccessToken().Success = true, want false for expired token")
 	}
 }
 

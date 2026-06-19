@@ -48,7 +48,7 @@ export const NavigationTabs: FC = () => {
 
   useEffect(() => {
     if (!hasVisibleActiveView) {
-      setActiveView("computer");
+      setActiveView("chat");
     }
   }, [hasVisibleActiveView, setActiveView]);
 
@@ -64,7 +64,7 @@ export const NavigationTabs: FC = () => {
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               isActive
                 ? "bg-card text-primary shadow-xs"
-                : "text-muted-foreground hover:bg-card/60 hover:text-foreground"
+                : "text-muted-foreground hover:bg-card/60 hover:text-foreground",
             )}
             onClick={() => setActiveView(tab.view)}
             aria-label={tab.label}

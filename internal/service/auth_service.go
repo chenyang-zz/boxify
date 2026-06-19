@@ -37,6 +37,12 @@ type AuthOAuthCompletedEvent struct {
 	ExpiresIn int           `json:"expiresIn,omitempty"` // token 过期秒数
 }
 
+// AuthAccessTokenResponse 描述前端直连 API 所需的访问 token。
+type AuthAccessTokenResponse struct {
+	AccessToken string `json:"accessToken"` // 访问 token
+	TokenType   string `json:"tokenType"`   // token 类型
+}
+
 type oauthEventEmitter func(event AuthOAuthCompletedEvent)
 
 // AuthService 提供登录状态读写能力。
@@ -116,6 +122,36 @@ func (as *AuthService) GetLoginState() *connection.QueryResult {
 		Success: true,
 		Message: "登录状态读取成功",
 		Data:    loggedIn,
+	}
+}
+
+// GetAccessToken 获取当前有效访问 token，供前端直连远端 API 使用。
+func (as *AuthService) GetAccessToken() *connection.QueryResult {
+	state, err := as.store.GetState()
+	if err != nil {
+		return &connection.QueryResult{
+			Success: false,
+			Message: fmt.Sprintf("读取登录状态失败: %s", err.Error()),
+		}
+	}
+	if !state.LoggedIn || strings.TrimSpace(state.AccessToken) == "" {
+		return &connection.QueryResult{
+			Success: false,
+			Message: "登录已过期，请重新登录",
+		}
+	}
+
+	tokenType := strings.TrimSpace(state.TokenType)
+	if tokenType == "" {
+		tokenType = "bearer"
+	}
+	return &connection.QueryResult{
+		Success: true,
+		Message: "访问 token 读取成功",
+		Data: AuthAccessTokenResponse{
+			AccessToken: state.AccessToken,
+			TokenType:   tokenType,
+		},
 	}
 }
 

@@ -9,10 +9,15 @@ import {
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { useInitialData } from "@/hooks/useInitialData";
 import { callWails, callWailsWithOptions, currentPageId } from "@/lib/utils";
 import boxifyLogo from "../../../../boxify-logo-transparent.png";
 
 type LoginProvider = "github" | "google" | "other";
+
+interface LoginInitialData {
+  reason?: string;
+}
 
 const loginProviderLabels: Record<LoginProvider, string> = {
   github: "GitHub",
@@ -105,10 +110,16 @@ function LoginWindowControls() {
 
 // 渲染 Boxify 独立登录页，提供 GitHub、Google 和其他登录入口。
 function LoginPage() {
+  const { initialData } = useInitialData<LoginInitialData>();
   const [pendingProvider, setPendingProvider] = useState<LoginProvider | null>(
     null,
   );
   const pendingProviderRef = useRef<LoginProvider | null>(null);
+  const reasonToastRef = useRef("");
+  const loginReason =
+    typeof initialData?.data?.reason === "string"
+      ? initialData.data.reason.trim()
+      : "";
 
   // 同步最新登录等待态，避免取消后处理迟到的 OAuth 完成事件。
   const updatePendingProvider = (provider: LoginProvider | null) => {
@@ -145,6 +156,17 @@ function LoginPage() {
       unbind();
     };
   }, []);
+
+  useEffect(() => {
+    if (!loginReason || reasonToastRef.current === loginReason) {
+      return;
+    }
+    reasonToastRef.current = loginReason;
+    toast.warning("需要重新登录", {
+      description: loginReason,
+      style: { textAlign: "left" },
+    });
+  }, [loginReason]);
 
   // 处理登录按钮点击，GitHub 走真实 OAuth，其他入口保留占位提示。
   const handleLogin = async (provider: LoginProvider) => {
@@ -236,6 +258,12 @@ function LoginPage() {
           支持 GitHub / Google 登录
         </div>
 
+        {loginReason ? (
+          <div className="mb-5 w-full rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-center text-sm font-medium text-destructive">
+            {loginReason}
+          </div>
+        ) : null}
+
         <div className="flex w-full flex-col gap-3">
           <Button
             type="button"
@@ -244,7 +272,7 @@ function LoginPage() {
             onClick={() => handleLogin("github")}
           >
             <Github data-icon="inline-start" />
-            {pendingProvider === "github" ? "等待授权..." : "使用 GitHub 登录"}
+            使用 GitHub 登录
           </Button>
 
           <Button

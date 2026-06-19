@@ -17,7 +17,7 @@ import type { FC } from "react";
 /**
  * Sidebar 视图类型
  */
-export type SidebarView = "chat" | "tools" | "boxclaw" | "computer";
+export type SidebarView = "chat" | "tools" | "boxclaw" | "work";
 
 /**
  * 菜单项接口

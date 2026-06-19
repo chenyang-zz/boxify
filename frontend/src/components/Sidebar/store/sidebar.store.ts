@@ -43,7 +43,7 @@ interface SidebarStore {
  * 初始状态
  */
 const initialState = {
-  activeView: "computer" as SidebarView,
+  activeView: "chat" as SidebarView,
   selectedMenuItem: DEFAULT_SELECTED_ITEM,
   expandedCategories: DEFAULT_EXPANDED_CATEGORIES,
 };
