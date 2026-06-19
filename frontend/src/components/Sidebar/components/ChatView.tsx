@@ -19,12 +19,14 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
   Archive,
   ChevronRight,
   Folder,
+  FolderPlus,
   FolderOpen,
   MoreHorizontal,
   Pin,
@@ -32,9 +34,22 @@ import {
   SquarePen,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import {
   createChatSession,
+  createSessionProject,
   getSessionSidebar,
   handleSessionAuthError,
 } from "@/api/sessions";
@@ -48,15 +63,28 @@ type PinnedItem =
   | { kind: "session"; item: ListSessionItem }
   | { kind: "project"; item: SidebarProjectItem };
 
+const emptySidebar: SessionSidebarResponse = {
+  projects: [],
+  standalone_conversations: [],
+};
+
+/**
+ * normalizeSidebar 将远端或本地数据规整为稳定数组结构。
+ */
+function normalizeSidebar(
+  data?: SessionSidebarResponse | null,
+): Required<SessionSidebarResponse> {
+  return {
+    projects: data?.projects ?? [],
+    standalone_conversations: data?.standalone_conversations ?? [],
+  };
+}
+
 /**
  * sessionTitle 返回侧边栏会话标题。
  */
 function sessionTitle(session: ListSessionItem): string {
-  return (
-    session.title?.trim() ||
-    session.latest_message?.trim() ||
-    "新对话"
-  );
+  return session.title?.trim() || session.latest_message?.trim() || "新对话";
 }
 
 /**
@@ -85,6 +113,56 @@ function formatSessionTime(value?: string | null): string {
 }
 
 /**
+ * createOptimisticSession 生成本地临时会话。
+ */
+function createOptimisticSession(sessionId: string): ListSessionItem {
+  return {
+    session_id: sessionId,
+    title: "新对话",
+    latest_message: "",
+    latest_message_at: new Date().toISOString(),
+    status: "pending",
+    unread_message_count: 0,
+    type: "chat",
+    project_id: null,
+    is_pinned: false,
+  };
+}
+
+/**
+ * replaceOptimisticSession 用真实会话 id 替换临时会话。
+ */
+function replaceOptimisticSession(
+  sidebar: SessionSidebarResponse | null,
+  tempId: string,
+  session: ListSessionItem,
+): Required<SessionSidebarResponse> {
+  const current = normalizeSidebar(sidebar);
+  return {
+    ...current,
+    standalone_conversations: current.standalone_conversations.map((item) =>
+      item.session_id === tempId ? { ...item, ...session } : item,
+    ),
+  };
+}
+
+/**
+ * removeOptimisticSession 移除创建失败的临时会话。
+ */
+function removeOptimisticSession(
+  sidebar: SessionSidebarResponse | null,
+  tempId: string,
+): Required<SessionSidebarResponse> {
+  const current = normalizeSidebar(sidebar);
+  return {
+    ...current,
+    standalone_conversations: current.standalone_conversations.filter(
+      (item) => item.session_id !== tempId,
+    ),
+  };
+}
+
+/**
  * ActionRow 渲染 Chat 侧栏顶部的快捷入口。
  */
 const ActionRow: FC<{
@@ -103,6 +181,18 @@ const ActionRow: FC<{
       <Icon className="size-4 shrink-0 text-muted-foreground" />
       <span className="truncate">{label}</span>
     </button>
+  );
+};
+
+/**
+ * InitialLoadingView 渲染 Chat 分组区首次加载状态。
+ */
+const InitialLoadingView: FC = () => {
+  return (
+    <div className="flex h-full min-h-40 flex-col items-center justify-center gap-3 px-4 text-sm text-muted-foreground">
+      <Spinner className="size-5" />
+      <span>正在加载会话...</span>
+    </div>
   );
 };
 
@@ -160,6 +250,22 @@ const ProjectRow: FC<{
         <MoreHorizontal className="size-3.5" />
         <SquarePen className="size-3.5" />
       </span>
+    </button>
+  );
+};
+
+/**
+ * NewProjectRow 渲染项目区的新建项目入口。
+ */
+const NewProjectRow: FC<{ onClick: () => void }> = ({ onClick }) => {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex h-8 w-full min-w-0 items-center gap-2 rounded-md px-2 text-left text-sm font-medium text-foreground transition-colors hover:bg-accent/60"
+    >
+      <FolderPlus className="size-4 shrink-0 text-muted-foreground" />
+      <span className="min-w-0 flex-1 truncate">新建项目</span>
     </button>
   );
 };
@@ -231,27 +337,26 @@ const ProjectBlock: FC<{
  * ChatView 渲染 Chat tab 专属的分组式侧边栏。
  */
 export const ChatView: FC = () => {
-  const [sidebar, setSidebar] = useState<SessionSidebarResponse | null>(null);
+  const [sidebar, setSidebar] = useState<SessionSidebarResponse>(emptySidebar);
   const [expandedProjectIds, setExpandedProjectIds] = useState(
     () => new Set<string>(),
   );
   const [selectedSessionId, setSelectedSessionId] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [projectDialogOpen, setProjectDialogOpen] = useState(false);
+  const [projectName, setProjectName] = useState("");
+  const [projectCreating, setProjectCreating] = useState(false);
+  const pendingSessionIdRef = useRef("");
 
   /**
-   * loadSidebar 加载远端侧边栏结构。
+   * loadSidebar 静默同步远端侧边栏结构。
    */
-  const loadSidebar = useCallback(async () => {
-    setLoading(true);
+  const loadSidebar = useCallback(async (isInitial = false) => {
     setErrorMessage("");
     try {
       const data = await getSessionSidebar();
-      setSidebar({
-        projects: data.projects ?? [],
-        standalone_conversations: data.standalone_conversations ?? [],
-      });
+      setSidebar(normalizeSidebar(data));
     } catch (error) {
       if (await handleSessionAuthError(error)) {
         return;
@@ -261,16 +366,18 @@ export const ChatView: FC = () => {
       setErrorMessage(message);
       toast.error("加载会话失败", { description: message });
     } finally {
-      setLoading(false);
+      if (isInitial) {
+        setInitialLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    void loadSidebar();
+    void loadSidebar(true);
   }, [loadSidebar]);
 
-  const projects = sidebar?.projects ?? [];
-  const standaloneConversations = sidebar?.standalone_conversations ?? [];
+  const projects = sidebar.projects ?? [];
+  const standaloneConversations = sidebar.standalone_conversations ?? [];
 
   const pinnedItems = useMemo<PinnedItem[]>(() => {
     const pinnedStandaloneSessions = standaloneConversations
@@ -317,25 +424,80 @@ export const ChatView: FC = () => {
   };
 
   /**
-   * handleCreateSession 创建新 Chat 会话并刷新侧栏。
+   * handleCreateSession 乐观创建新 Chat 会话并刷新侧栏。
    */
   const handleCreateSession = async () => {
-    if (creating) {
+    if (pendingSessionIdRef.current) {
       return;
     }
-    setCreating(true);
+
+    const previousSelectedSessionId = selectedSessionId;
+    const tempId = `optimistic-session-${Date.now()}`;
+    const optimisticSession = createOptimisticSession(tempId);
+    pendingSessionIdRef.current = tempId;
+    setSidebar((current) => {
+      const normalized = normalizeSidebar(current);
+      return {
+        ...normalized,
+        standalone_conversations: [
+          optimisticSession,
+          ...normalized.standalone_conversations,
+        ],
+      };
+    });
+    setSelectedSessionId(tempId);
+
     try {
       const created = await createChatSession(null);
+      const createdSession: ListSessionItem = {
+        ...optimisticSession,
+        session_id: created.session_id,
+        type: created.type,
+        project_id: created.project_id ?? null,
+        is_pinned: created.is_pinned ?? false,
+      };
+      setSidebar((current) =>
+        replaceOptimisticSession(current, tempId, createdSession),
+      );
       setSelectedSessionId(created.session_id);
       await loadSidebar();
     } catch (error) {
+      setSidebar((current) => removeOptimisticSession(current, tempId));
+      setSelectedSessionId(previousSelectedSessionId);
       if (await handleSessionAuthError(error)) {
         return;
       }
       const message = error instanceof Error ? error.message : "创建会话失败";
       toast.error("创建会话失败", { description: message });
     } finally {
-      setCreating(false);
+      pendingSessionIdRef.current = "";
+    }
+  };
+
+  /**
+   * handleCreateProject 请求成功后再把新项目同步到侧栏。
+   */
+  const handleCreateProject = async () => {
+    const name = projectName.trim();
+    if (!name || projectCreating) {
+      return;
+    }
+
+    setProjectCreating(true);
+
+    try {
+      const created = await createSessionProject(name);
+      await loadSidebar();
+      setProjectDialogOpen(false);
+      setProjectName("");
+    } catch (error) {
+      if (await handleSessionAuthError(error)) {
+        return;
+      }
+      const message = error instanceof Error ? error.message : "创建项目失败";
+      toast.error("创建项目失败", { description: message });
+    } finally {
+      setProjectCreating(false);
     }
   };
 
@@ -347,95 +509,150 @@ export const ChatView: FC = () => {
   };
 
   return (
-    <div className="flex h-full w-full min-w-0 flex-col overflow-hidden bg-sidebar">
-      <div className="shrink-0 px-2 pt-2 pb-1">
-        <div className="flex flex-col gap-0.5">
-          <ActionRow
-            icon={SquarePen}
-            label={creating ? "创建中..." : "新对话"}
-            disabled={creating}
-            onClick={() => void handleCreateSession()}
-          />
-          <ActionRow icon={Search} label="搜索" />
-        </div>
-      </div>
-
-      <div className="relative min-h-0 flex-1">
-        <div className="h-full overflow-auto px-2 pb-2">
-          <SectionTitle>置顶</SectionTitle>
+    <>
+      <div className="flex h-full w-full min-w-0 flex-col overflow-hidden bg-sidebar">
+        <div className="shrink-0 px-2 pt-2 pb-1">
           <div className="flex flex-col gap-0.5">
-            {loading ? (
-              <EmptyRow>加载中...</EmptyRow>
-            ) : pinnedItems.length === 0 ? (
-              <EmptyRow>暂无置顶</EmptyRow>
-            ) : (
-              pinnedItems.map((entry) =>
-                entry.kind === "session" ? (
-                  <SessionRow
-                    key={`pinned-session-${entry.item.session_id}`}
-                    item={entry.item}
-                    active={entry.item.session_id === selectedSessionId}
-                    onClick={() => handleSelectSession(entry.item.session_id)}
-                  />
+            <ActionRow
+              icon={SquarePen}
+              label="新对话"
+              onClick={() => void handleCreateSession()}
+            />
+            <ActionRow icon={Search} label="搜索" />
+          </div>
+        </div>
+
+        <div className="relative min-h-0 flex-1">
+          {initialLoading ? (
+            <InitialLoadingView />
+          ) : (
+            <div className="h-full overflow-auto px-2 pb-2">
+              <SectionTitle>置顶</SectionTitle>
+              <div className="flex flex-col gap-0.5">
+                {pinnedItems.length === 0 ? (
+                  <EmptyRow>暂无置顶</EmptyRow>
                 ) : (
-                  <ProjectBlock
-                    key={`pinned-project-${entry.item.project_id}`}
-                    project={entry.item}
-                    expanded={expandedProjectIds.has(entry.item.project_id)}
-                    selectedSessionId={selectedSessionId}
-                    onToggle={() => toggleProject(entry.item.project_id)}
-                    onSelectSession={handleSelectSession}
-                  />
-                ),
-              )
-            )}
-          </div>
+                  pinnedItems.map((entry) =>
+                    entry.kind === "session" ? (
+                      <SessionRow
+                        key={`pinned-session-${entry.item.session_id}`}
+                        item={entry.item}
+                        active={entry.item.session_id === selectedSessionId}
+                        onClick={() =>
+                          handleSelectSession(entry.item.session_id)
+                        }
+                      />
+                    ) : (
+                      <ProjectBlock
+                        key={`pinned-project-${entry.item.project_id}`}
+                        project={entry.item}
+                        expanded={expandedProjectIds.has(entry.item.project_id)}
+                        selectedSessionId={selectedSessionId}
+                        onToggle={() => toggleProject(entry.item.project_id)}
+                        onSelectSession={handleSelectSession}
+                      />
+                    ),
+                  )
+                )}
+              </div>
 
-          <SectionTitle>项目</SectionTitle>
-          <div className="flex flex-col gap-0.5">
-            {loading ? (
-              <EmptyRow>加载中...</EmptyRow>
-            ) : regularProjects.length === 0 ? (
-              <EmptyRow>暂无项目</EmptyRow>
-            ) : (
-              regularProjects.map((project) => (
-                <ProjectBlock
-                  key={project.project_id}
-                  project={project}
-                  expanded={expandedProjectIds.has(project.project_id)}
-                  selectedSessionId={selectedSessionId}
-                  onToggle={() => toggleProject(project.project_id)}
-                  onSelectSession={handleSelectSession}
-                />
-              ))
-            )}
-          </div>
+              <SectionTitle>项目</SectionTitle>
+              <div className="flex flex-col gap-0.5">
+                <NewProjectRow onClick={() => setProjectDialogOpen(true)} />
+                {regularProjects.length === 0 ? (
+                  <EmptyRow>暂无项目</EmptyRow>
+                ) : (
+                  regularProjects.map((project) => (
+                    <ProjectBlock
+                      key={project.project_id}
+                      project={project}
+                      expanded={expandedProjectIds.has(project.project_id)}
+                      selectedSessionId={selectedSessionId}
+                      onToggle={() => toggleProject(project.project_id)}
+                      onSelectSession={handleSelectSession}
+                    />
+                  ))
+                )}
+              </div>
 
-          <SectionTitle>对话</SectionTitle>
-          <div className="flex flex-col gap-0.5">
-            {loading ? (
-              <EmptyRow>加载中...</EmptyRow>
-            ) : errorMessage ? (
-              <EmptyRow>{errorMessage}</EmptyRow>
-            ) : regularConversations.length === 0 ? (
-              <EmptyRow>暂无对话</EmptyRow>
-            ) : (
-              regularConversations.map((item) => (
-                <SessionRow
-                  key={item.session_id}
-                  item={item}
-                  active={item.session_id === selectedSessionId}
-                  onClick={() => handleSelectSession(item.session_id)}
-                />
-              ))
-            )}
-          </div>
+              <SectionTitle>对话</SectionTitle>
+              <div className="flex flex-col gap-0.5">
+                {errorMessage ? (
+                  <EmptyRow>{errorMessage}</EmptyRow>
+                ) : regularConversations.length === 0 ? (
+                  <EmptyRow>暂无对话</EmptyRow>
+                ) : (
+                  regularConversations.map((item) => (
+                    <SessionRow
+                      key={item.session_id}
+                      item={item}
+                      active={item.session_id === selectedSessionId}
+                      onClick={() => handleSelectSession(item.session_id)}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-6 bg-gradient-to-b from-sidebar to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-sidebar to-transparent" />
         </div>
-
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-6 bg-gradient-to-b from-sidebar to-transparent" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-sidebar to-transparent" />
       </div>
-    </div>
+
+      <Dialog
+        open={projectDialogOpen}
+        onOpenChange={(open) => {
+          if (!projectCreating) {
+            setProjectDialogOpen(open);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <form
+            className="flex flex-col gap-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleCreateProject();
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>新建项目</DialogTitle>
+              <DialogDescription>
+                创建后会出现在 Chat 侧边栏项目分组中。
+              </DialogDescription>
+            </DialogHeader>
+
+            <Input
+              autoFocus
+              disabled={projectCreating}
+              value={projectName}
+              onChange={(event) => setProjectName(event.target.value)}
+              placeholder="项目名称"
+            />
+
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={projectCreating}
+                >
+                  取消
+                </Button>
+              </DialogClose>
+              <Button
+                type="submit"
+                disabled={!projectName.trim() || projectCreating}
+              >
+                {projectCreating ? <Spinner data-icon="inline-start" /> : null}
+                创建项目
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 

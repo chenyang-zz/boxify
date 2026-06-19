@@ -45,7 +45,7 @@ function MainApp() {
                 <ChatContent />
               ) : activeView === "boxclaw" ? (
                 <ClawContent />
-              ) : activeView === "computer" ? (
+              ) : activeView === "work" ? (
                 <ComputerContent />
               ) : (
                 <Tabs />

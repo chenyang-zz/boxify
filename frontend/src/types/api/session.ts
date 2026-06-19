@@ -32,3 +32,16 @@ export interface CreateSessionResponse {
   project_id?: string | null;
   is_pinned?: boolean;
 }
+
+export interface CreateSessionProjectRequest {
+  name: string;
+  sort_order?: number;
+  is_pinned?: boolean;
+}
+
+export interface SessionProjectResponse {
+  project_id: string;
+  name: string;
+  sort_order: number;
+  is_pinned?: boolean;
+}

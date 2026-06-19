@@ -33,7 +33,7 @@ export const SidebarCore: FC = () => {
       {activeView === "chat" && <ChatView />}
       {activeView === "tools" && <FileTreeView />}
       {activeView === "boxclaw" && <ClawMenu />}
-      {activeView === "computer" && <ComputerView />}
+      {activeView === "work" && <ComputerView />}
     </>
   );
 };

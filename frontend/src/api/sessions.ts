@@ -1,6 +1,8 @@
 import { handleApiAuthError, requestWithAuth } from "@/api/client";
 import type {
+  CreateSessionProjectRequest,
   CreateSessionResponse,
+  SessionProjectResponse,
   SessionSidebarResponse,
 } from "@/types/api/session";
 
@@ -26,5 +28,23 @@ export async function createChatSession(
       project_id: projectId,
       is_pinned: false,
     }),
+  });
+}
+
+/**
+ * createSessionProject 创建新的 Chat 项目。
+ */
+export async function createSessionProject(
+  name: string,
+): Promise<SessionProjectResponse> {
+  const body: CreateSessionProjectRequest = {
+    name,
+    sort_order: 0,
+    is_pinned: false,
+  };
+
+  return requestWithAuth<SessionProjectResponse>("/api/sessions/projects", {
+    method: "POST",
+    body: JSON.stringify(body),
   });
 }

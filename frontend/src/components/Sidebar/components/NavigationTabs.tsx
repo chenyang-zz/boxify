@@ -31,7 +31,7 @@ const tabs: TabConfig[] = [
     label: "Chat",
   },
   {
-    view: "computer",
+    view: "work",
     icon: <BriefcaseBusiness className="size-3.5 shrink-0" />,
     label: "Work",
   },
