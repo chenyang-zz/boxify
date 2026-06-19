@@ -11,6 +11,8 @@ interface RequestWithAuthOptions extends RequestInit {
   allowEmptyData?: boolean;
 }
 
+type RequestStreamWithAuthOptions = RequestInit;
+
 const DEFAULT_API_BASE_URL = "http://localhost:8000";
 const LOGIN_EXPIRED_REASON = "登录已过期，请重新登录";
 
@@ -143,4 +145,34 @@ export async function requestWithAuth<T>(
     throw new Error("接口响应缺少 data");
   }
   return payload.data;
+}
+
+/**
+ * requestStreamWithAuth 使用当前登录 token 调用远端流式 HTTP API。
+ */
+export async function requestStreamWithAuth(
+  path: string,
+  init: RequestStreamWithAuthOptions = {},
+): Promise<Response> {
+  const token = await getAccessToken();
+  const headers = new Headers(init.headers);
+  headers.set(
+    "Authorization",
+    `${normalizeBearerScheme(token.tokenType)} ${token.accessToken}`,
+  );
+  if (init.body && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const response = await fetch(`${getApiBaseUrl()}${path}`, {
+    ...init,
+    headers,
+  });
+  if (response.status === 401 || response.status === 403) {
+    throw new ApiAuthExpiredError();
+  }
+  if (!response.ok) {
+    throw new Error(`请求失败: HTTP ${response.status}`);
+  }
+  return response;
 }

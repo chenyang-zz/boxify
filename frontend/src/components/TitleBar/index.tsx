@@ -69,7 +69,7 @@ const TitleBar: FC = () => {
 
   return (
     <header
-      className="grid h-14 w-full shrink-0 cursor-default grid-cols-[minmax(210px,1fr)_minmax(260px,520px)_minmax(210px,1fr)] items-center border-b bg-card px-5 text-card-foreground"
+      className="grid h-14 w-full shrink-0 cursor-default grid-cols-[minmax(210px,1fr)_minmax(260px,520px)_minmax(210px,1fr)] items-center border-b bg-background px-5 text-foreground"
       style={{ "--wails-draggable": "drag" } as React.CSSProperties}
     >
       <div

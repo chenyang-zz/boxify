@@ -12,7 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { type FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type FC,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Search, SquarePen } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -28,6 +35,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { useChatSessionStore } from "@/store/chat-session.store";
 import {
   createChatSession,
   createSessionProject,
@@ -59,6 +67,7 @@ import {
   projectContainsSession,
   removeOptimisticSession,
   replaceOptimisticSession,
+  sessionTitle,
 } from "./utils";
 
 const emptySidebar: SessionSidebarResponse = {
@@ -74,7 +83,6 @@ export const ChatView: FC = () => {
   const [expandedProjectIds, setExpandedProjectIds] = useState(
     () => new Set<string>(),
   );
-  const [selectedSessionId, setSelectedSessionId] = useState("");
   const [initialLoading, setInitialLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
@@ -82,6 +90,21 @@ export const ChatView: FC = () => {
   const [projectCreating, setProjectCreating] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const pendingSessionIdRef = useRef("");
+  const selectedSessionId = useChatSessionStore(
+    (state) => state.selectedSessionId,
+  );
+  const selectedSessionTitle = useChatSessionStore(
+    (state) => state.selectedSessionTitle,
+  );
+  const setSelectedSession = useChatSessionStore(
+    (state) => state.setSelectedSession,
+  );
+  const clearSelectedSessionId = useChatSessionStore(
+    (state) => state.clearSelectedSessionId,
+  );
+  const sidebarRefreshVersion = useChatSessionStore(
+    (state) => state.sidebarRefreshVersion,
+  );
 
   /**
    * loadSidebar 静默同步远端侧边栏结构。
@@ -109,6 +132,12 @@ export const ChatView: FC = () => {
   useEffect(() => {
     void loadSidebar(true);
   }, [loadSidebar]);
+
+  useEffect(() => {
+    if (sidebarRefreshVersion > 0) {
+      void loadSidebar();
+    }
+  }, [loadSidebar, sidebarRefreshVersion]);
 
   const projects = sidebar.projects ?? [];
   const standaloneConversations = sidebar.standalone_conversations ?? [];
@@ -212,6 +241,7 @@ export const ChatView: FC = () => {
     }
 
     const previousSelectedSessionId = selectedSessionId;
+    const previousSelectedSessionTitle = selectedSessionTitle;
     const tempId = `optimistic-session-${Date.now()}`;
     const optimisticSession = createOptimisticSession(tempId);
     pendingSessionIdRef.current = tempId;
@@ -225,7 +255,7 @@ export const ChatView: FC = () => {
         ],
       };
     });
-    setSelectedSessionId(tempId);
+    setSelectedSession(tempId, sessionTitle(optimisticSession));
 
     try {
       const created = await createChatSession(null);
@@ -239,11 +269,18 @@ export const ChatView: FC = () => {
       setSidebar((current) =>
         replaceOptimisticSession(current, tempId, createdSession),
       );
-      setSelectedSessionId(created.session_id);
+      setSelectedSession(created.session_id, sessionTitle(createdSession));
       await loadSidebar();
     } catch (error) {
       setSidebar((current) => removeOptimisticSession(current, tempId));
-      setSelectedSessionId(previousSelectedSessionId);
+      if (previousSelectedSessionId) {
+        setSelectedSession(
+          previousSelectedSessionId,
+          previousSelectedSessionTitle,
+        );
+      } else {
+        clearSelectedSessionId();
+      }
       if (await handleSessionAuthError(error)) {
         return;
       }
@@ -284,8 +321,8 @@ export const ChatView: FC = () => {
   /**
    * handleSelectSession 记录当前选中的侧边栏会话。
    */
-  const handleSelectSession = (sessionId: string) => {
-    setSelectedSessionId(sessionId);
+  const handleSelectSession = (session: ListSessionItem) => {
+    setSelectedSession(session.session_id, sessionTitle(session));
   };
 
   /**
@@ -316,7 +353,7 @@ export const ChatView: FC = () => {
       if (deleteTarget.kind === "session") {
         await deleteChatSession(deleteTarget.item.session_id);
         if (selectedSessionId === deleteTarget.item.session_id) {
-          setSelectedSessionId("");
+          clearSelectedSessionId();
         }
       } else {
         await deleteSessionProject(deleteTarget.item.project_id);
@@ -326,7 +363,7 @@ export const ChatView: FC = () => {
           return next;
         });
         if (projectContainsSession(deleteTarget.item, selectedSessionId)) {
-          setSelectedSessionId("");
+          clearSelectedSessionId();
         }
       }
       await loadSidebar();
@@ -355,7 +392,7 @@ export const ChatView: FC = () => {
   return (
     <>
       <ChatMoveContext.Provider value={moveContextValue}>
-        <div className="flex h-full w-full min-w-0 flex-col overflow-hidden bg-background">
+        <div className="flex h-full w-full min-w-0 flex-col overflow-hidden bg-sidebar">
           <div className="shrink-0 px-2 pt-2 pb-1">
             <div className="flex flex-col gap-0.5">
               <ActionRow
@@ -388,11 +425,9 @@ export const ChatView: FC = () => {
                         >
                           <SessionRow
                             item={entry.item}
-                            active={
-                              entry.item.session_id === selectedSessionId
-                            }
+                            active={entry.item.session_id === selectedSessionId}
                             onClick={() =>
-                              handleSelectSession(entry.item.session_id)
+                              handleSelectSession(entry.item)
                             }
                           />
                         </SidebarItemContextMenu>
@@ -451,7 +486,7 @@ export const ChatView: FC = () => {
                         <SessionRow
                           item={item}
                           active={item.session_id === selectedSessionId}
-                          onClick={() => handleSelectSession(item.session_id)}
+                          onClick={() => handleSelectSession(item)}
                         />
                       </SidebarItemContextMenu>
                     ))

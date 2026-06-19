@@ -42,7 +42,7 @@ export interface ProjectBlockProps {
   expanded: boolean;
   selectedSessionId: string;
   onToggle: () => void;
-  onSelectSession: (sessionId: string) => void;
+  onSelectSession: (session: ListSessionItem) => void;
   onRequestDeleteProject: (project: SidebarProjectItem) => void;
   onRequestDeleteSession: (session: ListSessionItem) => void;
 }

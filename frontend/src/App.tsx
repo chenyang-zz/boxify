@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { FC, JSX, lazy, useEffect } from "react";
+import { AuthService } from "@wails/service";
 import { dataSyncStoreMethods } from "./store/data-sync.store";
 import { eventStoreMethods } from "./store/event.store";
 import { currentPageId, currentWindowName } from "./lib/utils";
@@ -42,6 +43,19 @@ const App: FC = () => {
     console.log(`📄  当前窗口名称: ${windowName}`);
     dataSyncStoreMethods.setCurrentWindow(windowName);
     eventStoreMethods.initialize();
+
+    // 首次加载时输出当前登录 token，便于调试远端 API 鉴权。
+    AuthService.GetAccessToken()
+      .then((result) => {
+        if (!result?.success) {
+          console.warn("[Auth] 登录 token 获取失败:", result?.message);
+          return;
+        }
+        console.log("[Auth] 当前登录 token:", result.data);
+      })
+      .catch((error) => {
+        console.warn("[Auth] 登录 token 获取异常:", error);
+      });
 
     return () => {
       eventStoreMethods.dispose();

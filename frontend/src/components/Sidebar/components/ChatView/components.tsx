@@ -105,7 +105,7 @@ export const ProjectBlock: FC<ProjectBlockProps> = ({
                 item={session}
                 inset
                 active={session.session_id === selectedSessionId}
-                onClick={() => onSelectSession(session.session_id)}
+                onClick={() => onSelectSession(session)}
               />
             </SidebarItemContextMenu>
           ))

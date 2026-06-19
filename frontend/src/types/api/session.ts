@@ -51,3 +51,58 @@ export interface UpdateSessionRequest {
   project_id?: string | null;
   is_pinned?: boolean | null;
 }
+
+export interface ChatRequest {
+  message?: string | null;
+  attachments?: string[] | null;
+  event_id?: string | null;
+  timestamp?: number | null;
+}
+
+export interface SessionAttachment {
+  file_id?: string;
+  filename?: string;
+  name?: string;
+  url?: string;
+  [key: string]: unknown;
+}
+
+export interface MessageEventData {
+  event_id?: string | null;
+  created_at?: string | number | null;
+  role: "user" | "assistant";
+  message?: string;
+  attachments?: SessionAttachment[];
+}
+
+export interface DoneEventData {
+  event_id?: string | null;
+  created_at?: string | number | null;
+}
+
+export interface MessageSSEEvent {
+  event: "message";
+  data: MessageEventData;
+}
+
+export interface DoneSSEEvent {
+  event: "done";
+  data: DoneEventData;
+}
+
+export interface UnknownSessionEvent {
+  event: string;
+  data?: unknown;
+}
+
+export type SessionEvent =
+  | MessageSSEEvent
+  | DoneSSEEvent
+  | UnknownSessionEvent;
+
+export interface GetSessionResponse {
+  session_id: string;
+  title?: string | null;
+  status: SessionStatus;
+  events: SessionEvent[];
+}
