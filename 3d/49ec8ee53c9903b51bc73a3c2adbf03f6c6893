@@ -1,0 +1,51 @@
+internal/service/auth_service_test.go
+  s_473ff6e99c875c::t_1de6f068519f77 5,9,136-159
+  s_473ff6e99c875c::t_be2b8c9c4ffe2f 98-135,160-162
+AGENTS.md
+  s_7651ddb018f2f4::t_5e506b92e2aca3 147
+frontend/src/components/Sidebar/components/ChatView.tsx
+  s_473ff6e99c875c::t_1edc1bf920a185 16-23,28,34,36-39,47-49,51-59,62-73,75-85,91,93-95,99-101,112,121,123-140,145-146,148-150,153-154,168,170-172,174-177,181,185,188-189,191,194-197,202-229,234,236-301,319-348,353-358,367-391,396-411,416-431
+  s_473ff6e99c875c::t_f472232e44f07f 40-41,45
+  s_473ff6e99c875c::t_306f0e1b31af77 42-44
+frontend/src/types/api/session.ts
+  s_473ff6e99c875c::t_f472232e44f07f 1-34
+frontend/src/types/api/index.ts
+  s_473ff6e99c875c::t_f472232e44f07f 1-2
+frontend/src/pages/login/index.tsx
+  s_473ff6e99c875c::t_c890919085c813 275
+  s_473ff6e99c875c::t_bb8264cacdbe57 12,18-21,113,118-122,160-170,261-265
+frontend/src/types/api/common.ts
+  s_473ff6e99c875c::t_f472232e44f07f 1-5
+frontend/src/api/sessions.ts
+  s_473ff6e99c875c::t_f472232e44f07f 1-30
+CLAUDE.md
+  s_7651ddb018f2f4::t_5e506b92e2aca3 6
+frontend/src/api/client.ts
+  s_473ff6e99c875c::t_f472232e44f07f 1-138
+internal/service/auth_service.go
+  s_473ff6e99c875c::t_2fccbf06ac7edc 40-45,128-154
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "3d49ec8ee53c9903b51bc73a3c2adbf03f6c6893",
+  "prompts": {},
+  "sessions": {
+    "s_473ff6e99c875c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ed945-da92-72c0-83e2-4588b73cbc4f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "chenyang <904852749@qq.com>"
+    },
+    "s_7651ddb018f2f4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2006b97d-4a30-4825-8fd7-8ad96ec3b335",
+        "model": "kimi-for-coding"
+      },
+      "human_author": "chenyang <904852749@qq.com>"
+    }
+  }
+}
