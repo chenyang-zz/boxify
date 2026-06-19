@@ -44,6 +44,7 @@ import {
   getSessionSidebar,
   handleSessionAuthError,
   updateChatSession,
+  updateSessionProject,
 } from "@/api/sessions";
 import type {
   ListSessionItem,
@@ -59,7 +60,7 @@ import {
 import { SidebarItemContextMenu } from "./context-menu";
 import { ChatMoveContext } from "./move-context";
 import { NewProjectRow, SessionRow } from "./rows";
-import type { DeleteTarget, PinnedItem } from "./types";
+import type { ChatItemTarget, DeleteTarget, PinnedItem } from "./types";
 import {
   createOptimisticSession,
   moveSessionToProject,
@@ -68,6 +69,8 @@ import {
   removeOptimisticSession,
   replaceOptimisticSession,
   sessionTitle,
+  updateProjectPinned,
+  updateSessionPinned,
 } from "./utils";
 
 const emptySidebar: SessionSidebarResponse = {
@@ -89,6 +92,9 @@ export const ChatView: FC = () => {
   const [projectName, setProjectName] = useState("");
   const [projectCreating, setProjectCreating] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [renameTarget, setRenameTarget] = useState<ChatItemTarget | null>(null);
+  const [renameName, setRenameName] = useState("");
+  const [renameSaving, setRenameSaving] = useState(false);
   const pendingSessionIdRef = useRef("");
   const selectedSessionId = useChatSessionStore(
     (state) => state.selectedSessionId,
@@ -172,6 +178,60 @@ export const ChatView: FC = () => {
   );
 
   /**
+   * handleTogglePinned 乐观切换会话或项目的置顶状态。
+   */
+  const handleTogglePinned = useCallback(
+    (target: ChatItemTarget) => {
+      const previousSidebar = sidebar;
+      const nextPinned = !target.item.is_pinned;
+
+      if (target.kind === "session") {
+        setSidebar((current) =>
+          updateSessionPinned(current, target.item.session_id, nextPinned),
+        );
+      } else {
+        setSidebar((current) =>
+          updateProjectPinned(current, target.item.project_id, nextPinned),
+        );
+      }
+
+      void (async () => {
+        try {
+          if (target.kind === "session") {
+            await updateChatSession(target.item.session_id, {
+              is_pinned: nextPinned,
+            });
+          } else {
+            await updateSessionProject(target.item.project_id, {
+              is_pinned: nextPinned,
+            });
+          }
+          await loadSidebar();
+        } catch (error) {
+          setSidebar(previousSidebar);
+          if (await handleSessionAuthError(error)) {
+            return;
+          }
+          const message =
+            error instanceof Error ? error.message : "更新置顶状态失败";
+          toast.error("更新置顶失败", { description: message });
+        }
+      })();
+    },
+    [loadSidebar, sidebar],
+  );
+
+  /**
+   * handleRequestRename 打开重命名弹窗并预填当前名称。
+   */
+  const handleRequestRename = useCallback((target: ChatItemTarget) => {
+    setRenameTarget(target);
+    setRenameName(
+      target.kind === "session" ? sessionTitle(target.item) : target.item.name,
+    );
+  }, []);
+
+  /**
    * handleMoveSessionToProject 乐观移动会话并在失败时回滚。
    */
   const handleMoveSessionToProject = useCallback(
@@ -213,8 +273,10 @@ export const ChatView: FC = () => {
     () => ({
       projects,
       onMoveSessionToProject: handleMoveSessionToProject,
+      onRequestRename: handleRequestRename,
+      onTogglePinned: handleTogglePinned,
     }),
-    [projects, handleMoveSessionToProject],
+    [projects, handleMoveSessionToProject, handleRequestRename, handleTogglePinned],
   );
 
   /**
@@ -339,6 +401,49 @@ export const ChatView: FC = () => {
     project: Extract<DeleteTarget, { kind: "project" }>["item"],
   ) => {
     setDeleteTarget({ kind: "project", item: project });
+  };
+
+  /**
+   * handleRenameSubmit 保存会话或项目重命名结果。
+   */
+  const handleRenameSubmit = async () => {
+    if (!renameTarget) {
+      return;
+    }
+
+    const name = renameName.trim();
+    const currentName =
+      renameTarget.kind === "session"
+        ? sessionTitle(renameTarget.item)
+        : renameTarget.item.name;
+    if (!name || name === currentName || renameSaving) {
+      return;
+    }
+
+    setRenameSaving(true);
+    try {
+      if (renameTarget.kind === "session") {
+        await updateChatSession(renameTarget.item.session_id, { title: name });
+        if (selectedSessionId === renameTarget.item.session_id) {
+          setSelectedSession(renameTarget.item.session_id, name);
+        }
+      } else {
+        await updateSessionProject(renameTarget.item.project_id, {
+          name,
+        });
+      }
+      await loadSidebar();
+      setRenameTarget(null);
+      setRenameName("");
+    } catch (error) {
+      if (await handleSessionAuthError(error)) {
+        return;
+      }
+      const message = error instanceof Error ? error.message : "重命名失败";
+      toast.error("重命名失败", { description: message });
+    } finally {
+      setRenameSaving(false);
+    }
   };
 
   /**
@@ -548,6 +653,68 @@ export const ChatView: FC = () => {
               >
                 {projectCreating ? <Spinner data-icon="inline-start" /> : null}
                 创建项目
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={renameTarget !== null}
+        onOpenChange={(open) => {
+          if (!renameSaving && !open) {
+            setRenameTarget(null);
+            setRenameName("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <form
+            className="flex flex-col gap-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleRenameSubmit();
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>
+                {renameTarget?.kind === "project" ? "重命名项目" : "重命名对话"}
+              </DialogTitle>
+              <DialogDescription>
+                保存后会更新 Chat 侧边栏显示名称。
+              </DialogDescription>
+            </DialogHeader>
+
+            <Input
+              autoFocus
+              disabled={renameSaving}
+              value={renameName}
+              onChange={(event) => setRenameName(event.target.value)}
+              placeholder="名称"
+            />
+
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={renameSaving}
+                >
+                  取消
+                </Button>
+              </DialogClose>
+              <Button
+                type="submit"
+                disabled={
+                  !renameName.trim() ||
+                  renameSaving ||
+                  (renameTarget?.kind === "session"
+                    ? renameName.trim() === sessionTitle(renameTarget.item)
+                    : renameName.trim() === renameTarget?.item.name)
+                }
+              >
+                {renameSaving ? <Spinner data-icon="inline-start" /> : null}
+                保存
               </Button>
             </DialogFooter>
           </form>

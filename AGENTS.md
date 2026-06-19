@@ -136,6 +136,7 @@ go test ./...         # 运行测试
 
 ## 资源链接
 
+- [后端接口文档](http://localhost:8000/docs)
 - [Wails 文档](https://v3alpha.wails.io/)
 - [React 文档](https://react.dev/)
 - [shadcn/ui 组件](https://ui.shadcn.com/)

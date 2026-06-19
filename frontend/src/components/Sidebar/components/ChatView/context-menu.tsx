@@ -36,9 +36,17 @@ export const SidebarItemContextMenu: FC<SidebarItemContextMenuProps> = ({
   onDelete,
   type = "session",
   session,
+  project,
 }) => {
   const moveContext = useChatMoveContext();
   const projects = moveContext?.projects ?? [];
+  const target =
+    type === "project" && project
+      ? ({ kind: "project", item: project } as const)
+      : session
+        ? ({ kind: "session", item: session } as const)
+        : null;
+  const pinLabel = target?.item.is_pinned ? "取消置顶" : "置顶";
 
   return (
     <ContextMenu>
@@ -90,9 +98,25 @@ export const SidebarItemContextMenu: FC<SidebarItemContextMenuProps> = ({
         )}
 
         <ContextMenuGroup>
-          <ContextMenuItem>置顶</ContextMenuItem>
+          <ContextMenuItem
+            onSelect={() => {
+              if (target) {
+                moveContext?.onTogglePinned(target);
+              }
+            }}
+          >
+            {pinLabel}
+          </ContextMenuItem>
           <ContextMenuItem>归档</ContextMenuItem>
-          <ContextMenuItem>重命名</ContextMenuItem>
+          <ContextMenuItem
+            onSelect={() => {
+              if (target) {
+                moveContext?.onRequestRename(target);
+              }
+            }}
+          >
+            重命名
+          </ContextMenuItem>
           <ContextMenuItem onSelect={onDelete}>删除</ContextMenuItem>
         </ContextMenuGroup>
       </ContextMenuContent>

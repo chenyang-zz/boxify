@@ -90,6 +90,7 @@ export const ProjectBlock: FC<ProjectBlockProps> = ({
     <div className="flex flex-col gap-0.5">
       <SidebarItemContextMenu
         type="project"
+        project={project}
         onDelete={() => onRequestDeleteProject(project)}
       >
         <ProjectRow item={project} expanded={expanded} onClick={onToggle} />

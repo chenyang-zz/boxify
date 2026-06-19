@@ -11,6 +11,7 @@ import type {
   GetSessionResponse,
   ListSessionItem,
   MessageSSEEvent,
+  SessionProjectRequest,
   SessionProjectResponse,
   SessionSidebarResponse,
   UnknownSessionEvent,
@@ -296,6 +297,22 @@ export async function updateChatSession(
 ): Promise<ListSessionItem> {
   return requestWithAuth<ListSessionItem>(
     `/api/sessions/${encodeURIComponent(sessionId)}/update`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+/**
+ * updateSessionProject 更新指定 Chat 项目的基础信息。
+ */
+export async function updateSessionProject(
+  projectId: string,
+  body: SessionProjectRequest,
+): Promise<SessionProjectResponse> {
+  return requestWithAuth<SessionProjectResponse>(
+    `/api/sessions/projects/${encodeURIComponent(projectId)}/update`,
     {
       method: "POST",
       body: JSON.stringify(body),

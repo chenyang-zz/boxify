@@ -26,6 +26,8 @@ export type DeleteTarget =
   | { kind: "session"; item: ListSessionItem }
   | { kind: "project"; item: SidebarProjectItem };
 
+export type ChatItemTarget = DeleteTarget;
+
 export interface ActionRowProps {
   icon: ElementType;
   label: string;
@@ -52,6 +54,7 @@ export interface SidebarItemContextMenuProps {
   onDelete: () => void;
   type?: "session" | "project";
   session?: ListSessionItem;
+  project?: SidebarProjectItem;
 }
 
 export interface ChatMoveContextValue {
@@ -60,4 +63,6 @@ export interface ChatMoveContextValue {
     session: ListSessionItem,
     targetProjectId: string,
   ) => void;
+  onRequestRename: (target: ChatItemTarget) => void;
+  onTogglePinned: (target: ChatItemTarget) => void;
 }

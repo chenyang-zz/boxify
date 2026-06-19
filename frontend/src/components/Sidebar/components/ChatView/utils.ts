@@ -164,6 +164,51 @@ export function moveSessionToProject(
 }
 
 /**
+ * updateSessionPinned 在侧栏结构中更新指定会话置顶状态。
+ */
+export function updateSessionPinned(
+  sidebar: SessionSidebarResponse | null,
+  sessionId: string,
+  isPinned: boolean,
+): Required<SessionSidebarResponse> {
+  const current = normalizeSidebar(sidebar);
+  return {
+    projects: current.projects.map((project) => ({
+      ...project,
+      sessions: (project.sessions ?? []).map((session) =>
+        session.session_id === sessionId
+          ? { ...session, is_pinned: isPinned }
+          : session,
+      ),
+    })),
+    standalone_conversations: current.standalone_conversations.map((session) =>
+      session.session_id === sessionId
+        ? { ...session, is_pinned: isPinned }
+        : session,
+    ),
+  };
+}
+
+/**
+ * updateProjectPinned 在侧栏结构中更新指定项目置顶状态。
+ */
+export function updateProjectPinned(
+  sidebar: SessionSidebarResponse | null,
+  projectId: string,
+  isPinned: boolean,
+): Required<SessionSidebarResponse> {
+  const current = normalizeSidebar(sidebar);
+  return {
+    ...current,
+    projects: current.projects.map((project) =>
+      project.project_id === projectId
+        ? { ...project, is_pinned: isPinned }
+        : project,
+    ),
+  };
+}
+
+/**
  * projectContainsSession 判断项目是否包含指定会话。
  */
 export function projectContainsSession(
