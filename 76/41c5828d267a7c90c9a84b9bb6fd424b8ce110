@@ -1,0 +1,38 @@
+internal/service/auth_service.go
+  s_76b8f3a6375c8f::t_d4339f2a486881 46-52,135-163
+frontend/src/components/TitleBar/index.tsx
+  s_76b8f3a6375c8f::t_cc59c2164fdc27 15,40,43-44,46-47,49-56,65,68-71,75-77,83-91,222,225
+  s_76b8f3a6375c8f::t_86d537db0ba53a 25-26,29-33,41-42,45,48,60-64,66-67,72-74,78-82,205,208-218,230-244
+CLAUDE.md
+  s_7651ddb018f2f4::t_063305127b617c 6
+frontend/src/api/auth.ts
+  s_76b8f3a6375c8f::t_4aaee622cd3f86 1-22
+internal/service/auth_service_test.go
+  s_76b8f3a6375c8f::t_1922a803c5c2c2 11,164-249
+AGENTS.md
+  s_7651ddb018f2f4::t_063305127b617c 147
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "7641c5828d267a7c90c9a84b9bb6fd424b8ce110",
+  "prompts": {},
+  "sessions": {
+    "s_7651ddb018f2f4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2006b97d-4a30-4825-8fd7-8ad96ec3b335",
+        "model": "kimi-for-coding"
+      },
+      "human_author": "chenyang <904852749@qq.com>"
+    },
+    "s_76b8f3a6375c8f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ed99c-ae6a-77d1-b4d8-a4f97a795454",
+        "model": "gpt-5.5"
+      },
+      "human_author": "chenyang <904852749@qq.com>"
+    }
+  }
+}
