@@ -1,0 +1,61 @@
+frontend/src/components/ChatContent/components/ChatHeader.tsx
+  s_86fc7c2bf537dc::t_88f2f9d17e581d 1-28,30-49
+frontend/src/components/ChatContent/components/ChatMessageList.tsx
+  s_86fc7c2bf537dc::t_62cad18005699f 1-153
+frontend/src/components/ChatContent/ChatContentCore.tsx
+  s_86fc7c2bf537dc::t_bc83111d7083e6 1-323
+frontend/src/components/ChatContent/index.tsx
+  s_86fc7c2bf537dc::t_ffca914af9e2ca 15,20-22
+frontend/src/api/sessions.ts
+  s_473ff6e99c875c::t_409eeebf726097 14,307-315
+frontend/src/components/ChatContent/components/ChatComposer.tsx
+  s_86fc7c2bf537dc::t_ec52d794e23b18 1-60,62-128
+frontend/src/components/Sidebar/components/ChatView/utils.ts
+  s_473ff6e99c875c::t_6cf24cb3effa02 167-210
+AGENTS.md
+  s_2706a631fb7815::t_00273491d8a06b 139
+frontend/src/components/Sidebar/components/ChatView/components.tsx
+  s_473ff6e99c875c::t_6cf24cb3effa02 93
+frontend/src/components/Sidebar/components/ChatView/types.ts
+  s_473ff6e99c875c::t_409eeebf726097 29-30,57,66-67
+frontend/src/components/Sidebar/components/ChatView/context-menu.tsx
+  s_473ff6e99c875c::t_f1b11ee351b0fd 39,43-49,101-109,111-119
+frontend/src/components/Sidebar/components/ChatView/index.tsx
+  s_473ff6e99c875c::t_52b031d82e5cdf 47,63,72-73,95-97,180-233,276-277,279,406-448,662-717
+frontend/src/types/api/session.ts
+  s_473ff6e99c875c::t_409eeebf726097 42-47
+frontend/src/components/ChatContent/domain/messages.ts
+  s_86fc7c2bf537dc::t_7e3bed2f9044b9 1-107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "4ef1fda7357a1f923a4cc301967ee6c808276f10",
+  "prompts": {},
+  "sessions": {
+    "s_2706a631fb7815": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ee030-47ce-7583-b6f0-c3def7cb2710",
+        "model": "gpt-5.5"
+      },
+      "human_author": "chenyang <904852749@qq.com>"
+    },
+    "s_473ff6e99c875c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ed945-da92-72c0-83e2-4588b73cbc4f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "chenyang <904852749@qq.com>"
+    },
+    "s_86fc7c2bf537dc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019edebb-343d-7b21-89ef-502aa75296b5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "chenyang <904852749@qq.com>"
+    }
+  }
+}
