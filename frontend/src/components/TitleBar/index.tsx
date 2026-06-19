@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { FC } from "react";
+import { FC, useEffect, useState } from "react";
 import { System, Window } from "@wailsio/runtime";
 import { AuthService, WindowService } from "@wails/service";
 import { Button } from "../ui/button";
@@ -22,18 +22,73 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
-import { toast } from "sonner";
+import {
+  getCurrentUserProfile,
+  handleApiAuthError,
+  type AuthMeUser,
+} from "@/api/auth";
 import { callWails } from "@/lib/utils";
 import boxifyLogo from "../../../../boxify-logo-transparent.png";
 
 const macControlButtonClass =
   "size-3 rounded-full transition-opacity hover:opacity-85";
 
+// getUserStatusLabel 根据登录用户状态生成标题栏副标题。
+function getUserStatusLabel(user: AuthMeUser | null): string {
+  if (!user) {
+    return "未登录";
+  }
+  if (user.is_active === false) {
+    return "已停用";
+  }
+  return user.is_admin ? "管理员" : "普通用户";
+}
+
+// getAvatarInitial 返回用户名首字符，缺失时使用稳定兜底。
+function getAvatarInitial(username?: string): string {
+  const first = Array.from(username?.trim() ?? "")[0];
+  return first ? first.toUpperCase() : "U";
+}
+
 const TitleBar: FC = () => {
   // 仅在 macOS 渲染窗口控制按钮，保持各平台原生习惯一致。
   const isMac = System.IsMac();
+  const [currentUser, setCurrentUser] = useState<AuthMeUser | null>(null);
+  const [avatarFailed, setAvatarFailed] = useState(false);
+  const username = currentUser?.username?.trim() || "当前用户";
+  const avatarUrl = avatarFailed ? "" : currentUser?.avatar_url?.trim() || "";
+  const avatarInitial = getAvatarInitial(currentUser?.username);
+  const userStatusLabel = getUserStatusLabel(currentUser);
+  const providerLabel = currentUser?.oauth_provider?.trim();
+  const userEmail = currentUser?.email?.trim();
+
+  useEffect(() => {
+    let disposed = false;
+
+    // 标题栏读取远端用户信息失败时静默降级，认证过期则复用统一跳转。
+    getCurrentUserProfile()
+      .then((user) => {
+        if (disposed) {
+          return;
+        }
+        setCurrentUser(user);
+        setAvatarFailed(false);
+      })
+      .catch(async (error) => {
+        if (await handleApiAuthError(error)) {
+          return;
+        }
+        console.warn("[Auth] 登录用户读取异常:", error);
+      });
+
+    return () => {
+      disposed = true;
+    };
+  }, []);
 
   // 关闭当前窗口。
   const handleWindowClose = () => {
@@ -147,21 +202,46 @@ const TitleBar: FC = () => {
               type="button"
               className="flex min-w-0 items-center gap-3  border-l  pl-3 pr-1 outline-none transition-colors "
               aria-label="当前用户菜单"
+              title={providerLabel ? `登录来源：${providerLabel}` : undefined}
             >
               <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-secondary-foreground">
-                B
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt=""
+                    aria-hidden="true"
+                    className="size-8 rounded-full object-cover"
+                    onError={() => setAvatarFailed(true)}
+                  />
+                ) : (
+                  avatarInitial
+                )}
               </div>
               <div className="hidden min-w-0 text-left sm:block">
                 <div className="truncate text-xs font-semibold leading-none">
-                  Boxify User
+                  {username}
                 </div>
                 <div className="mt-1 truncate text-[11px] leading-none text-muted-foreground">
-                  Local Admin
+                  {userStatusLabel}
                 </div>
               </div>
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40">
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel className="min-w-0">
+              <div className="truncate text-sm font-semibold">{username}</div>
+              {userEmail ? (
+                <div className="mt-1 truncate text-xs font-normal text-muted-foreground">
+                  {userEmail}
+                </div>
+              ) : null}
+              {providerLabel ? (
+                <div className="mt-1 truncate text-xs font-normal text-muted-foreground">
+                  {providerLabel}
+                </div>
+              ) : null}
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
             <DropdownMenuItem
               variant="destructive"
               onClick={() => {

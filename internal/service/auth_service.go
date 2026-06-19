@@ -43,6 +43,13 @@ type AuthAccessTokenResponse struct {
 	TokenType   string `json:"tokenType"`   // token 类型
 }
 
+// AuthCurrentUserResponse 描述前端标题栏可展示的安全用户信息。
+type AuthCurrentUserResponse struct {
+	LoggedIn bool          `json:"loggedIn"` // 是否已登录
+	Provider string        `json:"provider"` // 登录来源
+	User     auth.AuthUser `json:"user"`     // 登录用户
+}
+
 type oauthEventEmitter func(event AuthOAuthCompletedEvent)
 
 // AuthService 提供登录状态读写能力。
@@ -122,6 +129,38 @@ func (as *AuthService) GetLoginState() *connection.QueryResult {
 		Success: true,
 		Message: "登录状态读取成功",
 		Data:    loggedIn,
+	}
+}
+
+// GetCurrentUser 获取当前登录用户的安全展示信息。
+func (as *AuthService) GetCurrentUser() *connection.QueryResult {
+	state, err := as.store.GetState()
+	if err != nil {
+		return &connection.QueryResult{
+			Success: false,
+			Message: fmt.Sprintf("读取登录用户失败: %s", err.Error()),
+		}
+	}
+	if !state.LoggedIn {
+		return &connection.QueryResult{
+			Success: true,
+			Message: "当前未登录",
+			Data: AuthCurrentUserResponse{
+				LoggedIn: false,
+				Provider: strings.TrimSpace(state.Provider),
+				User:     state.User,
+			},
+		}
+	}
+
+	return &connection.QueryResult{
+		Success: true,
+		Message: "登录用户读取成功",
+		Data: AuthCurrentUserResponse{
+			LoggedIn: true,
+			Provider: strings.TrimSpace(state.Provider),
+			User:     state.User,
+		},
 	}
 }
 

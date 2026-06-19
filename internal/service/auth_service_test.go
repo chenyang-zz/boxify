@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -157,6 +158,95 @@ func TestAuthServiceGetAccessTokenRejectsExpiredToken(t *testing.T) {
 	result := service.GetAccessToken()
 	if result.Success {
 		t.Fatal("GetAccessToken().Success = true, want false for expired token")
+	}
+}
+
+func TestAuthServiceGetCurrentUserReturnsSavedOAuthUser(t *testing.T) {
+	service := newAuthServiceForTest(t)
+	if err := service.store.SaveLogin("github", auth.LoginResponse{
+		AccessToken: "token-123",
+		TokenType:   "bearer",
+		ExpiresIn:   3600,
+		User: auth.AuthUser{
+			ID:       "user-1",
+			Username: "octocat",
+			IsActive: true,
+			IsAdmin:  true,
+		},
+	}); err != nil {
+		t.Fatalf("SaveLogin() error = %v", err)
+	}
+
+	result := service.GetCurrentUser()
+	if !result.Success {
+		t.Fatalf("GetCurrentUser().Success = false, message = %q", result.Message)
+	}
+	data, ok := result.Data.(AuthCurrentUserResponse)
+	if !ok {
+		t.Fatalf("GetCurrentUser().Data = %#v, want AuthCurrentUserResponse", result.Data)
+	}
+	if !data.LoggedIn || data.Provider != "github" || data.User.Username != "octocat" || !data.User.IsAdmin {
+		t.Fatalf("GetCurrentUser().Data = %#v", data)
+	}
+	serialized, err := json.Marshal(result.Data)
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	if strings.Contains(string(serialized), "token-123") || strings.Contains(string(serialized), "accessToken") {
+		t.Fatalf("GetCurrentUser exposed token data: %s", serialized)
+	}
+}
+
+func TestAuthServiceGetCurrentUserReturnsLoggedOutWhenMissingState(t *testing.T) {
+	service := newAuthServiceForTest(t)
+
+	result := service.GetCurrentUser()
+	if !result.Success {
+		t.Fatalf("GetCurrentUser().Success = false, message = %q", result.Message)
+	}
+	data, ok := result.Data.(AuthCurrentUserResponse)
+	if !ok {
+		t.Fatalf("GetCurrentUser().Data = %#v, want AuthCurrentUserResponse", result.Data)
+	}
+	if data.LoggedIn {
+		t.Fatalf("GetCurrentUser().Data.LoggedIn = true, want false")
+	}
+}
+
+func TestAuthServiceGetCurrentUserReturnsLoggedOutWhenTokenExpired(t *testing.T) {
+	service := newAuthServiceForTest(t)
+	state := auth.AuthState{
+		LoggedIn:    true,
+		Provider:    "github",
+		AccessToken: "expired-token",
+		TokenType:   "bearer",
+		ExpiresAt:   time.Now().Add(-time.Minute),
+		User: auth.AuthUser{
+			ID:       "user-1",
+			Username: "octocat",
+			IsActive: true,
+			IsAdmin:  false,
+		},
+		UpdatedAt: time.Now().Add(-time.Hour),
+	}
+	data, err := json.Marshal(state)
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	if err := os.WriteFile(service.store.Path(), data, 0600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	result := service.GetCurrentUser()
+	if !result.Success {
+		t.Fatalf("GetCurrentUser().Success = false, message = %q", result.Message)
+	}
+	currentUser, ok := result.Data.(AuthCurrentUserResponse)
+	if !ok {
+		t.Fatalf("GetCurrentUser().Data = %#v, want AuthCurrentUserResponse", result.Data)
+	}
+	if currentUser.LoggedIn {
+		t.Fatalf("GetCurrentUser().Data.LoggedIn = true, want false for expired token")
 	}
 }
 
