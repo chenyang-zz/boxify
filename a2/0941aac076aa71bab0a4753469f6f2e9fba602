@@ -1,0 +1,35 @@
+frontend/src/components/ChatContent/index.tsx
+  s_86fc7c2bf537dc::t_0bf4e21f0b6f3e 16-23,55,58-59,63-84,86-99,101-113
+  s_86fc7c2bf537dc::t_98c055f9bed98e 54
+  s_86fc7c2bf537dc::t_2804b63957db67 62,85
+  s_86fc7c2bf537dc::t_f224c728912e3a 100
+  s_86fc7c2bf537dc::t_aea78eb840577c 61
+AGENTS.md
+  s_7651ddb018f2f4::t_1e891e56711845 147
+CLAUDE.md
+  s_7651ddb018f2f4::t_1e891e56711845 6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "a20941aac076aa71bab0a4753469f6f2e9fba602",
+  "prompts": {},
+  "sessions": {
+    "s_7651ddb018f2f4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2006b97d-4a30-4825-8fd7-8ad96ec3b335",
+        "model": "kimi-for-coding"
+      },
+      "human_author": "chenyang <904852749@qq.com>"
+    },
+    "s_86fc7c2bf537dc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019edebb-343d-7b21-89ef-502aa75296b5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "chenyang <904852749@qq.com>"
+    }
+  }
+}
